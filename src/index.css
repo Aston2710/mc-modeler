@@ -426,32 +426,38 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .djs-palette { display: none !important; }
 .djs-context-pad { z-index: 10; }
 
-/* ── Overrides de tema para elementos SVG del canvas ──────────────────────
-   El ThemeAwareRenderer aplica los colores correctos al crear/actualizar cada
-   elemento. Estos overrides CSS cubren casos edge como el fondo del SVG,
-   los textos de las conexiones y los manejadores de selección. */
-
-/* Fondo del SVG principal: transparente para mostrar el canvas-grid */
+/* ── Fondo SVG transparente para mostrar el canvas-grid ─────────────────── */
 .bjs-container svg { background: transparent !important; }
 
-/* ── Sequence flows / connections ─────────────────────────────────────── */
-.djs-connection .djs-visual > :is(polyline, path, line) {
-  stroke: var(--text-2) !important;
+/* ═══════════════════════════════════════════════════════════════════════════
+   COLORES DE TEXTO — Adaptativos al tema (light/dark)
+   bpmn-js renderiza los textos con fill inline → !important lo sobrescribe
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Texto dentro de shapes (labels internos) */
+.djs-shape .djs-visual text {
+  fill: var(--text) !important;
 }
 
-/* Flecha de los sequence flows */
-.djs-connection .djs-visual marker path {
-  fill: var(--text-2) !important;
-  stroke: var(--text-2) !important;
-}
-
-/* ── Labels externos (sobre aristas) ────────────────────────────────────── */
+/* Labels externos (sobre aristas y eventos) */
 .djs-label .djs-visual text,
 .djs-element.djs-label text {
   fill: var(--text) !important;
 }
 
-/* ── Marcadores de selección (azul del tema) ────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   SEQUENCE FLOWS / CONNECTIONS
+   ══════════════════════════════════════════════════════════════════════════ */
+.djs-connection .djs-visual > :is(polyline, path, line) {
+  stroke: var(--text-2) !important;
+}
+.djs-connection .djs-visual text {
+  fill: var(--text) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SELECCIÓN: Contorno y handles
+   ══════════════════════════════════════════════════════════════════════════ */
 .djs-outline {
   stroke: var(--primary) !important;
   fill: none !important;
@@ -460,28 +466,145 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   stroke: var(--primary) !important;
   stroke-width: 2px !important;
 }
-
-/* ── Handles de resize ──────────────────────────────────────────────────── */
 .djs-resizer .djs-resizer-visual {
   fill: var(--panel) !important;
   stroke: var(--primary) !important;
 }
 
-/* ── Context pad ─────────────────────────────────────────────────────────── */
-.djs-context-pad .entry {
-  background-color: var(--panel) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: var(--radius) !important;
-  box-shadow: var(--shadow-sm) !important;
-}
-.djs-context-pad .entry:hover {
-  background-color: var(--bg-2) !important;
+/* ═══════════════════════════════════════════════════════════════════════════
+   LASSO SELECTION — Recuadro azul estilo Windows
+   ══════════════════════════════════════════════════════════════════════════ */
+.djs-lasso-overlay {
+  fill: color-mix(in srgb, var(--primary) 12%, transparent) !important;
+  stroke: var(--primary) !important;
+  stroke-width: 1.5px !important;
+  stroke-dasharray: none !important;
+  rx: 2px;
+  ry: 2px;
 }
 
-/* ── Popup menu (connect, morph, etc.) ──────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   CONTEXT PAD — Botones con colores BPMN por tipo de elemento
+   Basado en Bizagi Modeler: cada elemento tiene el color de su tipo
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Base: panel con tema */
+.djs-context-pad {
+  background: transparent !important;
+  border: none !important;
+  padding: 2px !important;
+}
+.djs-context-pad .entry {
+  width: 28px !important;
+  height: 28px !important;
+  line-height: 28px !important;
+  background: var(--panel) !important;
+  border: 1.5px solid var(--border) !important;
+  border-radius: 6px !important;
+  box-shadow: var(--shadow-sm) !important;
+  margin: 2px !important;
+  color: var(--text-2) !important;
+  transition: background 0.12s, border-color 0.12s, transform 0.08s !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.djs-context-pad .entry:hover {
+  transform: scale(1.1) !important;
+  z-index: 1 !important;
+}
+
+/* Append Task → azul (como las tareas) */
+.djs-context-pad .entry.bpmn-icon-task {
+  background: var(--task-fill) !important;
+  border-color: var(--task-stroke) !important;
+  color: var(--task-stroke) !important;
+}
+.djs-context-pad .entry.bpmn-icon-task:hover {
+  background: color-mix(in srgb, var(--task-fill) 80%, var(--task-stroke) 20%) !important;
+}
+
+/* Append Gateway → amarillo/naranja */
+.djs-context-pad .entry.bpmn-icon-gateway-none,
+.djs-context-pad .entry.bpmn-icon-gateway-xor {
+  background: var(--gateway-fill) !important;
+  border-color: var(--gateway-stroke) !important;
+  color: var(--gateway-stroke) !important;
+}
+.djs-context-pad .entry.bpmn-icon-gateway-none:hover,
+.djs-context-pad .entry.bpmn-icon-gateway-xor:hover {
+  background: color-mix(in srgb, var(--gateway-fill) 80%, var(--gateway-stroke) 20%) !important;
+}
+
+/* Append End Event → rojo */
+.djs-context-pad .entry.bpmn-icon-end-event-none {
+  background: var(--end-fill) !important;
+  border-color: var(--end-stroke) !important;
+  color: var(--end-stroke) !important;
+}
+.djs-context-pad .entry.bpmn-icon-end-event-none:hover {
+  background: color-mix(in srgb, var(--end-fill) 80%, var(--end-stroke) 20%) !important;
+}
+
+/* Append Intermediate Event → neutro (borde oscuro) */
+.djs-context-pad .entry.bpmn-icon-intermediate-event-none,
+.djs-context-pad .entry.bpmn-icon-intermediate-event-catch-message,
+.djs-context-pad .entry.bpmn-icon-intermediate-event-catch-timer,
+.djs-context-pad .entry.bpmn-icon-intermediate-event-catch-condition,
+.djs-context-pad .entry.bpmn-icon-intermediate-event-catch-signal {
+  background: var(--bg-2) !important;
+  border-color: var(--text-2) !important;
+  color: var(--text-2) !important;
+}
+
+/* Append Receive Task → azul igual que tareas */
+.djs-context-pad .entry.bpmn-icon-receive-task {
+  background: var(--task-fill) !important;
+  border-color: var(--task-stroke) !important;
+  color: var(--task-stroke) !important;
+}
+
+/* Connect → primario */
+.djs-context-pad .entry.bpmn-icon-connection-multi {
+  background: var(--primary-50) !important;
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+}
+.djs-context-pad .entry.bpmn-icon-connection-multi:hover {
+  background: var(--primary-100) !important;
+}
+
+/* Change element (wrench) → neutro */
+.djs-context-pad .entry.bpmn-icon-screw-wrench {
+  background: var(--bg-2) !important;
+  border-color: var(--border-strong) !important;
+  color: var(--text-2) !important;
+}
+
+/* Delete (trash) → rojo de error */
+.djs-context-pad .entry.bpmn-icon-trash {
+  background: color-mix(in srgb, var(--error) 12%, transparent) !important;
+  border-color: var(--error) !important;
+  color: var(--error) !important;
+}
+.djs-context-pad .entry.bpmn-icon-trash:hover {
+  background: color-mix(in srgb, var(--error) 25%, transparent) !important;
+}
+
+/* Text annotation → sutil */
+.djs-context-pad .entry.bpmn-icon-text-annotation {
+  background: var(--bg-2) !important;
+  border-color: var(--border) !important;
+  color: var(--text-3) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   POPUP MENU (morph / replace element)
+   ══════════════════════════════════════════════════════════════════════════ */
 .djs-popup .djs-popup-header {
   background: var(--bg-2) !important;
   border-bottom: 1px solid var(--border) !important;
+  color: var(--text) !important;
 }
 .djs-popup {
   background: var(--panel) !important;
@@ -490,11 +613,13 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   box-shadow: var(--shadow-md) !important;
   color: var(--text) !important;
 }
-.djs-popup .entry:hover {
-  background: var(--bg-2) !important;
-}
+.djs-popup .entry { color: var(--text) !important; }
+.djs-popup .entry:hover { background: var(--bg-2) !important; }
+.djs-popup .entry.selected { background: var(--primary-50) !important; color: var(--primary) !important; }
 
-/* ── Drop hints al arrastrar elementos ─────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   DROP HINTS
+   ══════════════════════════════════════════════════════════════════════════ */
 .djs-drop-not-ok .djs-visual > :is(rect, circle, polygon, path) {
   stroke: var(--error) !important;
 }
@@ -502,10 +627,101 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   stroke: var(--ok) !important;
 }
 
-/* ── Snapping / alignment guides ─────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   SNAPPING / ALIGNMENT GUIDES
+   ══════════════════════════════════════════════════════════════════════════ */
 .djs-snap-line {
   stroke: var(--primary) !important;
   opacity: 0.6 !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DIAGRAM-JS CSS VARIABLES — Sobreescribir las variables de .djs-parent
+   para que todos los widgets internos (lasso, resizers, etc.) usen el tema
+   ══════════════════════════════════════════════════════════════════════════ */
+.djs-parent {
+  /* Canvas background → SIEMPRE transparente para mostrar nuestra grid */
+  --canvas-fill-color: transparent !important;
+
+  /* Lasso selection → azul suave estilo Windows */
+  --lasso-fill-color: color-mix(in srgb, var(--primary) 12%, transparent) !important;
+  --lasso-stroke-color: var(--primary) !important;
+
+  /* Contornos de selección */
+  --element-selected-outline-stroke-color: var(--primary) !important;
+  --element-selected-outline-secondary-stroke-color: var(--accent) !important;
+
+  /* Resizers (handles de resize) */
+  --resizer-fill-color: var(--primary) !important;
+  --resizer-stroke-color: var(--panel) !important;
+
+  /* Snap lines */
+  --snap-line-stroke-color: color-mix(in srgb, var(--primary) 50%, transparent) !important;
+
+  /* Context pad */
+  --context-pad-entry-background-color: var(--panel) !important;
+  --context-pad-entry-hover-background-color: var(--bg-2) !important;
+
+  /* Popup menu */
+  --popup-background-color: var(--panel) !important;
+  --popup-border-color: var(--border) !important;
+  --popup-shadow-color: rgba(0,0,0,0.25) !important;
+  --popup-disabled-color: var(--text-3) !important;
+  --popup-description-color: var(--text-3) !important;
+  --popup-no-results-color: var(--text-3) !important;
+  --popup-entry-title-color: var(--text-2) !important;
+  --popup-entry-hover-color: var(--bg-2) !important;
+  --popup-search-border-color: var(--border) !important;
+  --popup-search-focus-border-color: var(--primary) !important;
+  --popup-search-focus-background-color: var(--primary-50) !important;
+  --popup-header-entry-selected-color: var(--primary) !important;
+
+  /* Tooltips de error */
+  --tooltip-error-background-color: color-mix(in srgb, var(--error) 10%, transparent) !important;
+  --tooltip-error-border-color: var(--error) !important;
+  --tooltip-error-color: var(--error) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CANVAS SVG BACKGROUND — Siempre transparente (muestra nuestra grid CSS)
+   ══════════════════════════════════════════════════════════════════════════ */
+.djs-container svg,
+.djs-container svg.drop-not-ok,
+.djs-container svg.new-parent {
+  background: transparent !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TEXT EDITING INLINE (doble click sobre un elemento)
+   — Fondo transparente + color del texto según tema
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Contenedor del editor de texto inline */
+[class*="djs-direct-editing"] {
+  background: transparent !important;
+}
+
+/* El textarea / contenteditable donde se escribe */
+[contenteditable="true"].djs-element,
+.djs-element[contenteditable] {
+  background: transparent !important;
+  color: var(--text) !important;
+  outline: 1px solid var(--primary) !important;
+}
+
+/* La capa de superposición del editor (diagram-js DirectEditing) */
+.djs-container [style*="position: absolute"] > textarea,
+.djs-container [style*="position: absolute"] > div[contenteditable] {
+  background: transparent !important;
+  color: var(--text) !important;
+  caret-color: var(--primary) !important;
+}
+
+/* Ghost element durante drag-create: mantener transparencia del fill */
+.djs-creating .djs-shape .djs-visual > rect,
+.djs-creating .djs-shape .djs-visual > circle {
+  fill-opacity: 0.4 !important;
 }
 
 .canvas-grid {
