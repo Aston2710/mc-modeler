@@ -6,13 +6,6 @@ import BpmnModeler from 'bpmn-js/lib/Modeler'
 import { useUIStore } from '@/store/uiStore'
 import { MODELER_CONFIG } from '@/bpmn/config'
 
-// CSS imported as side-effects — declared as modules in vite-env.d.ts
-// @ts-ignore
-import 'bpmn-js/dist/assets/bpmn-js.css'
-// @ts-ignore
-import 'bpmn-js/dist/assets/diagram-js.css'
-// @ts-ignore
-import 'bpmn-js/dist/assets/bpmn-font/css/bpmn.css'
 
 interface UseBpmnModelerOptions {
   onReady?: () => void

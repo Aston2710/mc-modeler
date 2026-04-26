@@ -429,6 +429,13 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 /* ── Fondo SVG transparente para mostrar el canvas-grid ─────────────────── */
 .bjs-container svg { background: transparent !important; }
 
+/* Drop-state variables — canvas always transparent regardless of drag state */
+.djs-parent {
+  --shape-drop-allowed-fill-color: transparent;
+  --shape-drop-not-allowed-fill-color: color-mix(in srgb, #dc2626 8%, transparent);
+  --canvas-fill-color: transparent;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    COLORES DE TEXTO — Adaptativos al tema (light/dark)
    bpmn-js renderiza los textos con fill inline → !important lo sobrescribe
