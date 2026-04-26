@@ -408,15 +408,74 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .collapsed-rail.right { border-right: none; border-left: 1px solid var(--border); }
 
 /* ========================================================
-   Canvas Area
+   Canvas Area — con scrollbars visibles estilo Bizagi
    ======================================================== */
 .canvas-wrap {
-  position: relative; background: var(--bg-1);
-  overflow: hidden; min-width: 0;
-  width: 100%; height: 100%;
+  position: relative;
+  background: var(--bg-1);
+  overflow: hidden;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  /* Reservar espacio para scrollbars */
+  padding-right: 12px;
+  padding-bottom: 12px;
+  box-sizing: border-box;
 }
 .canvas-container {
-  position: absolute; inset: 0;
+  position: absolute;
+  inset: 0;
+  right: 12px;   /* no solapar scrollbar vertical */
+  bottom: 12px;  /* no solapar scrollbar horizontal */
+}
+
+/* ── Scrollbars visibles ─────────────────────────────────────────────────── */
+.bpmn-scrollbar {
+  position: absolute;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  z-index: 20;
+}
+.bpmn-scrollbar--h {
+  bottom: 0; left: 0;
+  right: 12px;
+  height: 12px;
+  border-radius: 0;
+}
+.bpmn-scrollbar--v {
+  right: 0; top: 0;
+  bottom: 12px;
+  width: 12px;
+  border-radius: 0;
+}
+.bpmn-scrollbar__corner {
+  position: absolute;
+  bottom: 0; right: 0;
+  width: 12px; height: 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  z-index: 21;
+}
+.bpmn-scrollbar__thumb {
+  position: absolute;
+  background: var(--border-strong);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s;
+  min-width: 20px;
+  min-height: 20px;
+}
+.bpmn-scrollbar--h .bpmn-scrollbar__thumb {
+  top: 2px; bottom: 2px;
+  left: 0; width: 40%;
+}
+.bpmn-scrollbar--v .bpmn-scrollbar__thumb {
+  left: 2px; right: 2px;
+  top: 0; height: 40%;
+}
+.bpmn-scrollbar__thumb:hover,
+.bpmn-scrollbar__thumb:active {
+  background: var(--text-3);
 }
 
 /* bpmn-js overrides */
@@ -426,8 +485,21 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .djs-palette { display: none !important; }
 .djs-context-pad { z-index: 10; }
 
-/* ── Fondo SVG transparente para mostrar el canvas-grid ─────────────────── */
-.bjs-container svg { background: transparent !important; }
+/* ── Fondo SVG SIEMPRE transparente — fix del "canvas blanco" al agregar pools ── */
+/* bpmn-js pone background en el SVG cuando hay drop states o al crear Collaboration.
+   Sobreescribimos las CSS vars Y el style inline con !important */
+.bjs-container svg,
+.djs-container > svg {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* Las CSS vars de drop state que bpmn-js usa para colorear el SVG entero */
+.djs-parent {
+  --shape-drop-allowed-fill-color: transparent !important;
+  --shape-drop-not-allowed-fill-color: color-mix(in srgb, var(--error) 8%, transparent) !important;
+}
+
 
 /* ═══════════════════════════════════════════════════════════════════════════
    COLORES DE TEXTO — Adaptativos al tema (light/dark)

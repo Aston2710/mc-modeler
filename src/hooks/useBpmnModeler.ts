@@ -64,6 +64,43 @@ export function useBpmnModeler(
     // Signal that the modeler is ready — callers can now safely call importXml
     onReadyRef.current?.()
 
+    // ── Mantener el fondo del SVG SIEMPRE transparente ───────────────────────
+    // bpmn-js resetea el fondo del SVG cada vez que cambia el root element
+    // (por ejemplo al crear una Collaboration desde un Process al agregar un Pool).
+    // Forzamos transparencia en cada evento que puede resetear el fondo.
+    const forceTransparentBg = () => {
+      try {
+        const container = modeler.get('canvas').getContainer() as HTMLElement
+        const svg = container.querySelector('svg')
+        if (svg) {
+          svg.style.background = 'transparent'
+          svg.style.backgroundColor = 'transparent'
+          // Remover clases que ponen fondo blanco (drop states)
+          svg.classList.remove('drop-not-ok', 'new-parent')
+        }
+      } catch { /* canvas no listo */ }
+    }
+
+    // Ejecutar en eventos que cambian el root/fondo
+    const bgEvents = [
+      'import.render.complete',
+      'diagram.init',
+      'root.set',
+      'shape.added',
+      'elements.changed',
+    ]
+    bgEvents.forEach(evt => eventBus.on(evt, forceTransparentBg))
+
+    // También cada vez que el SVG recibe clases de drop state, las quitamos rápido
+    const svgObserver = new MutationObserver(() => forceTransparentBg())
+    setTimeout(() => {
+      try {
+        const container = modeler.get('canvas').getContainer() as HTMLElement
+        const svg = container.querySelector('svg')
+        if (svg) svgObserver.observe(svg, { attributes: true, attributeFilter: ['style', 'class'] })
+      } catch { /* ignore */ }
+    }, 200)
+
     // ── MutationObserver: re-render cuando cambia el tema (data-theme) ──────
     // Cuando el usuario alterna entre modo claro y oscuro, el ThemeAwareRenderer
     // necesita volver a pintar todos los elementos con los nuevos colores CSS.
@@ -106,6 +143,7 @@ export function useBpmnModeler(
 
     return () => {
       observer.disconnect()
+      svgObserver.disconnect()
       modeler.destroy()
       modelerRef.current = null
     }
@@ -229,6 +267,10 @@ export function useBpmnModeler(
     }
   }, [])
 
+  const getModelerInstance = useCallback(() => {
+    return modelerRef.current ?? null
+  }, [])
+
   return {
     modelerRef,
     importXml,
@@ -245,5 +287,6 @@ export function useBpmnModeler(
     scrollToElement,
     updateElementProperty,
     startCreate,
+    getModelerInstance,
   }
 }
