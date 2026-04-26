@@ -1,0 +1,260 @@
+{
+  "app": {
+    "name": "Flujo"
+  },
+  "toolbar": {
+    "newDiagram": "Nuevo diagrama",
+    "openDiagram": "Abrir diagrama",
+    "export": "Exportar",
+    "validate": "Validar",
+    "save": "Guardar",
+    "undo": "Deshacer",
+    "redo": "Rehacer",
+    "fitToScreen": "Ajustar pantalla",
+    "zoomIn": "Acercar",
+    "zoomOut": "Alejar",
+    "import": "Importar",
+    "myDiagrams": "Mis diagramas"
+  },
+  "palette": {
+    "title": "Paleta",
+    "search": "Buscar elementos...",
+    "groups": {
+      "events": "Eventos",
+      "activities": "Actividades",
+      "gateways": "Compuertas",
+      "connections": "Conexiones",
+      "containers": "Contenedores"
+    },
+    "elements": {
+      "startEvent": "Inicio",
+      "startTimerEvent": "Inicio temporizador",
+      "startMessageEvent": "Inicio mensaje",
+      "startSignalEvent": "Inicio señal",
+      "startConditionalEvent": "Inicio condicional",
+      "intermediateEvent": "Evento intermedio",
+      "intermediateMessageEvent": "Mensaje intermedio",
+      "intermediateTimerEvent": "Temporizador intermedio",
+      "endEvent": "Fin",
+      "endMessageEvent": "Fin mensaje",
+      "endErrorEvent": "Fin error",
+      "endTerminateEvent": "Fin terminación",
+      "task": "Tarea",
+      "userTask": "Tarea de usuario",
+      "serviceTask": "Tarea de servicio",
+      "scriptTask": "Tarea de script",
+      "sendTask": "Tarea de envío",
+      "receiveTask": "Tarea de recepción",
+      "businessRuleTask": "Tarea de negocio",
+      "subProcess": "Subproceso",
+      "callActivity": "Llamada a actividad",
+      "exclusiveGateway": "Compuerta exclusiva (XOR)",
+      "parallelGateway": "Compuerta paralela (AND)",
+      "inclusiveGateway": "Compuerta inclusiva (OR)",
+      "eventBasedGateway": "Basada en evento",
+      "complexGateway": "Compuerta compleja",
+      "sequenceFlow": "Flujo de secuencia",
+      "messageFlow": "Flujo de mensaje",
+      "association": "Asociación",
+      "dataAssociation": "Asociación de datos",
+      "pool": "Pool",
+      "lane": "Lane",
+      "group": "Grupo",
+      "textAnnotation": "Anotación",
+      "dataObject": "Objeto de datos"
+    }
+  },
+  "properties": {
+    "noSelection": "Selecciona un elemento",
+    "noSelectionSub": "Haz clic en cualquier elemento del canvas para ver sus propiedades",
+    "tabs": {
+      "general": "General",
+      "documentation": "Documentación"
+    },
+    "sections": {
+      "identity": "Identidad",
+      "assignment": "Asignación",
+      "configuration": "Configuración",
+      "documentation": "Documentación"
+    },
+    "fields": {
+      "id": "ID",
+      "name": "Nombre",
+      "documentation": "Documentación",
+      "assignee": "Responsable",
+      "candidateGroups": "Grupos candidatos",
+      "priority": "Prioridad",
+      "taskType": "Tipo de tarea",
+      "implementation": "Implementación",
+      "scriptFormat": "Formato de script",
+      "script": "Script",
+      "messageRef": "Referencia de mensaje",
+      "calledElement": "Elemento llamado"
+    },
+    "elementTypes": {
+      "task": "Tarea",
+      "userTask": "Tarea de usuario",
+      "serviceTask": "Tarea de servicio",
+      "scriptTask": "Tarea de script",
+      "sendTask": "Tarea de envío",
+      "receiveTask": "Tarea de recepción",
+      "businessRuleTask": "Tarea de negocio",
+      "startEvent": "Evento de inicio",
+      "endEvent": "Evento de fin",
+      "intermediateCatchEvent": "Evento intermedio (captura)",
+      "intermediateThrowEvent": "Evento intermedio (lanzamiento)",
+      "exclusiveGateway": "Compuerta exclusiva",
+      "parallelGateway": "Compuerta paralela",
+      "inclusiveGateway": "Compuerta inclusiva",
+      "eventBasedGateway": "Compuerta basada en evento",
+      "complexGateway": "Compuerta compleja",
+      "sequenceFlow": "Flujo de secuencia",
+      "messageFlow": "Flujo de mensaje",
+      "participant": "Pool",
+      "lane": "Lane",
+      "subProcess": "Subproceso",
+      "callActivity": "Llamada a actividad",
+      "group": "Grupo",
+      "textAnnotation": "Anotación de texto",
+      "dataObjectReference": "Objeto de datos"
+    }
+  },
+  "diagrams": {
+    "title": "Diagramas",
+    "subtitle_one": "{{count}} diagrama BPMN",
+    "subtitle_other": "{{count}} diagramas BPMN",
+    "filters": {
+      "all": "Todos",
+      "recent": "Recientes"
+    },
+    "createCard": {
+      "title": "Crear diagrama",
+      "subtitle": "Nuevo diagrama BPMN en blanco"
+    },
+    "card": {
+      "elements_one": "{{count}} elemento",
+      "elements_other": "{{count}} elementos"
+    },
+    "actions": {
+      "open": "Abrir",
+      "rename": "Renombrar",
+      "duplicate": "Duplicar",
+      "delete": "Eliminar",
+      "export": "Exportar"
+    },
+    "deleteConfirm": "¿Eliminar este diagrama? Esta acción no se puede deshacer.",
+    "untitled": "Diagrama sin título"
+  },
+  "modals": {
+    "newDiagram": {
+      "title": "Nuevo diagrama",
+      "namePlaceholder": "Nombre del diagrama",
+      "create": "Crear diagrama",
+      "cancel": "Cancelar"
+    },
+    "export": {
+      "title": "Exportar diagrama",
+      "subtitle": "Elige el formato de exportación",
+      "formats": {
+        "bpmn": { "name": "BPMN 2.0", "desc": "Archivo XML compatible con Bizagi, Camunda y otros" },
+        "png": { "name": "PNG", "desc": "Imagen rasterizada, ideal para presentaciones" },
+        "svg": { "name": "SVG", "desc": "Vector escalable, máxima calidad" },
+        "pdf": { "name": "PDF", "desc": "Documento listo para imprimir o compartir" }
+      },
+      "options": {
+        "scale": "Resolución",
+        "scale1x": "1x (pantalla)",
+        "scale2x": "2x (presentaciones)",
+        "scale3x": "3x (impresión)",
+        "orientation": "Orientación",
+        "landscape": "Horizontal",
+        "portrait": "Vertical"
+      },
+      "export": "Exportar",
+      "cancel": "Cancelar",
+      "emptyDiagram": "El diagrama está vacío"
+    },
+    "import": {
+      "title": "Importar diagrama",
+      "subtitle": "Importa un archivo .bpmn de Bizagi, Camunda u otra herramienta compatible",
+      "dropzone": "Arrastra un archivo .bpmn aquí",
+      "or": "o",
+      "browse": "Seleccionar archivo",
+      "cancel": "Cancelar",
+      "invalidFile": "El archivo no es un XML BPMN válido",
+      "invalidExtension": "Solo se aceptan archivos .bpmn"
+    },
+    "shortcuts": {
+      "title": "Atajos de teclado",
+      "groups": {
+        "canvas": "Canvas",
+        "edit": "Edición",
+        "view": "Vista",
+        "diagram": "Diagrama"
+      },
+      "keys": {
+        "undo": "Deshacer",
+        "redo": "Rehacer",
+        "copy": "Copiar",
+        "cut": "Cortar",
+        "paste": "Pegar",
+        "delete": "Eliminar",
+        "selectAll": "Seleccionar todo",
+        "zoomIn": "Acercar",
+        "zoomOut": "Alejar",
+        "fitToScreen": "Ajustar pantalla",
+        "zoomReset": "Zoom 100%",
+        "save": "Guardar",
+        "newDiagram": "Nuevo diagrama",
+        "validate": "Validar",
+        "help": "Ayuda"
+      }
+    },
+    "validation": {
+      "title": "Validación del diagrama",
+      "noErrors": "El diagrama no tiene errores ni advertencias",
+      "jumpToElement": "Ir al elemento",
+      "errors": "Errores",
+      "warnings": "Advertencias"
+    }
+  },
+  "statusbar": {
+    "saved": "Guardado",
+    "savedAgo": "Guardado hace {{time}}",
+    "saving": "Guardando...",
+    "unsaved": "Cambios sin guardar",
+    "elements_one": "{{count}} elemento",
+    "elements_other": "{{count}} elementos",
+    "shortcuts": "Atajos",
+    "bpmn20": "BPMN 2.0"
+  },
+  "validation": {
+    "errors": {
+      "MISSING_START_EVENT": "El proceso no tiene evento de inicio",
+      "MISSING_END_EVENT": "El proceso no tiene evento de fin",
+      "DISCONNECTED_ELEMENT": "Elemento desconectado (sin conexiones)",
+      "INVALID_SEQUENCE_FLOW": "Flujo de secuencia entre pools distintos — usa flujo de mensaje",
+      "INVALID_MESSAGE_FLOW": "Flujo de mensaje dentro del mismo pool — usa flujo de secuencia",
+      "GATEWAY_SINGLE_PATH": "Compuerta con una sola ruta de salida (innecesaria)",
+      "BOUNDARY_EVENT_INVALID": "Evento de borde adjunto a elemento inválido"
+    }
+  },
+  "errors": {
+    "importFailed": "Error al importar el archivo",
+    "exportFailed": "Error al exportar el diagrama",
+    "saveFailed": "Error al guardar el diagrama",
+    "loadFailed": "Error al cargar el diagrama",
+    "storageFull": "Almacenamiento casi lleno. Considera exportar y eliminar diagramas antiguos.",
+    "maxElements": "Límite de {{max}} elementos alcanzado en este diagrama",
+    "invalidBpmn": "El archivo no contiene un BPMN válido: {{error}}"
+  },
+  "common": {
+    "confirm": "Confirmar",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "yes": "Sí",
+    "no": "No"
+  }
+}

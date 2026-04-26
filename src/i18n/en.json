@@ -1,0 +1,260 @@
+{
+  "app": {
+    "name": "Flujo"
+  },
+  "toolbar": {
+    "newDiagram": "New diagram",
+    "openDiagram": "Open diagram",
+    "export": "Export",
+    "validate": "Validate",
+    "save": "Save",
+    "undo": "Undo",
+    "redo": "Redo",
+    "fitToScreen": "Fit to screen",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "import": "Import",
+    "myDiagrams": "My diagrams"
+  },
+  "palette": {
+    "title": "Palette",
+    "search": "Search elements...",
+    "groups": {
+      "events": "Events",
+      "activities": "Activities",
+      "gateways": "Gateways",
+      "connections": "Connections",
+      "containers": "Containers"
+    },
+    "elements": {
+      "startEvent": "Start",
+      "startTimerEvent": "Start timer",
+      "startMessageEvent": "Start message",
+      "startSignalEvent": "Start signal",
+      "startConditionalEvent": "Start conditional",
+      "intermediateEvent": "Intermediate event",
+      "intermediateMessageEvent": "Intermediate message",
+      "intermediateTimerEvent": "Intermediate timer",
+      "endEvent": "End",
+      "endMessageEvent": "End message",
+      "endErrorEvent": "End error",
+      "endTerminateEvent": "End terminate",
+      "task": "Task",
+      "userTask": "User task",
+      "serviceTask": "Service task",
+      "scriptTask": "Script task",
+      "sendTask": "Send task",
+      "receiveTask": "Receive task",
+      "businessRuleTask": "Business rule task",
+      "subProcess": "Subprocess",
+      "callActivity": "Call activity",
+      "exclusiveGateway": "Exclusive gateway (XOR)",
+      "parallelGateway": "Parallel gateway (AND)",
+      "inclusiveGateway": "Inclusive gateway (OR)",
+      "eventBasedGateway": "Event-based gateway",
+      "complexGateway": "Complex gateway",
+      "sequenceFlow": "Sequence flow",
+      "messageFlow": "Message flow",
+      "association": "Association",
+      "dataAssociation": "Data association",
+      "pool": "Pool",
+      "lane": "Lane",
+      "group": "Group",
+      "textAnnotation": "Text annotation",
+      "dataObject": "Data object"
+    }
+  },
+  "properties": {
+    "noSelection": "Select an element",
+    "noSelectionSub": "Click any element on the canvas to see its properties",
+    "tabs": {
+      "general": "General",
+      "documentation": "Documentation"
+    },
+    "sections": {
+      "identity": "Identity",
+      "assignment": "Assignment",
+      "configuration": "Configuration",
+      "documentation": "Documentation"
+    },
+    "fields": {
+      "id": "ID",
+      "name": "Name",
+      "documentation": "Documentation",
+      "assignee": "Assignee",
+      "candidateGroups": "Candidate groups",
+      "priority": "Priority",
+      "taskType": "Task type",
+      "implementation": "Implementation",
+      "scriptFormat": "Script format",
+      "script": "Script",
+      "messageRef": "Message reference",
+      "calledElement": "Called element"
+    },
+    "elementTypes": {
+      "task": "Task",
+      "userTask": "User task",
+      "serviceTask": "Service task",
+      "scriptTask": "Script task",
+      "sendTask": "Send task",
+      "receiveTask": "Receive task",
+      "businessRuleTask": "Business rule task",
+      "startEvent": "Start event",
+      "endEvent": "End event",
+      "intermediateCatchEvent": "Intermediate event (catch)",
+      "intermediateThrowEvent": "Intermediate event (throw)",
+      "exclusiveGateway": "Exclusive gateway",
+      "parallelGateway": "Parallel gateway",
+      "inclusiveGateway": "Inclusive gateway",
+      "eventBasedGateway": "Event-based gateway",
+      "complexGateway": "Complex gateway",
+      "sequenceFlow": "Sequence flow",
+      "messageFlow": "Message flow",
+      "participant": "Pool",
+      "lane": "Lane",
+      "subProcess": "Subprocess",
+      "callActivity": "Call activity",
+      "group": "Group",
+      "textAnnotation": "Text annotation",
+      "dataObjectReference": "Data object"
+    }
+  },
+  "diagrams": {
+    "title": "Diagrams",
+    "subtitle_one": "{{count}} BPMN diagram",
+    "subtitle_other": "{{count}} BPMN diagrams",
+    "filters": {
+      "all": "All",
+      "recent": "Recent"
+    },
+    "createCard": {
+      "title": "Create diagram",
+      "subtitle": "New blank BPMN diagram"
+    },
+    "card": {
+      "elements_one": "{{count}} element",
+      "elements_other": "{{count}} elements"
+    },
+    "actions": {
+      "open": "Open",
+      "rename": "Rename",
+      "duplicate": "Duplicate",
+      "delete": "Delete",
+      "export": "Export"
+    },
+    "deleteConfirm": "Delete this diagram? This cannot be undone.",
+    "untitled": "Untitled diagram"
+  },
+  "modals": {
+    "newDiagram": {
+      "title": "New diagram",
+      "namePlaceholder": "Diagram name",
+      "create": "Create diagram",
+      "cancel": "Cancel"
+    },
+    "export": {
+      "title": "Export diagram",
+      "subtitle": "Choose export format",
+      "formats": {
+        "bpmn": { "name": "BPMN 2.0", "desc": "XML file compatible with Bizagi, Camunda and others" },
+        "png": { "name": "PNG", "desc": "Raster image, ideal for presentations" },
+        "svg": { "name": "SVG", "desc": "Scalable vector, maximum quality" },
+        "pdf": { "name": "PDF", "desc": "Document ready to print or share" }
+      },
+      "options": {
+        "scale": "Resolution",
+        "scale1x": "1x (screen)",
+        "scale2x": "2x (presentations)",
+        "scale3x": "3x (print)",
+        "orientation": "Orientation",
+        "landscape": "Landscape",
+        "portrait": "Portrait"
+      },
+      "export": "Export",
+      "cancel": "Cancel",
+      "emptyDiagram": "Diagram is empty"
+    },
+    "import": {
+      "title": "Import diagram",
+      "subtitle": "Import a .bpmn file from Bizagi, Camunda or any compatible tool",
+      "dropzone": "Drop a .bpmn file here",
+      "or": "or",
+      "browse": "Browse file",
+      "cancel": "Cancel",
+      "invalidFile": "File is not a valid BPMN XML",
+      "invalidExtension": "Only .bpmn files are accepted"
+    },
+    "shortcuts": {
+      "title": "Keyboard shortcuts",
+      "groups": {
+        "canvas": "Canvas",
+        "edit": "Edit",
+        "view": "View",
+        "diagram": "Diagram"
+      },
+      "keys": {
+        "undo": "Undo",
+        "redo": "Redo",
+        "copy": "Copy",
+        "cut": "Cut",
+        "paste": "Paste",
+        "delete": "Delete",
+        "selectAll": "Select all",
+        "zoomIn": "Zoom in",
+        "zoomOut": "Zoom out",
+        "fitToScreen": "Fit to screen",
+        "zoomReset": "Reset zoom",
+        "save": "Save",
+        "newDiagram": "New diagram",
+        "validate": "Validate",
+        "help": "Help"
+      }
+    },
+    "validation": {
+      "title": "Diagram validation",
+      "noErrors": "No errors or warnings found",
+      "jumpToElement": "Go to element",
+      "errors": "Errors",
+      "warnings": "Warnings"
+    }
+  },
+  "statusbar": {
+    "saved": "Saved",
+    "savedAgo": "Saved {{time}} ago",
+    "saving": "Saving...",
+    "unsaved": "Unsaved changes",
+    "elements_one": "{{count}} element",
+    "elements_other": "{{count}} elements",
+    "shortcuts": "Shortcuts",
+    "bpmn20": "BPMN 2.0"
+  },
+  "validation": {
+    "errors": {
+      "MISSING_START_EVENT": "Process has no start event",
+      "MISSING_END_EVENT": "Process has no end event",
+      "DISCONNECTED_ELEMENT": "Disconnected element (no connections)",
+      "INVALID_SEQUENCE_FLOW": "Sequence flow between different pools — use message flow",
+      "INVALID_MESSAGE_FLOW": "Message flow within the same pool — use sequence flow",
+      "GATEWAY_SINGLE_PATH": "Gateway with a single outgoing path (unnecessary)",
+      "BOUNDARY_EVENT_INVALID": "Boundary event attached to invalid element"
+    }
+  },
+  "errors": {
+    "importFailed": "Failed to import file",
+    "exportFailed": "Failed to export diagram",
+    "saveFailed": "Failed to save diagram",
+    "loadFailed": "Failed to load diagram",
+    "storageFull": "Storage almost full. Consider exporting and deleting old diagrams.",
+    "maxElements": "Element limit of {{max}} reached in this diagram",
+    "invalidBpmn": "File does not contain valid BPMN: {{error}}"
+  },
+  "common": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
+    "delete": "Delete",
+    "yes": "Yes",
+    "no": "No"
+  }
+}
