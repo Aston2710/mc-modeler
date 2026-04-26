@@ -182,6 +182,10 @@ export default function App() {
     })
   }, [closeModal, activeDiagram, runExport, getXml, getSvg])
 
+  const handleStartCreate = useCallback((bpmnType: string, event: MouseEvent) => {
+    canvasRef.current?.startCreate(bpmnType, event)
+  }, [])
+
   // Auto-save
   const { save: autoSave } = useAutoSave(getXml)
   void autoSave
@@ -235,9 +239,10 @@ export default function App() {
             <PalettePanel
               collapsed={!palettePanelOpen}
               onToggle={() => setPalettePanelOpen(!palettePanelOpen)}
+              onStartCreate={handleStartCreate}
             />
 
-            <div ref={canvasContainerRef} style={{ minHeight: 0, minWidth: 0, overflow: 'hidden', position: 'relative' }}>
+            <div ref={canvasContainerRef} style={{ minHeight: 0, minWidth: 0, overflow: 'hidden', position: 'relative', height: '100%' }}>
               <BpmnCanvas
                 ref={canvasRef}
                 onReady={handleCanvasReady}

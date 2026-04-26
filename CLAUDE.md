@@ -4,7 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Status
 
-Design/prototype phase. No build system yet — prototype runs via CDN React + Babel standalone in-browser. Production stack not scaffolded.
+Production scaffolding phase. Design prototype exists as visual reference only. Production app lives at repo root (outside `design-prototype/`).
+
+## ⚠️ CRITICAL: design-prototype/ is READ-ONLY
+
+**NEVER modify any file inside `design-prototype/`.** It is a static visual reference, not production code.
+
+- Do not edit `design-prototype/*.jsx`, `design-prototype/*.css`, or `design-prototype/*.html`
+- Use it only to extract: colors, spacing, component layout, UX patterns, BPMN element styles
+- All production code goes in the repo root (sibling to `design-prototype/`, not inside it)
 
 ## Prototype (Current)
 
@@ -18,6 +26,20 @@ Files:
 - `icons.jsx` — BPMN element SVG icons
 - `tweaks-panel.jsx` — live UI tweak system
 - `styles.css` — light/dark themes, layout, BPMN color tokens
+
+## Production App Location
+
+All production files live at **repo root** (`mc modeler/`), NOT inside `design-prototype/`. Structure will be:
+
+```
+mc modeler/
+  design-prototype/   ← READ-ONLY visual reference, never touch
+  src/                ← production source
+  public/
+  package.json
+  vite.config.ts
+  ...
+```
 
 ## Production Stack (Phase 1.0 — planned)
 

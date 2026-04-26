@@ -7,11 +7,12 @@ import { BpmnElementIcon } from './BpmnElementIcon'
 interface PalettePanelProps {
   collapsed: boolean
   onToggle: () => void
+  onStartCreate: (bpmnType: string, event: MouseEvent) => void
 }
 
 const CATEGORIES: BpmnCategory[] = ['events', 'activities', 'gateways', 'connections', 'containers']
 
-export function PalettePanel({ collapsed, onToggle }: PalettePanelProps) {
+export function PalettePanel({ collapsed, onToggle, onStartCreate }: PalettePanelProps) {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [collapsedCats, setCollapsedCats] = useState<Record<string, boolean>>({})
@@ -66,7 +67,7 @@ export function PalettePanel({ collapsed, onToggle }: PalettePanelProps) {
                   </div>
                   <div className="cat-items">
                     {items.map((el) => (
-                      <PaletteItem key={el.type} type={el.type} label={t(el.labelKey)} />
+                      <PaletteItem key={el.type} type={el.type} bpmnType={el.bpmnType} category={el.category} label={t(el.labelKey)} onStartCreate={onStartCreate} />
                     ))}
                   </div>
                 </div>
@@ -89,7 +90,7 @@ export function PalettePanel({ collapsed, onToggle }: PalettePanelProps) {
                 </div>
                 <div className={`cat-items ${isCollapsed ? 'collapsed' : ''}`}>
                   {items.map((el) => (
-                    <PaletteItem key={el.type} type={el.type} label={t(el.labelKey)} />
+                    <PaletteItem key={el.type} type={el.type} bpmnType={el.bpmnType} category={el.category} label={t(el.labelKey)} onStartCreate={onStartCreate} />
                   ))}
                 </div>
               </div>
@@ -101,17 +102,34 @@ export function PalettePanel({ collapsed, onToggle }: PalettePanelProps) {
   )
 }
 
-function PaletteItem({ type, label }: { type: string; label: string }) {
-  const handleDragStart = (e: React.DragEvent) => {
-    e.dataTransfer.setData('bpmn-element-type', type)
-    e.dataTransfer.effectAllowed = 'copy'
+interface PaletteItemProps {
+  type: string
+  bpmnType: string
+  category: BpmnCategory
+  label: string
+  onStartCreate: (bpmnType: string, event: MouseEvent) => void
+}
+
+function PaletteItem({ type, bpmnType, category, label, onStartCreate }: PaletteItemProps) {
+  if (category === 'connections') {
+    // Connections are drawn by dragging from element hover-handles on canvas
+    return (
+      <div className="pal-item pal-item--disabled" title={label}>
+        <BpmnElementIcon type={type} size={26} />
+        <span className="tt">{label}</span>
+      </div>
+    )
+  }
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault() // prevent text selection
+    onStartCreate(bpmnType, e.nativeEvent)
   }
 
   return (
     <div
       className="pal-item"
-      draggable
-      onDragStart={handleDragStart}
+      onMouseDown={handleMouseDown}
       title={label}
     >
       <BpmnElementIcon type={type} size={26} />

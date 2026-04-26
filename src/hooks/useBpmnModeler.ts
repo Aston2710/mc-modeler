@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback } from 'react'
 // @ts-ignore
 import BpmnModeler from 'bpmn-js/lib/Modeler'
 import { useUIStore } from '@/store/uiStore'
+import { MODELER_CONFIG } from '@/bpmn/config'
 
 // CSS imported as side-effects — declared as modules in vite-env.d.ts
 // @ts-ignore
@@ -39,7 +40,7 @@ export function useBpmnModeler(
     if (!containerRef.current) return
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const modeler = new BpmnModeler({ container: containerRef.current }) as any
+    const modeler = new BpmnModeler({ container: containerRef.current, ...MODELER_CONFIG }) as any
     modelerRef.current = modeler
 
     const eventBus = modeler.get('eventBus')
@@ -173,6 +174,20 @@ export function useBpmnModeler(
     modeler.get('modeling').updateProperties(el, { [property]: value })
   }, [])
 
+  // Starts bpmn-js native drag-create from a palette mousedown.
+  // Ghost shape follows cursor; releasing over canvas places the element.
+  const startCreate = useCallback((bpmnType: string, event: MouseEvent) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = modelerRef.current as any
+    if (!m) return
+    try {
+      const shape = m.get('elementFactory').createShape({ type: bpmnType })
+      m.get('create').start(event, shape)
+    } catch {
+      // modeler not ready or invalid type
+    }
+  }, [])
+
   return {
     modelerRef,
     importXml,
@@ -188,5 +203,6 @@ export function useBpmnModeler(
     canRedo,
     scrollToElement,
     updateElementProperty,
+    startCreate,
   }
 }
