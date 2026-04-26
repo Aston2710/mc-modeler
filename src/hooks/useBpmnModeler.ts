@@ -64,7 +64,48 @@ export function useBpmnModeler(
     // Signal that the modeler is ready — callers can now safely call importXml
     onReadyRef.current?.()
 
+    // ── MutationObserver: re-render cuando cambia el tema (data-theme) ──────
+    // Cuando el usuario alterna entre modo claro y oscuro, el ThemeAwareRenderer
+    // necesita volver a pintar todos los elementos con los nuevos colores CSS.
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (
+          mutation.type === 'attributes' &&
+          mutation.attributeName === 'data-theme' &&
+          modelerRef.current
+        ) {
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const m = modelerRef.current as any
+            const registry = m.get('elementRegistry')
+            const drawingModule = m.get('graphicsFactory')
+            // Re-renderizar cada elemento del canvas
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            registry.getAll().forEach((element: any) => {
+              try {
+                const gfx = registry.getGraphics(element)
+                if (gfx) {
+                  drawingModule.update(
+                    element.waypoints ? 'connection' : 'shape',
+                    element,
+                    gfx
+                  )
+                }
+              } catch {
+                // ignorar errores individuales de elementos
+              }
+            })
+          } catch {
+            // modeler no listo aún
+          }
+        }
+      }
+    })
+
+    observer.observe(document.documentElement, { attributes: true })
+
     return () => {
+      observer.disconnect()
       modeler.destroy()
       modelerRef.current = null
     }

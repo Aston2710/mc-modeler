@@ -426,6 +426,88 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .djs-palette { display: none !important; }
 .djs-context-pad { z-index: 10; }
 
+/* ── Overrides de tema para elementos SVG del canvas ──────────────────────
+   El ThemeAwareRenderer aplica los colores correctos al crear/actualizar cada
+   elemento. Estos overrides CSS cubren casos edge como el fondo del SVG,
+   los textos de las conexiones y los manejadores de selección. */
+
+/* Fondo del SVG principal: transparente para mostrar el canvas-grid */
+.bjs-container svg { background: transparent !important; }
+
+/* ── Sequence flows / connections ─────────────────────────────────────── */
+.djs-connection .djs-visual > :is(polyline, path, line) {
+  stroke: var(--text-2) !important;
+}
+
+/* Flecha de los sequence flows */
+.djs-connection .djs-visual marker path {
+  fill: var(--text-2) !important;
+  stroke: var(--text-2) !important;
+}
+
+/* ── Labels externos (sobre aristas) ────────────────────────────────────── */
+.djs-label .djs-visual text,
+.djs-element.djs-label text {
+  fill: var(--text) !important;
+}
+
+/* ── Marcadores de selección (azul del tema) ────────────────────────────── */
+.djs-outline {
+  stroke: var(--primary) !important;
+  fill: none !important;
+}
+.djs-shape.selected .djs-visual > :is(rect, circle, polygon, path, ellipse) {
+  stroke: var(--primary) !important;
+  stroke-width: 2px !important;
+}
+
+/* ── Handles de resize ──────────────────────────────────────────────────── */
+.djs-resizer .djs-resizer-visual {
+  fill: var(--panel) !important;
+  stroke: var(--primary) !important;
+}
+
+/* ── Context pad ─────────────────────────────────────────────────────────── */
+.djs-context-pad .entry {
+  background-color: var(--panel) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+.djs-context-pad .entry:hover {
+  background-color: var(--bg-2) !important;
+}
+
+/* ── Popup menu (connect, morph, etc.) ──────────────────────────────────── */
+.djs-popup .djs-popup-header {
+  background: var(--bg-2) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+.djs-popup {
+  background: var(--panel) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-md) !important;
+  color: var(--text) !important;
+}
+.djs-popup .entry:hover {
+  background: var(--bg-2) !important;
+}
+
+/* ── Drop hints al arrastrar elementos ─────────────────────────────────── */
+.djs-drop-not-ok .djs-visual > :is(rect, circle, polygon, path) {
+  stroke: var(--error) !important;
+}
+.djs-drop-ok .djs-visual > :is(rect, circle, polygon, path) {
+  stroke: var(--ok) !important;
+}
+
+/* ── Snapping / alignment guides ─────────────────────────────────────────── */
+.djs-snap-line {
+  stroke: var(--primary) !important;
+  opacity: 0.6 !important;
+}
+
 .canvas-grid {
   position: absolute; inset: 0; pointer-events: none;
   background-image:
