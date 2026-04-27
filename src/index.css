@@ -465,17 +465,85 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 /* ═══════════════════════════════════════════════════════════════════════════
    SELECCIÓN: Contorno y handles
    ══════════════════════════════════════════════════════════════════════════ */
+
+/* Outline por defecto (tasks, subprocesses, etc.) */
 .djs-outline {
   stroke: var(--primary) !important;
   fill: none !important;
 }
+
+/* Outline coloreado al tipo para eventos y gateways */
+.djs-shape--gateway .djs-outline {
+  stroke: var(--gateway-stroke) !important;
+  stroke-dasharray: 5 3 !important;
+}
+.djs-shape--start-event .djs-outline {
+  stroke: var(--start-stroke) !important;
+  stroke-dasharray: 5 3 !important;
+}
+.djs-shape--end-event .djs-outline {
+  stroke: var(--end-stroke) !important;
+  stroke-dasharray: 5 3 !important;
+}
+.djs-shape--intermediate-event .djs-outline {
+  stroke: var(--text-2) !important;
+  stroke-dasharray: 5 3 !important;
+}
+
+/* Stroke de selección: tasks/subprocesses mantienen azul primario */
 .djs-shape.selected .djs-visual > :is(rect, circle, polygon, path, ellipse) {
   stroke: var(--primary) !important;
   stroke-width: 2px !important;
 }
+
+/* Eventos y gateways: mantienen su stroke natural al seleccionar
+   (la selección la indica el outline + halo, no el stroke del shape) */
+.djs-shape--start-event.selected .djs-visual > :is(circle, ellipse) {
+  stroke: var(--start-stroke) !important;
+  stroke-width: 2px !important;
+}
+.djs-shape--end-event.selected .djs-visual > :is(circle, ellipse) {
+  stroke: var(--end-stroke) !important;
+  stroke-width: 2px !important;
+}
+.djs-shape--intermediate-event.selected .djs-visual > :is(circle, ellipse) {
+  stroke: var(--text-2) !important;
+  stroke-width: 2px !important;
+}
+.djs-shape--gateway.selected .djs-visual > :is(rect, polygon, path) {
+  stroke: var(--gateway-stroke) !important;
+  stroke-width: 2px !important;
+}
+
+/* Handles (resizers) */
 .djs-resizer .djs-resizer-visual {
   fill: var(--panel) !important;
   stroke: var(--primary) !important;
+}
+
+/* Handles de esquina coloreados al tipo para eventos y gateways */
+.djs-shape--gateway .djs-resizer-visual {
+  stroke: var(--gateway-stroke) !important;
+}
+.djs-shape--start-event .djs-resizer-visual {
+  stroke: var(--start-stroke) !important;
+}
+.djs-shape--end-event .djs-resizer-visual {
+  stroke: var(--end-stroke) !important;
+}
+.djs-shape--intermediate-event .djs-resizer-visual {
+  stroke: var(--text-2) !important;
+}
+
+/* Halo de selección (rect inyectado por SelectionHalo, visible solo al seleccionar) */
+.djs-selection-halo {
+  display: none;
+  fill: color-mix(in srgb, var(--primary) 10%, transparent);
+  stroke: none;
+  pointer-events: none;
+}
+.djs-shape.selected .djs-selection-halo {
+  display: block;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

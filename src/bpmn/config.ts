@@ -4,9 +4,11 @@ import CanvasLassoModule from './modules/CanvasLassoModule'
 import ScrollPanModule from './modules/ScrollPanModule'
 import PoolInteriorLassoModule from './modules/PoolInteriorLassoModule'
 import CustomResizeModule from './modules/CustomResizeModule'
+import CustomSelectionModule from './modules/CustomSelectionModule'
+import CustomElementSizesModule from './modules/CustomElementSizesModule'
 
 export const MODELER_CONFIG = {
-  additionalModules: [ThemeAwareRendererModule, CanvasLassoModule, ScrollPanModule, PoolInteriorLassoModule, CustomResizeModule],
+  additionalModules: [ThemeAwareRendererModule, CanvasLassoModule, ScrollPanModule, PoolInteriorLassoModule, CustomResizeModule, CustomSelectionModule, CustomElementSizesModule],
   // Bind keyboard to document so Delete/Backspace work regardless of canvas focus.
   // diagram-js KeyboardModule already ignores events when target is input/textarea.
   keyboard: { bindTo: document },
