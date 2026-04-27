@@ -137,6 +137,6 @@ dist
 
 
 # custom ignores
-BPMN*
+#BPMN*
 *.bpm
 *.bpmn
