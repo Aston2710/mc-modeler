@@ -215,8 +215,25 @@ export function useBpmnModeler(
     const m = modelerRef.current as any
     if (!m) return
     try {
-      const shape = m.get('elementFactory').createShape({ type: bpmnType })
-      m.get('create').start(event, shape)
+      let shape
+      if (bpmnType === 'bpmn:Participant') {
+        // bpmn-js degrades a Participant to a "black-box pool" when its
+        // businessObject has no processRef. We must create the Process
+        // explicitly via bpmnFactory and bind it before create.start(),
+        // then force rootElementRequired so the drop target is always the
+        // Collaboration root — not an existing Participant.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const processBO = m.get('bpmnFactory').create('bpmn:Process', { isExecutable: false })
+        shape = m.get('elementFactory').createShape({
+          type: 'bpmn:Participant',
+          processRef: processBO,
+          isExpanded: true,
+        })
+        m.get('create').start(event, shape, { hints: { rootElementRequired: true } })
+      } else {
+        shape = m.get('elementFactory').createShape({ type: bpmnType })
+        m.get('create').start(event, shape)
+      }
     } catch {
       // modeler not ready or invalid type
     }
