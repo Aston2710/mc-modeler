@@ -15,6 +15,16 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObj = any
 
+// ── Zoom / Pan sensitivity ────────────────────────────────────────────────────
+// ZOOM_SENSITIVITY: escalado por unidad de delta (pixels). 0.001 → ~0.1 zoom
+// por notch de ratón estándar (deltaY≈100). Bajar para más suavidad.
+const ZOOM_SENSITIVITY = 0.001
+// Paso máximo por evento — evita saltos bruscos en ruedas muy rápidas.
+const ZOOM_MAX_STEP = 0.15
+// Multiplicador de velocidad de pan (scroll sin zoom). 1.0 = neutro.
+const PAN_SPEED = 1.0
+// ─────────────────────────────────────────────────────────────────────────────
+
 function ScrollPan(canvas: AnyObj) {
   const container: HTMLElement = canvas.getContainer()
 
@@ -25,8 +35,13 @@ function ScrollPan(canvas: AnyObj) {
       event.preventDefault()
       event.stopImmediatePropagation()
 
+      // Normaliza deltaMode: pixels(0)=1x, lines(1)=20px, pages(2)=100px
+      const modeFactor = event.deltaMode === 0 ? 1 : event.deltaMode === 1 ? 20 : 100
+
       if (event.ctrlKey || (event.buttons & 2)) {
-        const zoomStep = event.deltaY < 0 ? 0.1 : -0.1
+        // Escala por magnitud real del delta → trackpad suave, ratón preciso
+        const rawStep = -event.deltaY * modeFactor * ZOOM_SENSITIVITY
+        const zoomStep = Math.max(-ZOOM_MAX_STEP, Math.min(ZOOM_MAX_STEP, rawStep))
         const rect = container.getBoundingClientRect()
         const point = {
           x: event.clientX - rect.left,
@@ -36,10 +51,9 @@ function ScrollPan(canvas: AnyObj) {
         const nextZoom = Math.min(4, Math.max(0.1, currentZoom + zoomStep))
         canvas.zoom(nextZoom, point)
       } else {
-        const factor = event.deltaMode === 0 ? 1 : event.deltaMode === 1 ? 20 : 100
         canvas.scroll({
-          dx: -event.deltaX * factor,
-          dy: -event.deltaY * factor,
+          dx: -event.deltaX * modeFactor * PAN_SPEED,
+          dy: -event.deltaY * modeFactor * PAN_SPEED,
         })
       }
     },
