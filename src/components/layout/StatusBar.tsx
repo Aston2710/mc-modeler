@@ -53,7 +53,7 @@ export function StatusBar({ onOpenValidation, onOpenShortcuts }: StatusBarProps)
 
       {tabs.length > 1 && (
         <div className="sb-item">
-          <span>{tabs.length} tabs</span>
+          <span>{t('statusbar.tabs', { count: tabs.length })}</span>
         </div>
       )}
 
@@ -63,8 +63,9 @@ export function StatusBar({ onOpenValidation, onOpenShortcuts }: StatusBarProps)
         <div className={`sb-item ${errorCount > 0 ? 'err' : 'warn'}`} style={{ cursor: 'pointer' }} onClick={onOpenValidation}>
           <span className={`sb-dot ${errorCount > 0 ? 'err' : 'warn'}`} />
           <span>
-            {errorCount > 0 && `${errorCount} ${errorCount === 1 ? 'error' : 'errors'}`}
-            {warnCount > 0 && ` ${warnCount} ${warnCount === 1 ? 'warning' : 'warnings'}`}
+            {errorCount > 0 && t('statusbar.errors', { count: errorCount })}
+            {errorCount > 0 && warnCount > 0 && ' '}
+            {warnCount > 0 && t('statusbar.warnings', { count: warnCount })}
           </span>
         </div>
       )}

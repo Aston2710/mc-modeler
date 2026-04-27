@@ -14,7 +14,8 @@
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "import": "Import",
-    "myDiagrams": "My diagrams"
+    "myDiagrams": "My diagrams",
+    "toggleTheme": "Toggle theme"
   },
   "palette": {
     "title": "Palette",
@@ -226,7 +227,13 @@
     "elements_one": "{{count}} element",
     "elements_other": "{{count}} elements",
     "shortcuts": "Shortcuts",
-    "bpmn20": "BPMN 2.0"
+    "bpmn20": "BPMN 2.0",
+    "tabs_one": "{{count}} tab",
+    "tabs_other": "{{count}} tabs",
+    "errors_one": "{{count}} error",
+    "errors_other": "{{count}} errors",
+    "warnings_one": "{{count}} warning",
+    "warnings_other": "{{count}} warnings"
   },
   "validation": {
     "errors": {
@@ -246,7 +253,8 @@
     "loadFailed": "Failed to load diagram",
     "storageFull": "Storage almost full. Consider exporting and deleting old diagrams.",
     "maxElements": "Element limit of {{max}} reached in this diagram",
-    "invalidBpmn": "File does not contain valid BPMN: {{error}}"
+    "invalidBpmn": "File does not contain valid BPMN: {{error}}",
+    "unknownError": "Unknown error"
   },
   "common": {
     "confirm": "Confirm",

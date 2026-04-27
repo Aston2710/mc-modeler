@@ -6,6 +6,7 @@
  * - Scroll vertical (rueda/trackpad 1 dedo)   → pan vertical
  * - Scroll horizontal (trackpad 2 dedos)       → pan horizontal
  * - Ctrl + scroll / Pinch                      → zoom centrado en cursor
+ * - Click derecho + scroll                     → zoom centrado en cursor
  * - Click derecho + arrastrar                  → pan libre (estilo Bizagi)
  *
  * Actúa en capture phase para interceptar ANTES que ZoomScroll de diagram-js.
@@ -24,7 +25,7 @@ function ScrollPan(canvas: AnyObj) {
       event.preventDefault()
       event.stopImmediatePropagation()
 
-      if (event.ctrlKey) {
+      if (event.ctrlKey || (event.buttons & 2)) {
         const zoomStep = event.deltaY < 0 ? 0.1 : -0.1
         const rect = container.getBoundingClientRect()
         const point = {

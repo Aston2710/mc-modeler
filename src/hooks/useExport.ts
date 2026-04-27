@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toPng } from 'html-to-image'
 import { jsPDF } from 'jspdf'
 import { useUIStore } from '@/store/uiStore'
@@ -32,6 +33,7 @@ function downloadText(text: string, filename: string, mimeType: string) {
 }
 
 export function useExport() {
+  const { t } = useTranslation()
   const setExporting = useUIStore((s) => s.setExporting)
   const addToast = useUIStore((s) => s.addToast)
 
@@ -84,13 +86,13 @@ export function useExport() {
     } catch (err) {
       addToast({
         type: 'error',
-        title: 'Export failed',
-        message: err instanceof Error ? err.message : 'Unknown error',
+        title: t('errors.exportFailed'),
+        message: err instanceof Error ? err.message : t('errors.unknownError'),
       })
     } finally {
       setExporting(false)
     }
-  }, [setExporting, addToast])
+  }, [setExporting, addToast, t])
 
   return { run }
 }

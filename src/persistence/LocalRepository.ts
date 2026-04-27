@@ -6,7 +6,7 @@ const SCHEMA_VERSION = 1
 
 const DEFAULT_PREFS: UserPreferences = {
   language: 'es',
-  theme: 'dark',
+  theme: 'light',
   gridEnabled: true,
   gridSize: 10,
   snapToGrid: true,

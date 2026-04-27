@@ -165,7 +165,7 @@ export function Toolbar({
       </div>
 
       {/* Theme */}
-      <button className="icon-btn" onClick={toggleTheme} title="Toggle theme">
+      <button className="icon-btn" onClick={toggleTheme} title={t('toolbar.toggleTheme')}>
         {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
       </button>
 

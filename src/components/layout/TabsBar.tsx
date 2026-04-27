@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { FileText, X, Plus } from 'lucide-react'
 import { useDiagramStore } from '@/store/diagramStore'
 
@@ -7,6 +8,7 @@ interface TabsBarProps {
 }
 
 export function TabsBar({ onNew }: TabsBarProps) {
+  const { t } = useTranslation()
   const tabs = useDiagramStore((s) => s.tabs)
   const activeTabId = useDiagramStore((s) => s.activeTabId)
   const setActiveTab = useDiagramStore((s) => s.setActiveTab)
@@ -72,7 +74,7 @@ export function TabsBar({ onNew }: TabsBarProps) {
           </div>
         ))}
       </div>
-      <button className="tab-add" onClick={onNew} title="New diagram">
+      <button className="tab-add" onClick={onNew} title={t('toolbar.newDiagram')}>
         <Plus size={14} />
       </button>
     </div>

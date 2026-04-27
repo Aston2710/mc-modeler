@@ -22,7 +22,7 @@ const save = async (prefs: UserPreferences) => {
 export const usePreferencesStore = create<PreferencesState>()(
   immer((set, get) => ({
     language: 'es',
-    theme: 'dark',
+    theme: 'light',
     gridEnabled: true,
     gridSize: 10,
     snapToGrid: true,

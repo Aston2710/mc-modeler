@@ -14,7 +14,8 @@
     "zoomIn": "Acercar",
     "zoomOut": "Alejar",
     "import": "Importar",
-    "myDiagrams": "Mis diagramas"
+    "myDiagrams": "Mis diagramas",
+    "toggleTheme": "Cambiar tema"
   },
   "palette": {
     "title": "Paleta",
@@ -226,7 +227,13 @@
     "elements_one": "{{count}} elemento",
     "elements_other": "{{count}} elementos",
     "shortcuts": "Atajos",
-    "bpmn20": "BPMN 2.0"
+    "bpmn20": "BPMN 2.0",
+    "tabs_one": "{{count}} pestaña",
+    "tabs_other": "{{count}} pestañas",
+    "errors_one": "{{count}} error",
+    "errors_other": "{{count}} errores",
+    "warnings_one": "{{count}} advertencia",
+    "warnings_other": "{{count}} advertencias"
   },
   "validation": {
     "errors": {
@@ -246,7 +253,8 @@
     "loadFailed": "Error al cargar el diagrama",
     "storageFull": "Almacenamiento casi lleno. Considera exportar y eliminar diagramas antiguos.",
     "maxElements": "Límite de {{max}} elementos alcanzado en este diagrama",
-    "invalidBpmn": "El archivo no contiene un BPMN válido: {{error}}"
+    "invalidBpmn": "El archivo no contiene un BPMN válido: {{error}}",
+    "unknownError": "Error desconocido"
   },
   "common": {
     "confirm": "Confirmar",
