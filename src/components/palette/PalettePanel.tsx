@@ -14,11 +14,10 @@ interface PalettePanelProps {
 
 const CATEGORIES: BpmnCategory[] = ['events', 'activities', 'gateways', 'containers']
 
-const CATEGORY_REPRESENTATIVE: Record<BpmnCategory, string> = {
+const CATEGORY_REPRESENTATIVE: Partial<Record<BpmnCategory, string>> = {
   events: 'startEvent',
   activities: 'task',
   gateways: 'exclusiveGateway',
-  connections: 'sequenceFlow',
   containers: 'pool',
 }
 
@@ -232,7 +231,7 @@ function DropdownPalette({ onStartCreate }: DropdownPaletteProps) {
   return (
     <div className="palette palette--dd">
       {CATEGORIES.map((cat) => {
-        const rep = CATEGORY_REPRESENTATIVE[cat]
+        const rep = CATEGORY_REPRESENTATIVE[cat] ?? ''
         const isOpen = openCat === cat
         return (
           <div
@@ -317,7 +316,7 @@ function BizagiPalette({ onStartCreate }: { onStartCreate: (bpmnType: string, ev
       <div className="bz-grid">
         {BIZAGI_GROUPS.map((group) => {
           const el = BPMN_ELEMENTS.find((e) => e.type === group.type)
-          if (!el || el.category === 'connections') return null
+          if (!el) return null
           const isOpen = openGroup === group.type
 
           return (
