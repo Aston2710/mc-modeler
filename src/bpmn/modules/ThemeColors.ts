@@ -47,8 +47,8 @@ export function endEventColors(): ElementColors {
 
 export function intermediateEventColors(): ElementColors {
   return {
-    fill:       cssVar('--bg'),
-    stroke:     cssVar('--text-2'),
+    fill:       cssVar('--int-fill'),
+    stroke:     cssVar('--int-stroke'),
     labelColor: cssVar('--text'),
   }
 }

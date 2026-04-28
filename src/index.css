@@ -31,6 +31,8 @@
   --end-stroke: #dc2626;
   --gateway-fill: #fef3c7;
   --gateway-stroke: #d97706;
+  --int-fill: #fef9c3;
+  --int-stroke: #ca8a04;
   --pool-fill: #f8fafc;
   --pool-stroke: #94a3b8;
   --lane-fill: #fdfdfe;
@@ -95,6 +97,8 @@
   --end-stroke: #f87171;
   --gateway-fill: #3a2e10;
   --gateway-stroke: #fbbf24;
+  --int-fill: #211900;
+  --int-stroke: #eab308;
   --pool-fill: #11141b;
   --pool-stroke: #475467;
   --lane-fill: #131722;
@@ -643,7 +647,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   stroke-dasharray: 5 3 !important;
 }
 .djs-shape--intermediate-event .djs-outline {
-  stroke: var(--text-2) !important;
+  stroke: var(--int-stroke) !important;
   stroke-dasharray: 5 3 !important;
 }
 
@@ -664,7 +668,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   stroke-width: 2px !important;
 }
 .djs-shape--intermediate-event.selected .djs-visual > :is(circle, ellipse) {
-  stroke: var(--text-2) !important;
+  stroke: var(--int-stroke) !important;
   stroke-width: 2px !important;
 }
 .djs-shape--gateway.selected .djs-visual > :is(rect, polygon, path) {
@@ -689,7 +693,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   stroke: var(--end-stroke) !important;
 }
 .djs-shape--intermediate-event .djs-resizer-visual {
-  stroke: var(--text-2) !important;
+  stroke: var(--int-stroke) !important;
 }
 
 /* Halo de selección (rect inyectado por SelectionHalo, visible solo al seleccionar) */
@@ -778,15 +782,15 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   background: color-mix(in srgb, var(--end-fill) 80%, var(--end-stroke) 20%) !important;
 }
 
-/* Append Intermediate Event → neutro (borde oscuro) */
+/* Append Intermediate Event → amarillo */
 .djs-context-pad .entry.bpmn-icon-intermediate-event-none,
 .djs-context-pad .entry.bpmn-icon-intermediate-event-catch-message,
 .djs-context-pad .entry.bpmn-icon-intermediate-event-catch-timer,
 .djs-context-pad .entry.bpmn-icon-intermediate-event-catch-condition,
 .djs-context-pad .entry.bpmn-icon-intermediate-event-catch-signal {
-  background: var(--bg-2) !important;
-  border-color: var(--text-2) !important;
-  color: var(--text-2) !important;
+  background: var(--int-fill) !important;
+  border-color: var(--int-stroke) !important;
+  color: var(--int-stroke) !important;
 }
 
 /* Append Receive Task → azul igual que tareas */

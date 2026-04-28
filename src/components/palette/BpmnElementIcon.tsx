@@ -11,6 +11,8 @@ const C = {
   endStroke: 'var(--end-stroke)',
   taskFill: 'var(--task-fill)',
   taskStroke: 'var(--task-stroke)',
+  intFill: 'var(--int-fill)',
+  intStroke: 'var(--int-stroke)',
   gwFill: 'var(--gateway-fill)',
   gwStroke: 'var(--gateway-stroke)',
   poolStroke: 'var(--pool-stroke)',
@@ -68,26 +70,26 @@ export function BpmnElementIcon({ type, size = 26 }: IconProps) {
     case 'intermediateEvent':
       return (
         <svg width={s} height={s} viewBox="0 0 30 30">
-          <circle cx="15" cy="15" r="11" fill={C.taskFill} stroke={C.taskStroke} strokeWidth="2" />
-          <circle cx="15" cy="15" r="8" fill="none" stroke={C.taskStroke} strokeWidth="1.5" />
+          <circle cx="15" cy="15" r="11" fill={C.intFill} stroke={C.intStroke} strokeWidth="2" />
+          <circle cx="15" cy="15" r="8" fill="none" stroke={C.intStroke} strokeWidth="1.5" />
         </svg>
       )
     case 'intermediateMessageEvent':
       return (
         <svg width={s} height={s} viewBox="0 0 30 30">
-          <circle cx="15" cy="15" r="11" fill={C.taskFill} stroke={C.taskStroke} strokeWidth="2" />
-          <circle cx="15" cy="15" r="8" fill="none" stroke={C.taskStroke} strokeWidth="1.5" />
-          <rect x="10" y="12" width="10" height="6" rx="1" fill={C.taskFill} stroke={C.taskStroke} strokeWidth="1.2" />
-          <path d="M10 12.5l5 3.5 5-3.5" fill="none" stroke={C.taskStroke} strokeWidth="1.2" />
+          <circle cx="15" cy="15" r="11" fill={C.intFill} stroke={C.intStroke} strokeWidth="2" />
+          <circle cx="15" cy="15" r="8" fill="none" stroke={C.intStroke} strokeWidth="1.5" />
+          <rect x="10" y="12" width="10" height="6" rx="1" fill={C.intFill} stroke={C.intStroke} strokeWidth="1.2" />
+          <path d="M10 12.5l5 3.5 5-3.5" fill="none" stroke={C.intStroke} strokeWidth="1.2" />
         </svg>
       )
     case 'intermediateTimerEvent':
       return (
         <svg width={s} height={s} viewBox="0 0 30 30">
-          <circle cx="15" cy="15" r="11" fill={C.taskFill} stroke={C.taskStroke} strokeWidth="2" />
-          <circle cx="15" cy="15" r="8" fill="none" stroke={C.taskStroke} strokeWidth="1.5" />
-          <line x1="15" y1="9" x2="15" y2="15" stroke={C.taskStroke} strokeWidth="1.5" strokeLinecap="round" />
-          <line x1="15" y1="15" x2="19" y2="18" stroke={C.taskStroke} strokeWidth="1.5" strokeLinecap="round" />
+          <circle cx="15" cy="15" r="11" fill={C.intFill} stroke={C.intStroke} strokeWidth="2" />
+          <circle cx="15" cy="15" r="8" fill="none" stroke={C.intStroke} strokeWidth="1.5" />
+          <line x1="15" y1="9" x2="15" y2="15" stroke={C.intStroke} strokeWidth="1.5" strokeLinecap="round" />
+          <line x1="15" y1="15" x2="19" y2="18" stroke={C.intStroke} strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       )
     case 'endEvent':
