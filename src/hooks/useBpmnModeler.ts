@@ -58,6 +58,36 @@ export function useBpmnModeler(
     // Signal that the modeler is ready — callers can now safely call importXml
     onReadyRef.current?.()
 
+    // ── Global Delete/Backspace handler ────────────────────────────────────
+    // diagram-js's native Keyboard module often loses focus in React apps.
+    // By hooking into the window directly, we ensure Delete/Backspace ALWAYS 
+    // removes the selected elements if no text input is currently active.
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const active = document.activeElement as HTMLElement | null
+        if (active) {
+          const tag = active.tagName.toLowerCase()
+          if (tag === 'input' || tag === 'textarea' || active.isContentEditable) {
+            return // let the user delete text in the UI/search bar
+          }
+        }
+        
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const selection = (modeler as any).get('selection').get()
+          if (selection && selection.length > 0) {
+            e.preventDefault()
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ;(modeler as any).get('editorActions').trigger('removeSelection')
+          }
+        } catch {
+          // modeler may be unmounting or editorActions not available
+        }
+      }
+    }
+    
+    window.addEventListener('keydown', handleGlobalKeyDown)
+
     // ── MutationObserver: re-render cuando cambia el tema (data-theme) ──────
     // Cuando el usuario alterna entre modo claro y oscuro, el ThemeAwareRenderer
     // necesita volver a pintar todos los elementos con los nuevos colores CSS.
@@ -99,6 +129,7 @@ export function useBpmnModeler(
     observer.observe(document.documentElement, { attributes: true })
 
     return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown)
       observer.disconnect()
       modeler.destroy()
       modelerRef.current = null
