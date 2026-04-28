@@ -12,7 +12,7 @@ interface PalettePanelProps {
   onStartCreate: (bpmnType: string, event: MouseEvent) => void
 }
 
-const CATEGORIES: BpmnCategory[] = ['events', 'activities', 'gateways', 'connections', 'containers']
+const CATEGORIES: BpmnCategory[] = ['events', 'activities', 'gateways', 'containers']
 
 const CATEGORY_REPRESENTATIVE: Record<BpmnCategory, string> = {
   events: 'startEvent',
@@ -256,12 +256,11 @@ function DropdownPalette({ onStartCreate }: DropdownPaletteProps) {
           style={{ top: flyoutPos.top, left: flyoutPos.left }}
         >
           {BPMN_ELEMENTS.filter((el) => el.category === openCat).map((el) => {
-            const isConn = el.category === 'connections'
             return (
               <div
                 key={el.type}
-                className={`dd-flyout-item${isConn ? ' dd-flyout-item--disabled' : ''}`}
-                onMouseDown={isConn ? undefined : (e) => {
+                className="dd-flyout-item"
+                onMouseDown={(e) => {
                   e.preventDefault()
                   setOpenCat(null)
                   setFlyoutPos(null)
@@ -318,15 +317,14 @@ function BizagiPalette({ onStartCreate }: { onStartCreate: (bpmnType: string, ev
       <div className="bz-grid">
         {BIZAGI_GROUPS.map((group) => {
           const el = BPMN_ELEMENTS.find((e) => e.type === group.type)
-          if (!el) return null
-          const isConn = el.category === 'connections'
+          if (!el || el.category === 'connections') return null
           const isOpen = openGroup === group.type
 
           return (
             <div key={group.type} className="bz-cell">
               <div
-                className={`bz-icon${isConn ? ' bz-icon--disabled' : ''}`}
-                onMouseDown={isConn ? undefined : (e) => {
+                className="bz-icon"
+                onMouseDown={(e) => {
                   e.preventDefault()
                   onStartCreate(el.type, e.nativeEvent)
                 }}
@@ -390,16 +388,7 @@ interface PaletteItemProps {
   onStartCreate: (bpmnType: string, event: MouseEvent) => void
 }
 
-function PaletteItem({ type, bpmnType, category, label, onStartCreate }: PaletteItemProps) {
-  if (category === 'connections') {
-    return (
-      <div className="pal-item pal-item--disabled" title={label}>
-        <BpmnElementIcon type={type} size={26} />
-        <span className="tt">{label}</span>
-      </div>
-    )
-  }
-
+function PaletteItem({ type, bpmnType: _bpmnType, category: _category, label, onStartCreate }: PaletteItemProps) {
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault()
     onStartCreate(type, e.nativeEvent)

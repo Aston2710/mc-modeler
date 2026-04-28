@@ -221,6 +221,12 @@ export function useBpmnModeler(
       const bpmnType = elDef?.bpmnType ?? elementType
       const eventDefinitionType = elDef?.eventDefinitionType
 
+      // Connections: activate global connect tool (click source → drag to target)
+      if (elDef?.category === 'connections') {
+        m.get('globalConnect').start(event)
+        return
+      }
+
       let shape
       if (bpmnType === 'bpmn:Participant') {
         // bpmn-js degrades a Participant to a "black-box pool" when its
