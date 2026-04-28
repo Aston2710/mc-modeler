@@ -353,6 +353,21 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 }
 .sb-collapse-btn:hover { background: var(--bg-2); color: var(--text); }
 
+.palette-settings-menu {
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: 50;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+  min-width: 180px; padding: 4px;
+}
+.palette-settings-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: var(--radius);
+  cursor: pointer; font-size: 12.5px; color: var(--text);
+  transition: background 0.1s; user-select: none;
+}
+.palette-settings-item:hover { background: var(--bg-2); }
+.palette-settings-item input[type="checkbox"] { accent-color: var(--primary); width: 14px; height: 14px; cursor: pointer; }
+
 .palette-search {
   position: relative; padding: 8px 10px; border-bottom: 1px solid var(--border);
 }
@@ -408,6 +423,52 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .collapsed-rail.right { border-right: none; border-left: 1px solid var(--border); }
 
 /* ========================================================
+   Palette — Dropdown mode
+   ======================================================== */
+.palette--dd { padding: 4px 0; }
+
+.dd-cat-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; margin: 1px 6px;
+  border-radius: var(--radius);
+  cursor: pointer; user-select: none;
+  transition: background 0.12s;
+}
+.dd-cat-row:hover { background: var(--bg-2); }
+.dd-cat-row--open { background: var(--primary-50); }
+.dd-cat-row--open .dd-cat-label { color: var(--primary-600); }
+.dd-cat-row--open .dd-chevron { color: var(--primary-600); }
+
+.dd-cat-label {
+  flex: 1; font-size: 12.5px; font-weight: 500; color: var(--text);
+}
+
+.dd-chevron {
+  color: var(--text-3);
+  transition: transform 0.15s, color 0.12s;
+  flex-shrink: 0;
+}
+.dd-chevron--open { transform: rotate(90deg); }
+
+.dd-flyout {
+  position: fixed; z-index: 200;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+  min-width: 230px; padding: 4px;
+}
+
+.dd-flyout-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 12px; border-radius: var(--radius);
+  cursor: pointer; font-size: 12.5px; color: var(--text);
+  transition: background 0.1s;
+}
+.dd-flyout-item:hover { background: var(--bg-2); }
+.dd-flyout-item--disabled {
+  opacity: 0.4; cursor: not-allowed; pointer-events: none;
+}
+
+/* ========================================================
    Canvas Area
    ======================================================== */
 .canvas-wrap {
@@ -415,9 +476,51 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   overflow: hidden; min-width: 0;
   width: 100%; height: 100%;
 }
+/* Leave room for scrollbars (10px each side) */
 .canvas-container {
-  position: absolute; inset: 0;
+  position: absolute;
+  top: 0; left: 0; right: 10px; bottom: 10px;
 }
+
+/* ── Canvas scrollbars ───────────────────────────────────────────────────── */
+.bpmn-scrollbar {
+  position: absolute; z-index: 20;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+}
+.bpmn-scrollbar--h {
+  bottom: 0; left: 0; right: 10px; height: 10px;
+  border-right: none; border-bottom: none; border-left: none;
+}
+.bpmn-scrollbar--v {
+  top: 0; right: 0; bottom: 10px; width: 10px;
+  border-top: none; border-right: none; border-bottom: none;
+}
+.bpmn-scrollbar__thumb {
+  position: absolute;
+  background: var(--text-3);
+  border-radius: 999px;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.15s, background 0.15s;
+}
+.bpmn-scrollbar__thumb:hover { opacity: 0.8; }
+.bpmn-scrollbar__thumb:active { opacity: 1; background: var(--text-2); }
+.bpmn-scrollbar--h .bpmn-scrollbar__thumb {
+  top: 2px; bottom: 2px; min-width: 28px;
+}
+.bpmn-scrollbar--v .bpmn-scrollbar__thumb {
+  left: 2px; right: 2px; min-height: 28px;
+}
+.bpmn-scrollbar__corner {
+  position: absolute; bottom: 0; right: 0;
+  width: 10px; height: 10px;
+  background: var(--bg-2);
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  z-index: 21;
+}
+
 
 /* bpmn-js overrides */
 .bjs-container {
@@ -425,6 +528,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 }
 .djs-palette { display: none !important; }
 .djs-context-pad { z-index: 10; }
+.bjs-powered-by { display: none !important; }
 
 /* ── Fondo SVG transparente para mostrar el canvas-grid ─────────────────── */
 .bjs-container svg { background: transparent !important; }
@@ -800,7 +904,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 }
 
 .canvas-grid {
-  position: absolute; inset: 0; pointer-events: none;
+  position: absolute; top: 0; left: 0; right: 10px; bottom: 10px; pointer-events: none;
   background-image:
     linear-gradient(to right, var(--grid) 1px, transparent 1px),
     linear-gradient(to bottom, var(--grid) 1px, transparent 1px);

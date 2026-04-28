@@ -56,11 +56,12 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
     // Los scrollbars controlan el viewport de bpmn-js usando canvas.scroll()
     // y se actualizan cuando el viewbox cambia (scroll del trackpad, etc.)
     const updateScrollThumbs = useCallback(() => {
-      const m = modeler.getModelerInstance?.()
+      const m = modeler.modelerRef.current
       if (!m) return
       try {
         const canvasService = m.get('canvas')
         const vb = canvasService.viewbox()
+        const page = m.get('canvasPage')?.getBounds?.()
         const wrap = wrapRef.current
         const thumbH = thumbHRef.current
         const thumbV = thumbVRef.current
@@ -69,20 +70,24 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
         const ww = wrap.clientWidth
         const wh = wrap.clientHeight
 
-        // Tamaño visible vs total del diagrama
-        const totalW = Math.max(vb.inner.width * vb.scale, ww * 3)
-        const totalH = Math.max(vb.inner.height * vb.scale, wh * 3)
+        // Scrollable area in diagram coords (page bounds or fallback)
+        const totalW = page ? page.w : Math.max(vb.inner.width, (ww / vb.scale) * 3)
+        const totalH = page ? page.h : Math.max(vb.inner.height, (wh / vb.scale) * 3)
 
-        const thumbWPct = Math.min(100, (ww / totalW) * 100)
-        const thumbHPct = Math.min(100, (wh / totalH) * 100)
+        // vb.width/height = viewport size in diagram coords
+        const thumbWPct = Math.min(100, (vb.width / totalW) * 100)
+        const thumbHPct = Math.min(100, (vb.height / totalH) * 100)
 
-        // Posición del thumb: qué tan lejos está el viewport del origen
-        const scrollXPct = Math.max(0, Math.min(100 - thumbWPct,
-          ((-vb.x * vb.scale) / totalW) * 100
-        ))
-        const scrollYPct = Math.max(0, Math.min(100 - thumbHPct,
-          ((-vb.y * vb.scale) / totalH) * 100
-        ))
+        // vb.x/y = diagram coord at top-left of viewport (clamped ≥0)
+        // thumb% = how far through the scrollable range we are
+        const maxScrollX = Math.max(0, totalW - vb.width)
+        const maxScrollY = Math.max(0, totalH - vb.height)
+        const scrollXPct = maxScrollX > 0
+          ? Math.max(0, Math.min(100 - thumbWPct, (vb.x / maxScrollX) * (100 - thumbWPct)))
+          : 0
+        const scrollYPct = maxScrollY > 0
+          ? Math.max(0, Math.min(100 - thumbHPct, (vb.y / maxScrollY) * (100 - thumbHPct)))
+          : 0
 
         thumbH.style.width = `${thumbWPct}%`
         thumbH.style.left = `${scrollXPct}%`
@@ -91,16 +96,27 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
       } catch { /* ignore */ }
     }, [modeler])
 
-    // Drag de scrollbar horizontal
+    // Drag de scrollbar horizontal — incremental, scaled to actual scroll range
     const startHDrag = useCallback((e: React.MouseEvent) => {
       e.preventDefault()
-      const startX = e.clientX
-      const m = modeler.getModelerInstance?.()
+      let lastX = e.clientX
+      const m = modeler.modelerRef.current
       if (!m) return
 
       const onMove = (ev: MouseEvent) => {
-        const delta = ev.clientX - startX
-        m.get('canvas').scroll({ dx: -delta * 3, dy: 0 })
+        const delta = ev.clientX - lastX
+        lastX = ev.clientX
+        if (delta === 0) return
+        const canvasSvc = m.get('canvas')
+        const vb = canvasSvc.viewbox()
+        const page = m.get('canvasPage')?.getBounds?.()
+        const totalW = page ? page.w : Math.max(vb.inner.width, (vb.width) * 3)
+        const maxScrollX = Math.max(1, totalW - vb.width)
+        const track = hScrollRef.current
+        const thumbW = thumbHRef.current?.clientWidth ?? 0
+        const scrollableTrack = Math.max(1, (track?.clientWidth ?? 1) - thumbW)
+        // delta px on thumb → proportional scroll in diagram coords → convert to screen px
+        canvasSvc.scroll({ dx: -(delta / scrollableTrack) * maxScrollX * vb.scale, dy: 0 })
       }
       const onUp = () => {
         document.removeEventListener('mousemove', onMove)
@@ -110,16 +126,26 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
       document.addEventListener('mouseup', onUp)
     }, [modeler])
 
-    // Drag de scrollbar vertical
+    // Drag de scrollbar vertical — incremental, scaled to actual scroll range
     const startVDrag = useCallback((e: React.MouseEvent) => {
       e.preventDefault()
-      const startY = e.clientY
-      const m = modeler.getModelerInstance?.()
+      let lastY = e.clientY
+      const m = modeler.modelerRef.current
       if (!m) return
 
       const onMove = (ev: MouseEvent) => {
-        const delta = ev.clientY - startY
-        m.get('canvas').scroll({ dx: 0, dy: -delta * 3 })
+        const delta = ev.clientY - lastY
+        lastY = ev.clientY
+        if (delta === 0) return
+        const canvasSvc = m.get('canvas')
+        const vb = canvasSvc.viewbox()
+        const page = m.get('canvasPage')?.getBounds?.()
+        const totalH = page ? page.h : Math.max(vb.inner.height, (vb.height) * 3)
+        const maxScrollY = Math.max(1, totalH - vb.height)
+        const track = vScrollRef.current
+        const thumbH = thumbVRef.current?.clientHeight ?? 0
+        const scrollableTrack = Math.max(1, (track?.clientHeight ?? 1) - thumbH)
+        canvasSvc.scroll({ dx: 0, dy: -(delta / scrollableTrack) * maxScrollY * vb.scale })
       }
       const onUp = () => {
         document.removeEventListener('mousemove', onMove)
@@ -131,7 +157,7 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
 
     // Actualizar thumbs cuando el viewbox cambia
     useEffect(() => {
-      const m = modeler.getModelerInstance?.()
+      const m = modeler.modelerRef.current
       if (!m) return
       try {
         const eventBus = m.get('eventBus')

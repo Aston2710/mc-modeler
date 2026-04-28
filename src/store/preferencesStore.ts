@@ -13,6 +13,7 @@ interface PreferencesState extends UserPreferences {
   setGridSize: (v: 5 | 10 | 20) => Promise<void>
   setSnapToGrid: (v: boolean) => Promise<void>
   setLastOpened: (id: string | null) => Promise<void>
+  setPaletteMode: (v: 'grid' | 'dropdown') => Promise<void>
 }
 
 const save = async (prefs: UserPreferences) => {
@@ -28,6 +29,7 @@ export const usePreferencesStore = create<PreferencesState>()(
     snapToGrid: true,
     autoSaveInterval: 30,
     lastOpenedDiagramId: null,
+    paletteMode: 'grid',
     loaded: false,
 
     load: async () => {
@@ -69,6 +71,11 @@ export const usePreferencesStore = create<PreferencesState>()(
 
     setLastOpened: async (id) => {
       set((s) => { s.lastOpenedDiagramId = id })
+      await save(get())
+    },
+
+    setPaletteMode: async (v) => {
+      set((s) => { s.paletteMode = v })
       await save(get())
     },
   }))

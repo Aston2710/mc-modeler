@@ -12,6 +12,7 @@ const DEFAULT_PREFS: UserPreferences = {
   snapToGrid: true,
   autoSaveInterval: 30,
   lastOpenedDiagramId: null,
+  paletteMode: 'grid',
 }
 
 const store = localforage.createInstance({
