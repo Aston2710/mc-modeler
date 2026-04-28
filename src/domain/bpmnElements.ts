@@ -3,24 +3,26 @@ export interface BpmnElementDef {
   labelKey: string
   category: BpmnCategory
   bpmnType: string
+  /** bpmn-js event definition class to attach when creating this element */
+  eventDefinitionType?: string
 }
 
 export type BpmnCategory = 'events' | 'activities' | 'gateways' | 'connections' | 'containers'
 
 export const BPMN_ELEMENTS: BpmnElementDef[] = [
   // Events
-  { type: 'startEvent', labelKey: 'palette.elements.startEvent', category: 'events', bpmnType: 'bpmn:StartEvent' },
-  { type: 'startTimerEvent', labelKey: 'palette.elements.startTimerEvent', category: 'events', bpmnType: 'bpmn:StartEvent' },
-  { type: 'startMessageEvent', labelKey: 'palette.elements.startMessageEvent', category: 'events', bpmnType: 'bpmn:StartEvent' },
-  { type: 'startSignalEvent', labelKey: 'palette.elements.startSignalEvent', category: 'events', bpmnType: 'bpmn:StartEvent' },
-  { type: 'startConditionalEvent', labelKey: 'palette.elements.startConditionalEvent', category: 'events', bpmnType: 'bpmn:StartEvent' },
-  { type: 'intermediateEvent', labelKey: 'palette.elements.intermediateEvent', category: 'events', bpmnType: 'bpmn:IntermediateCatchEvent' },
-  { type: 'intermediateMessageEvent', labelKey: 'palette.elements.intermediateMessageEvent', category: 'events', bpmnType: 'bpmn:IntermediateCatchEvent' },
-  { type: 'intermediateTimerEvent', labelKey: 'palette.elements.intermediateTimerEvent', category: 'events', bpmnType: 'bpmn:IntermediateCatchEvent' },
-  { type: 'endEvent', labelKey: 'palette.elements.endEvent', category: 'events', bpmnType: 'bpmn:EndEvent' },
-  { type: 'endMessageEvent', labelKey: 'palette.elements.endMessageEvent', category: 'events', bpmnType: 'bpmn:EndEvent' },
-  { type: 'endErrorEvent', labelKey: 'palette.elements.endErrorEvent', category: 'events', bpmnType: 'bpmn:EndEvent' },
-  { type: 'endTerminateEvent', labelKey: 'palette.elements.endTerminateEvent', category: 'events', bpmnType: 'bpmn:EndEvent' },
+  { type: 'startEvent',             labelKey: 'palette.elements.startEvent',             category: 'events', bpmnType: 'bpmn:StartEvent' },
+  { type: 'startTimerEvent',        labelKey: 'palette.elements.startTimerEvent',        category: 'events', bpmnType: 'bpmn:StartEvent',              eventDefinitionType: 'bpmn:TimerEventDefinition' },
+  { type: 'startMessageEvent',      labelKey: 'palette.elements.startMessageEvent',      category: 'events', bpmnType: 'bpmn:StartEvent',              eventDefinitionType: 'bpmn:MessageEventDefinition' },
+  { type: 'startSignalEvent',       labelKey: 'palette.elements.startSignalEvent',       category: 'events', bpmnType: 'bpmn:StartEvent',              eventDefinitionType: 'bpmn:SignalEventDefinition' },
+  { type: 'startConditionalEvent',  labelKey: 'palette.elements.startConditionalEvent',  category: 'events', bpmnType: 'bpmn:StartEvent',              eventDefinitionType: 'bpmn:ConditionalEventDefinition' },
+  { type: 'intermediateEvent',      labelKey: 'palette.elements.intermediateEvent',      category: 'events', bpmnType: 'bpmn:IntermediateCatchEvent' },
+  { type: 'intermediateMessageEvent', labelKey: 'palette.elements.intermediateMessageEvent', category: 'events', bpmnType: 'bpmn:IntermediateCatchEvent', eventDefinitionType: 'bpmn:MessageEventDefinition' },
+  { type: 'intermediateTimerEvent', labelKey: 'palette.elements.intermediateTimerEvent', category: 'events', bpmnType: 'bpmn:IntermediateCatchEvent', eventDefinitionType: 'bpmn:TimerEventDefinition' },
+  { type: 'endEvent',               labelKey: 'palette.elements.endEvent',               category: 'events', bpmnType: 'bpmn:EndEvent' },
+  { type: 'endMessageEvent',        labelKey: 'palette.elements.endMessageEvent',        category: 'events', bpmnType: 'bpmn:EndEvent',                eventDefinitionType: 'bpmn:MessageEventDefinition' },
+  { type: 'endErrorEvent',          labelKey: 'palette.elements.endErrorEvent',          category: 'events', bpmnType: 'bpmn:EndEvent',                eventDefinitionType: 'bpmn:ErrorEventDefinition' },
+  { type: 'endTerminateEvent',      labelKey: 'palette.elements.endTerminateEvent',      category: 'events', bpmnType: 'bpmn:EndEvent',                eventDefinitionType: 'bpmn:TerminateEventDefinition' },
 
   // Activities
   { type: 'task', labelKey: 'palette.elements.task', category: 'activities', bpmnType: 'bpmn:Task' },
@@ -61,5 +63,27 @@ export const CATEGORY_LABELS: Record<BpmnCategory, string> = {
   connections: 'palette.groups.connections',
   containers: 'palette.groups.containers',
 }
+
+export interface BizagiGroup {
+  type: string
+  variants: string[]
+}
+
+/** Each entry is the "base" element shown in the Bizagi palette cell.
+ *  variants = sub-types reachable via the dropdown arrow. */
+export const BIZAGI_GROUPS: BizagiGroup[] = [
+  { type: 'startEvent',        variants: ['startTimerEvent', 'startMessageEvent', 'startSignalEvent', 'startConditionalEvent'] },
+  { type: 'task',              variants: ['userTask', 'serviceTask', 'scriptTask', 'sendTask', 'receiveTask', 'businessRuleTask', 'subProcess', 'callActivity'] },
+  { type: 'intermediateEvent', variants: ['intermediateMessageEvent', 'intermediateTimerEvent'] },
+  { type: 'exclusiveGateway',  variants: ['parallelGateway', 'inclusiveGateway', 'eventBasedGateway', 'complexGateway'] },
+  { type: 'endEvent',          variants: ['endMessageEvent', 'endErrorEvent', 'endTerminateEvent'] },
+  { type: 'sequenceFlow',      variants: [] },
+  { type: 'messageFlow',       variants: [] },
+  { type: 'association',       variants: [] },
+  { type: 'pool',              variants: ['lane'] },
+  { type: 'group',             variants: [] },
+  { type: 'textAnnotation',    variants: [] },
+  { type: 'dataObject',        variants: [] },
+]
 
 export const MAX_ELEMENTS = 500

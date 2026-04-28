@@ -199,7 +199,6 @@ export function BpmnElementIcon({ type, size = 26 }: IconProps) {
       return (
         <svg width={s} height={s} viewBox="0 0 30 30">
           <polygon points="15,4 26,15 15,26 4,15" fill={C.gwFill} stroke={C.gwStroke} strokeWidth="1.5" />
-          <path d="M11 11l8 8M19 11l-8 8" stroke={C.gwStroke} strokeWidth="2" strokeLinecap="round" />
         </svg>
       )
     case 'parallelGateway':

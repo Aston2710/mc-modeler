@@ -24,7 +24,7 @@ export interface UserPreferences {
   snapToGrid: boolean
   autoSaveInterval: number
   lastOpenedDiagramId: string | null
-  paletteMode: 'grid' | 'dropdown'
+  paletteMode: 'grid' | 'dropdown' | 'bizagi'
 }
 
 export interface ValidationResult {

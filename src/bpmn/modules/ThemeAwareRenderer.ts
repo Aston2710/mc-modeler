@@ -177,6 +177,24 @@ ThemeAwareRenderer.prototype.drawShape = function (
   element: AnyElement,
 ): SVGElement {
   const colors = getColorsFor(element)
+
+  // ExclusiveGateway: bypass base renderer to draw a clean diamond without
+  // the X marker. Base renderer always draws the X cross path on top.
+  if (isType(element, 'bpmn:ExclusiveGateway')) {
+    const w: number = element.width
+    const h: number = element.height
+    const x2 = w / 2
+    const y2 = h / 2
+    const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon')
+    polygon.setAttribute('points', `${x2},0 ${w},${y2} ${x2},${h} 0,${y2}`)
+    polygon.setAttribute('fill', colors.fill)
+    polygon.setAttribute('stroke', colors.stroke)
+    polygon.setAttribute('stroke-width', '2')
+    polygon.setAttribute('stroke-linejoin', 'round')
+    parentGfx.appendChild(polygon)
+    return polygon
+  }
+
   // Pasamos los colores como attrs — bpmn-js los aplica a través de
   // getFillColor / getStrokeColor / getLabelColor respetando el color DI
   return BpmnRenderer.prototype.drawShape.call(this, parentGfx, element, {

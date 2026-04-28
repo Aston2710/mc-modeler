@@ -5,6 +5,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import BpmnModeler from 'bpmn-js/lib/Modeler'
 import { useUIStore } from '@/store/uiStore'
 import { MODELER_CONFIG } from '@/bpmn/config'
+import { BPMN_ELEMENTS } from '@/domain/bpmnElements'
 
 
 interface UseBpmnModelerOptions {
@@ -209,12 +210,17 @@ export function useBpmnModeler(
   }, [])
 
   // Starts bpmn-js native drag-create from a palette mousedown.
-  // Ghost shape follows cursor; releasing over canvas places the element.
-  const startCreate = useCallback((bpmnType: string, event: MouseEvent) => {
+  // Accepts domain element type (e.g. 'startTimerEvent') or legacy bpmnType.
+  const startCreate = useCallback((elementType: string, event: MouseEvent) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const m = modelerRef.current as any
     if (!m) return
     try {
+      // Resolve from domain type → bpmnType + optional event definition
+      const elDef = BPMN_ELEMENTS.find((e) => e.type === elementType)
+      const bpmnType = elDef?.bpmnType ?? elementType
+      const eventDefinitionType = elDef?.eventDefinitionType
+
       let shape
       if (bpmnType === 'bpmn:Participant') {
         // bpmn-js degrades a Participant to a "black-box pool" when its
@@ -230,6 +236,15 @@ export function useBpmnModeler(
           isExpanded: true,
         })
         m.get('create').start(event, shape, { hints: { rootElementRequired: true } })
+      } else if (eventDefinitionType) {
+        // Event with marker (timer, message, signal, etc.) — attach event definition
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const eventDef = m.get('bpmnFactory').create(eventDefinitionType) as any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const bo = m.get('bpmnFactory').create(bpmnType, { eventDefinitions: [eventDef] }) as any
+        eventDef.$parent = bo
+        shape = m.get('elementFactory').createShape({ type: bpmnType, businessObject: bo })
+        m.get('create').start(event, shape)
       } else {
         shape = m.get('elementFactory').createShape({ type: bpmnType })
         m.get('create').start(event, shape)

@@ -13,7 +13,7 @@ interface PreferencesState extends UserPreferences {
   setGridSize: (v: 5 | 10 | 20) => Promise<void>
   setSnapToGrid: (v: boolean) => Promise<void>
   setLastOpened: (id: string | null) => Promise<void>
-  setPaletteMode: (v: 'grid' | 'dropdown') => Promise<void>
+  setPaletteMode: (v: 'grid' | 'dropdown' | 'bizagi') => Promise<void>
 }
 
 const save = async (prefs: UserPreferences) => {

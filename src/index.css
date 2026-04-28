@@ -354,19 +354,20 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .sb-collapse-btn:hover { background: var(--bg-2); color: var(--text); }
 
 .palette-settings-menu {
-  position: absolute; top: calc(100% + 4px); right: 0; z-index: 50;
+  z-index: 300;
   background: var(--panel); border: 1px solid var(--border);
   border-radius: var(--radius-md); box-shadow: var(--shadow-md);
-  min-width: 180px; padding: 4px;
+  min-width: 150px; padding: 4px;
 }
 .palette-settings-item {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 7px 10px; border-radius: var(--radius);
   cursor: pointer; font-size: 12.5px; color: var(--text);
   transition: background 0.1s; user-select: none;
 }
 .palette-settings-item:hover { background: var(--bg-2); }
-.palette-settings-item input[type="checkbox"] { accent-color: var(--primary); width: 14px; height: 14px; cursor: pointer; }
+.palette-settings-item--active { color: var(--primary); font-weight: 500; }
+.palette-settings-item--active:hover { background: var(--primary-50); }
 
 .palette-search {
   position: relative; padding: 8px 10px; border-bottom: 1px solid var(--border);
@@ -467,6 +468,58 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .dd-flyout-item--disabled {
   opacity: 0.4; cursor: not-allowed; pointer-events: none;
 }
+
+/* ========================================================
+   Palette — Bizagi mode
+   ======================================================== */
+.palette--bz { padding: 6px 4px; }
+
+.bz-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px;
+}
+
+.bz-cell {
+  display: flex; align-items: center;
+  border-radius: var(--radius); padding: 2px;
+  position: relative;
+}
+
+.bz-icon {
+  flex: 1; display: grid; place-items: center;
+  padding: 6px; border-radius: var(--radius);
+  cursor: grab; transition: background 0.12s;
+}
+.bz-icon:hover { background: var(--bg-2); }
+.bz-icon:active { cursor: grabbing; }
+.bz-icon--disabled { cursor: not-allowed; opacity: 0.4; }
+.bz-icon--disabled:hover { background: transparent; }
+
+.bz-chevron-btn {
+  width: 14px; height: 14px; flex-shrink: 0;
+  display: grid; place-items: center;
+  color: var(--text-3); border-radius: 3px;
+  align-self: flex-end; margin-bottom: 2px;
+  transition: background 0.1s, color 0.1s, transform 0.15s;
+}
+.bz-chevron-btn:hover { background: var(--bg-2); color: var(--text); }
+.bz-chevron-btn--open { color: var(--primary); transform: rotate(180deg); }
+
+.bz-flyout {
+  z-index: 300;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+  min-width: 240px; padding: 4px;
+  max-height: 320px; overflow-y: auto;
+}
+
+.bz-flyout-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 12px; border-radius: var(--radius);
+  cursor: grab; font-size: 12.5px; color: var(--text);
+  transition: background 0.1s;
+}
+.bz-flyout-item:hover { background: var(--bg-2); }
+.bz-flyout-item:active { cursor: grabbing; }
 
 /* ========================================================
    Canvas Area
