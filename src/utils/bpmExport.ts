@@ -411,15 +411,36 @@ function buildProcessContent(process: Element, parsed: ParsedBpmn): { activities
 
 // ─── Lanes builder ────────────────────────────────────────────────────────────
 
+function defaultLaneXml(laneId: string, poolId: string, poolBounds: Bounds): string {
+  const b = { x: poolBounds.x, y: poolBounds.y, width: poolBounds.width, height: poolBounds.height }
+  return `<Lane Id="${laneId}" Name="Proceso principal" ParentPool="${poolId}">
+          <NodeGraphicsInfos>
+            <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${C.lane.border}" FillColor="${C.lane.fill}" BorderVisible="false" TextX="${b.x}" TextY="${b.y}" TextWidth="${b.width}" TextHeight="${b.height}">
+              <Coordinates XCoordinate="${b.x}" YCoordinate="${b.y}" />
+              ${formatting(8, true)}
+              <TextBackgroundColor>${C.white}</TextBackgroundColor>
+            </NodeGraphicsInfo>
+          </NodeGraphicsInfos>
+          <Documentation />
+          <ExtendedAttributes />
+        </Lane>`
+}
+
 function buildLanes(
   laneSet: Element | undefined,
   poolId: string,
+  poolBounds: Bounds,
   shapes: Map<string, Bounds>,
   idMap: Map<string, string>,
 ): string {
-  if (!laneSet) return '<Lanes />'
-  const lanes = Array.from(laneSet.getElementsByTagNameNS('http://www.omg.org/spec/BPMN/20100524/MODEL', 'lane'))
-  if (lanes.length === 0) return '<Lanes />'
+  const lanes = laneSet
+    ? Array.from(laneSet.getElementsByTagNameNS('http://www.omg.org/spec/BPMN/20100524/MODEL', 'lane'))
+    : []
+
+  if (lanes.length === 0) {
+    // Bizagi needs at least one Lane to render the pool container
+    return `<Lanes>\n        ${defaultLaneXml(crypto.randomUUID(), poolId, poolBounds)}\n      </Lanes>`
+  }
 
   const laneXmls = lanes.map(lane => {
     const origId = lane.getAttribute('id') ?? ''
@@ -452,11 +473,10 @@ function buildPool(participant: Element, process: Element | null, parsed: Parsed
   const processRef     = uid(idMap, origProcessRef)
   const name           = participant.getAttribute('name') ?? ''
   const b              = shapes.get(origId) ?? { x: 30, y: 40, width: 900, height: 300 }
-  const laneSet        = process?.getElementsByTagNameNS(ns.bpmn, 'laneSet')[0]
-  const hasLanes       = laneSet && laneSet.getElementsByTagNameNS(ns.bpmn, 'lane').length > 0
-  const lanesXml       = buildLanes(laneSet, id, shapes, idMap)
+  const laneSet  = process?.getElementsByTagNameNS(ns.bpmn, 'laneSet')[0]
+  const lanesXml = buildLanes(laneSet, id, b, shapes, idMap)
 
-  return `<Pool Id="${id}" Name="${esc(name)}" Process="${processRef}" BoundaryVisible="${hasLanes ? 'true' : 'false'}">
+  return `<Pool Id="${id}" Name="${esc(name)}" Process="${processRef}" BoundaryVisible="true">
     ${lanesXml}
     <NodeGraphicsInfos>
       <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${C.pool.border}" FillColor="${C.pool.fill}">
@@ -468,9 +488,11 @@ function buildPool(participant: Element, process: Element | null, parsed: Parsed
 }
 
 function buildSyntheticPool(poolId: string, processRef: string, diagramName: string, shapes: Map<string, Bounds>): string {
-  const b = shapes.get(processRef) ?? { x: 30, y: 40, width: 900, height: 300 }
-  return `<Pool Id="${poolId}" Name="${esc(diagramName)}" Process="${processRef}" BoundaryVisible="false">
-    <Lanes />
+  const b        = shapes.get(processRef) ?? { x: 30, y: 40, width: 1500, height: 800 }
+  const laneId   = crypto.randomUUID()
+  const lanesXml = `<Lanes>\n        ${defaultLaneXml(laneId, poolId, b)}\n      </Lanes>`
+  return `<Pool Id="${poolId}" Name="${esc(diagramName)}" Process="${processRef}" BoundaryVisible="true">
+    ${lanesXml}
     <NodeGraphicsInfos>
       <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${C.pool.border}" FillColor="${C.pool.fill}">
         <Coordinates XCoordinate="${b.x}" YCoordinate="${b.y}" />

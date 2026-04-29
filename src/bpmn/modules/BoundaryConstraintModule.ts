@@ -40,6 +40,9 @@ BoundaryRules.prototype.init = function () {
   // Priority 1500 — fires before BpmnRules (1000) so we have final say.
   this.addRule('elements.move', 1500, function (context: AnyObj) {
     const { shapes, target } = context
+    // null target = keyboard move or drag start before hover is resolved —
+    // moving within current container. Let BpmnRules (1000) decide.
+    if (target == null) return undefined
     if (isRoot(target)) {
       for (const shape of (shapes ?? [])) {
         if (isContainer(shape.parent)) return false
