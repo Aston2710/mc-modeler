@@ -63,15 +63,15 @@ export function useBpmnModeler(
     // By hooking into the window directly, we ensure Delete/Backspace ALWAYS 
     // removes the selected elements if no text input is currently active.
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        const active = document.activeElement as HTMLElement | null
-        if (active) {
-          const tag = active.tagName.toLowerCase()
-          if (tag === 'input' || tag === 'textarea' || active.isContentEditable) {
-            return // let the user delete text in the UI/search bar
-          }
+      const active = document.activeElement as HTMLElement | null
+      if (active) {
+        const tag = active.tagName.toLowerCase()
+        if (tag === 'input' || tag === 'textarea' || active.isContentEditable) {
+          return // let the user type in the UI
         }
-        
+      }
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const selection = (modeler as any).get('selection').get()
@@ -79,6 +79,22 @@ export function useBpmnModeler(
             e.preventDefault()
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             ;(modeler as any).get('editorActions').trigger('removeSelection')
+          }
+        } catch {
+          // modeler may be unmounting or editorActions not available
+        }
+      } else if (e.key.startsWith('Arrow')) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const selection = (modeler as any).get('selection').get()
+          if (selection && selection.length > 0) {
+            e.preventDefault()
+            const direction = e.key.replace('Arrow', '').toLowerCase()
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ;(modeler as any).get('editorActions').trigger('moveSelection', {
+              direction,
+              accelerated: e.shiftKey || e.ctrlKey || e.metaKey
+            })
           }
         } catch {
           // modeler may be unmounting or editorActions not available

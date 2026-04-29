@@ -16,13 +16,14 @@
 type AnyObj = any
 
 // ── Zoom / Pan sensitivity ────────────────────────────────────────────────────
-// ZOOM_SENSITIVITY: escalado por unidad de delta (pixels). 0.001 → ~0.1 zoom
-// por notch de ratón estándar (deltaY≈100). Bajar para más suavidad.
-const ZOOM_SENSITIVITY = 0.001
+// Sensibilidad para la rueda del ratón tradicional (saltos físicos grandes)
+const ZOOM_SENSITIVITY_MOUSE = 0.0005
+// Sensibilidad para el gesto de pellizco en el trackpad (saltos físicos finos)
+const ZOOM_SENSITIVITY_TRACKPAD = 0.008
 // Paso máximo por evento — evita saltos bruscos en ruedas muy rápidas.
-const ZOOM_MAX_STEP = 0.15
-// Multiplicador de velocidad de pan (scroll sin zoom). 1.0 = neutro.
-const PAN_SPEED = 1.0
+const ZOOM_MAX_STEP = 0.10
+// Multiplicador de velocidad de pan (scroll sin zoom). Bajar para que no vuele.
+const PAN_SPEED = 0.35
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ScrollPan(canvas: AnyObj) {
@@ -39,8 +40,14 @@ function ScrollPan(canvas: AnyObj) {
       const modeFactor = event.deltaMode === 0 ? 1 : event.deltaMode === 1 ? 20 : 100
 
       if (event.ctrlKey || (event.buttons & 2)) {
-        // Escala por magnitud real del delta → trackpad suave, ratón preciso
-        const rawStep = -event.deltaY * modeFactor * ZOOM_SENSITIVITY
+        // Detectar si el giro proviene de una rueda de ratón (saltos fuertes > 40)
+        // o si proviene de un trackpad (impulsos finos continuos < 40)
+        const isMouseWheel = Math.abs(event.deltaY) > 40;
+        
+        // Asignamos sensibilidades según el dispositivo detectado:
+        const activeSensitivity = isMouseWheel ? ZOOM_SENSITIVITY_MOUSE : ZOOM_SENSITIVITY_TRACKPAD;
+
+        const rawStep = -event.deltaY * modeFactor * activeSensitivity;
         const zoomStep = Math.max(-ZOOM_MAX_STEP, Math.min(ZOOM_MAX_STEP, rawStep))
         const rect = container.getBoundingClientRect()
         const point = {

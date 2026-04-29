@@ -8,7 +8,7 @@
 export interface Size { width: number; height: number }
 
 export const ELEMENT_SIZES = {
-  task:                { width: 120, height: 60  },
+  task:                { width: 90, height: 60  },
   gateway:             { width: 50,  height: 50  },
   event:               { width: 36,  height: 36  },
 

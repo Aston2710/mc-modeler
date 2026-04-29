@@ -17,4 +17,6 @@ export const MODELER_CONFIG = {
   // Bind keyboard to document so Delete/Backspace work regardless of canvas focus.
   // diagram-js KeyboardModule already ignores events when target is input/textarea.
   keyboard: { bindTo: document },
+  // Arrow keys: 10px per press; Shift+arrow: 50px (big jump like most canvas tools)
+  keyboardMoveSelection: { moveSpeed: 5, moveSpeedAccelerated: 15 },
 }

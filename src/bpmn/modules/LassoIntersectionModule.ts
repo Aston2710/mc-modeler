@@ -25,6 +25,8 @@ function isContainer(element: AnyObj): boolean {
 }
 
 function shouldSelect(element: AnyObj, bbox: AnyObj): boolean {
+  if (element.waypoints) return false  // connections follow their shapes; no need to select
+
   const eb = elementBBox(element)
   if (!eb) return false
 
@@ -67,6 +69,11 @@ function LassoIntersection(eventBus: AnyObj, elementRegistry: AnyObj, canvas: An
     const allElements: AnyObj[] = elementRegistry.getAll()
     const newIntersection = new Set(allElements.filter((el: AnyObj) => shouldSelect(el, bbox)))
 
+    // Strip 'selected' from connections the original handler may have added
+    for (const e of (containmentMarked as Set<AnyObj>)) {
+      if (e.waypoints) canvas.removeMarker(e, MARKER_SELECTED)
+    }
+
     // Add marker for elements newly intersecting but not already in containment set
     for (const e of newIntersection) {
       if (!containmentMarked.has(e)) canvas.addMarker(e, MARKER_SELECTED)
@@ -92,8 +99,17 @@ function LassoIntersection(eventBus: AnyObj, elementRegistry: AnyObj, canvas: An
     context.marked = initialMarked.union(intersecting)
   })
 
-  eventBus.on('lasso.start',   resetState)
-  eventBus.on('lasso.cleanup', resetState)
+  eventBus.on('lasso.start', resetState)
+
+  eventBus.on('lasso.cleanup', function () {
+    // Remove any residual 'selected' markers from connections — lasso.cleanup
+    // diffs context.marked (no connections) so the original visuals.update never
+    // clears markers that the original lasso.move handler put on connections.
+    for (const el of (elementRegistry.getAll() as AnyObj[])) {
+      if (el.waypoints) canvas.removeMarker(el, MARKER_SELECTED)
+    }
+    resetState()
+  })
 }
 
 LassoIntersection.$inject = ['eventBus', 'elementRegistry', 'canvas']
