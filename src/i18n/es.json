@@ -170,8 +170,14 @@
         "scale3x": "3x (impresión)",
         "orientation": "Orientación",
         "landscape": "Horizontal",
-        "portrait": "Vertical"
+        "portrait": "Vertical",
+        "theme": "Tema de exportación",
+        "themeCurrent": "Tema actual",
+        "themeLight": "Claro",
+        "themeDark": "Oscuro"
       },
+      "preview": "Vista previa",
+      "previewNote": "La vista previa muestra el tema actual. El archivo exportado usará el tema {{theme}}.",
       "export": "Exportar",
       "cancel": "Cancelar",
       "emptyDiagram": "El diagrama está vacío"

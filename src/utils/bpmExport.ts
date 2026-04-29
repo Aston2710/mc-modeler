@@ -43,10 +43,11 @@ const C = {
   startEvent:        { border: -10311914, fill: -1638505 },
   endEvent:          { border: -6750208,  fill: -1135958 },
   intermediateEvent: { border: -10311914, fill: -1638505 },
-  gateway:           { border: -16753024, fill: -256 },
+  gateway:           { border: -4491740,  fill: -10496 },
   lane:              { border: -11513776, fill: -1 },
   pool:              { border: -16777216, fill: -1 },
   annotation:        { border: -2763307,  fill: -2763307 },
+  dataObject:        { border: -16777216, fill: -1 },
   group:             { border: -10066330, fill: -986896 },
   black:             -16777216,
   white:             16777215,
@@ -67,6 +68,7 @@ interface ParsedBpmn {
   annotations:   Element[]
   associations:  Element[]
   groups:        Element[]
+  dataObjects:   Element[]
   idMap:         Map<string, string>   // bpmn-js ID → Bizagi UUID
 }
 
@@ -144,6 +146,7 @@ function parseBpmnXml(xml: string): ParsedBpmn {
   const annotations   = all(root, 'textAnnotation', ns.bpmn)
   const associations  = all(root, 'association', ns.bpmn)
   const groups        = all(root, 'group', ns.bpmn)
+  const dataObjects   = all(root, 'dataObjectReference', ns.bpmn)
 
   // ─── Build ID → UUID map (Bizagi requires valid GUIDs for all Id attributes) ──
   const idMap = new Map<string, string>()
@@ -164,9 +167,9 @@ function parseBpmnXml(xml: string): ParsedBpmn {
     )
   })
 
-  ;[...annotations, ...associations, ...groups].forEach(el => reg(el.getAttribute('id')))
+  ;[...annotations, ...associations, ...groups, ...dataObjects].forEach(el => reg(el.getAttribute('id')))
 
-  return { ns, shapes, labelBounds, edges, participants, processes, annotations, associations, groups, idMap }
+  return { ns, shapes, labelBounds, edges, participants, processes, annotations, associations, groups, dataObjects, idMap }
 }
 
 // ─── ID helper: original bpmn-js ID → Bizagi UUID ────────────────────────────
@@ -200,16 +203,15 @@ function formatting(fontSize = 8, bold = false): string {
 }
 
 // ─── Label position (external labels: events, gateways) ──────────────────────
+// Bizagi needs TextWidth > element width to avoid clipping.
+// TextX offset centers the 90px label under the shape.
 
-function externalLabel(b: Bounds, lb?: Bounds): { tx: number; ty: number; tw: number; th: number } {
-  if (lb && (lb.width > 0 || lb.height > 0)) {
-    return { tx: lb.x, ty: lb.y, tw: lb.width || 94, th: lb.height || 36 }
-  }
+function externalLabel(b: Bounds, _lb?: Bounds, kind: 'event' | 'gateway' = 'event'): { tx: number; ty: number; tw: number; th: number } {
   return {
-    tx: Math.round(b.x - 32 + b.width / 2),
-    ty: b.y + b.height + 4,
-    tw: 94,
-    th: 36,
+    tx: kind === 'gateway' ? b.x - 25 : b.x - 30,
+    ty: b.y + b.height,
+    tw: 90,
+    th: 30,
   }
 }
 
@@ -330,7 +332,7 @@ function buildGateway(
   const id     = uid(idMap, origId)
   const name   = el.getAttribute('name') ?? ''
   const b      = shapes.get(origId) ?? { x: 0, y: 0, width: 40, height: 40 }
-  const lp     = externalLabel(b, labelBounds.get(origId))
+  const lp     = externalLabel(b, labelBounds.get(origId), 'gateway')
   return `<Activity Id="${id}" Name="${esc(name)}">
         <Description />
         <Route SplitTypeCode="${splitType}" />
@@ -344,6 +346,27 @@ function buildGateway(
         </NodeGraphicsInfos>
         <ExtendedAttributes />
       </Activity>`
+}
+
+function buildDataObject(
+  el: Element,
+  shapes: Map<string, Bounds>,
+  idMap: Map<string, string>,
+): string {
+  const origId = el.getAttribute('id') ?? ''
+  const id     = uid(idMap, origId)
+  const name   = el.getAttribute('name') ?? ''
+  const b      = shapes.get(origId) ?? { x: 0, y: 0, width: 36, height: 50 }
+  return `<Artifact BizAgiArtifactTypeSpecified="false" Id="${id}" Name="${esc(name)}" ArtifactType="DataObject">
+      <NodeGraphicsInfos>
+        <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${C.dataObject.border}" FillColor="${C.dataObject.fill}" BorderVisible="false" TextX="${b.x - 27}" TextY="${b.y + b.height}" TextWidth="90" TextHeight="30">
+          <Coordinates XCoordinate="${b.x}" YCoordinate="${b.y}" />
+          ${formatting()}
+          <TextBackgroundColor>${C.white}</TextBackgroundColor>
+        </NodeGraphicsInfo>
+      </NodeGraphicsInfos>
+      <Documentation />
+    </Artifact>`
 }
 
 function buildTransition(
@@ -536,10 +559,13 @@ function buildWorkflowProcess(procId: string, procName: string, process: Element
 function buildArtifacts(
   annotations: Element[],
   groups: Element[],
+  dataObjects: Element[],
   shapes: Map<string, Bounds>,
   idMap: Map<string, string>,
 ): string {
   const parts: string[] = []
+
+  dataObjects.forEach(el => parts.push(buildDataObject(el, shapes, idMap)))
 
   annotations.forEach(el => {
     const origId = el.getAttribute('id') ?? ''
@@ -695,7 +721,7 @@ ${items}
 // ─── Diagram.xml builder (XPDL 2.2) ──────────────────────────────────────────
 
 function buildDiagramXml(diagUuid: string, diagramName: string, author: string, now: string, parsed: ParsedBpmn): string {
-  const { participants, processes, annotations, associations, groups, shapes, idMap } = parsed
+  const { participants, processes, annotations, associations, groups, dataObjects, shapes, idMap } = parsed
 
   const poolParts: string[] = []
   const wfParts:   string[] = []
@@ -722,7 +748,7 @@ function buildDiagramXml(diagUuid: string, diagramName: string, author: string, 
     wfParts.push(buildWorkflowProcess(procId, diagramName, process, author, now, parsed))
   }
 
-  const artifactsXml    = buildArtifacts(annotations, groups, shapes, idMap)
+  const artifactsXml    = buildArtifacts(annotations, groups, dataObjects, shapes, idMap)
   const associationsXml = buildAssociations(associations, parsed.edges, idMap)
 
   return `<?xml version="1.0" encoding="utf-8"?>

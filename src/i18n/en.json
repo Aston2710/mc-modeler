@@ -170,8 +170,14 @@
         "scale3x": "3x (print)",
         "orientation": "Orientation",
         "landscape": "Landscape",
-        "portrait": "Portrait"
+        "portrait": "Portrait",
+        "theme": "Export theme",
+        "themeCurrent": "Current theme",
+        "themeLight": "Light",
+        "themeDark": "Dark"
       },
+      "preview": "Preview",
+      "previewNote": "Preview shows the current theme. Exported file will use {{theme}} theme.",
       "export": "Export",
       "cancel": "Cancel",
       "emptyDiagram": "Diagram is empty"

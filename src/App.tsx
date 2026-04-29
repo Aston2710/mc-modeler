@@ -5,7 +5,7 @@ import { useUIStore } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { useAutoSave } from '@/hooks/useAutoSave'
 import { useKeyboard } from '@/hooks/useKeyboard'
-import { useExport } from '@/hooks/useExport'
+import { useExport, type ExportFormat, type PngScale, type PdfOrientation, type ExportTheme } from '@/hooks/useExport'
 import { validateDiagram } from '@/domain/validation'
 
 import { Toolbar } from '@/components/layout/Toolbar'
@@ -43,7 +43,6 @@ export default function App() {
 
   // Canvas ref
   const canvasRef = useRef<BpmnCanvasHandle>(null)
-  const canvasContainerRef = useRef<HTMLDivElement>(null)
 
   // View state
   const [view, setView] = useState<'home' | 'editor'>('home')
@@ -164,22 +163,15 @@ export default function App() {
 
   const { run: runExport } = useExport()
   const handleExportConfirm = useCallback(async (
-    format: Parameters<typeof runExport>[0]['format'],
-    scale?: Parameters<typeof runExport>[0]['scale'],
-    orientation?: Parameters<typeof runExport>[0]['orientation']
+    format: ExportFormat,
+    scale?: PngScale,
+    orientation?: PdfOrientation,
+    theme?: ExportTheme,
   ) => {
     closeModal()
     const diagram = activeDiagram()
     if (!diagram) return
-    await runExport({
-      format,
-      scale,
-      orientation,
-      diagramName: diagram.name,
-      getXml,
-      getSvg,
-      canvasEl: canvasContainerRef.current,
-    })
+    await runExport({ format, scale, orientation, theme, diagramName: diagram.name, getXml, getSvg })
   }, [closeModal, activeDiagram, runExport, getXml, getSvg])
 
   const handleStartCreate = useCallback((bpmnType: string, event: MouseEvent) => {
@@ -242,7 +234,7 @@ export default function App() {
               onStartCreate={handleStartCreate}
             />
 
-            <div ref={canvasContainerRef} style={{ minHeight: 0, minWidth: 0, overflow: 'hidden', position: 'relative', height: '100%' }}>
+            <div style={{ minHeight: 0, minWidth: 0, overflow: 'hidden', position: 'relative', height: '100%' }}>
               <BpmnCanvas
                 ref={canvasRef}
                 onReady={handleCanvasReady}
@@ -272,6 +264,7 @@ export default function App() {
       {activeModal === 'export' && activeDiagram() && (
         <ExportModal
           diagramName={activeDiagram()!.name}
+          getSvg={getSvg}
           onExport={handleExportConfirm}
           onCancel={closeModal}
           isExporting={isExporting}
