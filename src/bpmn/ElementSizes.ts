@@ -8,12 +8,12 @@
 export interface Size { width: number; height: number }
 
 export const ELEMENT_SIZES = {
-  task:                { width: 90, height: 60  },
-  gateway:             { width: 50,  height: 50  },
-  event:               { width: 36,  height: 36  },
+  task:                { width: 90, height: 60  }, //? 120, 60
+  gateway:             { width: 50,  height: 50  }, //? 50, 50
+  event:               { width: 36,  height: 36  }, //? 36, 36
 
   subProcessExpanded:  { width: 350, height: 200 },
-  subProcessCollapsed: { width: 120, height: 60  },
+  subProcessCollapsed: { width: 90, height: 60  }, //? 120, 60
 
   participantExpanded:           { width: 600, height: 250 },
   participantExpandedVertical:   { width: 250, height: 600 },
