@@ -85,10 +85,6 @@ export function useBpmnModeler(
     // Signal that the modeler is ready — callers can now safely call importXml
     onReadyRef.current?.()
 
-    // ── Global Delete/Backspace handler ────────────────────────────────────
-    // diagram-js's native Keyboard module often loses focus in React apps.
-    // By hooking into the window directly, we ensure Delete/Backspace ALWAYS 
-    // removes the selected elements if no text input is currently active.
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       const active = document.activeElement as HTMLElement | null
       if (active) {
@@ -129,7 +125,29 @@ export function useBpmnModeler(
       }
     }
     
+    // ── Context Menu Interceptor: Permitir menú nativo (Spellcheck) al editar texto ──
+    // diagram-js bloquea el clic derecho por defecto en todo el lienzo.
+    // Usamos la fase de captura (true) para detener esa propagación si estamos
+    // escribiendo texto, permitiendo que el navegador muestre sus sugerencias ortográficas.
+    const handleContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null
+      if (target && (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.classList.contains('djs-direct-editing-content'))) {
+        e.stopPropagation()
+      }
+    }
+
+    // ── Forzar Idioma Español para Corrector Ortográfico ──
+    const handleFocus = (e: FocusEvent) => {
+      const target = e.target as HTMLElement | null
+      if (target && (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.classList.contains('djs-direct-editing-content'))) {
+        target.setAttribute('spellcheck', 'true')
+        target.setAttribute('lang', 'es') // Fuerza al navegador a usar el diccionario en español
+      }
+    }
+
     window.addEventListener('keydown', handleGlobalKeyDown)
+    window.addEventListener('contextmenu', handleContextMenu, true)
+    window.addEventListener('focus', handleFocus, true)
 
     // ── MutationObserver: re-render cuando cambia el tema (data-theme) ──────
     // Cuando el usuario alterna entre modo claro y oscuro, el ThemeAwareRenderer
@@ -173,6 +191,8 @@ export function useBpmnModeler(
 
     return () => {
       window.removeEventListener('keydown', handleGlobalKeyDown)
+      window.removeEventListener('contextmenu', handleContextMenu, true)
+      window.removeEventListener('focus', handleFocus, true)
       observer.disconnect()
       modeler.destroy()
       modelerRef.current = null
