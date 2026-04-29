@@ -288,7 +288,7 @@ export function useBpmnModeler(
           processRef: processBO,
           isExpanded: true,
         })
-        m.get('create').start(event, shape, { hints: { rootElementRequired: true } })
+        m.get('create').start(event, shape)
       } else if (eventDefinitionType) {
         // Event with marker (timer, message, signal, etc.) — attach event definition
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
