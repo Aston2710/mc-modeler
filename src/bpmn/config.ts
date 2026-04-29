@@ -12,12 +12,10 @@ import BoundaryConstraintModule from './elements/BoundaryConstraintModule'
 import GroupMoveModule from './elements/GroupMoveModule'
 import LassoIntersectionModule from './canvas/LassoIntersectionModule'
 import LaneDropModule from './elements/LaneDropModule'
+import ImageContextPadModule from './elements/ImageContextPadModule'
 
 export const MODELER_CONFIG = {
-  additionalModules: [TranslateModule, ThemeAwareRendererModule, CanvasLassoModule, ScrollPanModule, PoolInteriorLassoModule, CustomResizeModule, CustomSelectionModule, CustomElementSizesModule, CanvasPageModule, BoundaryConstraintModule, GroupMoveModule, LassoIntersectionModule, LaneDropModule],
-  // Bind keyboard to document so Delete/Backspace work regardless of canvas focus.
-  // diagram-js KeyboardModule already ignores events when target is input/textarea.
-  keyboard: { bindTo: document },
+  additionalModules: [TranslateModule, ThemeAwareRendererModule, CanvasLassoModule, ScrollPanModule, PoolInteriorLassoModule, CustomResizeModule, CustomSelectionModule, CustomElementSizesModule, CanvasPageModule, BoundaryConstraintModule, GroupMoveModule, LassoIntersectionModule, LaneDropModule, ImageContextPadModule],
   // Arrow keys: 10px per press; Shift+arrow: 50px (big jump like most canvas tools)
   keyboardMoveSelection: { moveSpeed: 5, moveSpeedAccelerated: 15 },
 }

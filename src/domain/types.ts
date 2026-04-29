@@ -50,6 +50,7 @@ export type ActiveModal =
   | 'shortcuts'
   | 'validation'
   | 'newDiagram'
+  | 'imageUpload'
   | null
 
 export interface UIState {
@@ -64,6 +65,7 @@ export interface UIState {
   unsavedChanges: boolean
   diagramListFilter: 'all' | 'recent'
   diagramListSearch: string
+  imageUploadContext: { onConfirm: (url: string) => void } | null
 }
 
 export interface DiagramTab {

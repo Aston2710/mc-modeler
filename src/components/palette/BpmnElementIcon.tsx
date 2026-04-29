@@ -292,6 +292,12 @@ export function BpmnElementIcon({ type, size = 26 }: IconProps) {
           <path d="M12 7H7v16h5" fill="none" stroke={C.text2} strokeWidth="1.8" strokeLinecap="round" />
         </svg>
       )
+    case 'image':
+      return (
+        <svg width={s} height={s} viewBox="0 0 30 30">
+          <image href="/image.png" x="2" y="2" width="26" height="26" preserveAspectRatio="xMidYMid meet" />
+        </svg>
+      )
     case 'dataObject':
       return (
         <svg width={s} height={s} viewBox="0 0 30 30">

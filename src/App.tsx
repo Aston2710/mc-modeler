@@ -20,6 +20,7 @@ import { ExportModal } from '@/components/modals/ExportModal'
 import { ImportModal } from '@/components/modals/ImportModal'
 import { ValidationModal } from '@/components/modals/ValidationModal'
 import { ShortcutsModal } from '@/components/modals/ShortcutsModal'
+import { ImageUploadModal } from '@/components/modals/ImageUploadModal'
 import { ToastContainer } from '@/components/ui/ToastContainer'
 
 export default function App() {
@@ -281,6 +282,9 @@ export default function App() {
       )}
       {activeModal === 'shortcuts' && (
         <ShortcutsModal onClose={closeModal} />
+      )}
+      {activeModal === 'imageUpload' && (
+        <ImageUploadModal />
       )}
 
       <ToastContainer />

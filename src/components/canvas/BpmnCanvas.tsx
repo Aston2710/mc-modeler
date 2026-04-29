@@ -167,6 +167,81 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
       } catch { /* ignore */ }
     }, [modeler, updateScrollThumbs])
 
+    // Drag and drop nativo para archivos de imagen (evitando que bpmn-js se trague el evento)
+    useEffect(() => {
+      const wrap = wrapRef.current
+      if (!wrap) return
+
+      const preventDef = (e: DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+      }
+
+      const handleNativeDrop = (e: DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+
+        const file = e.dataTransfer?.files?.[0]
+        if (file && file.type.startsWith('image/')) {
+          const m = modeler.modelerRef.current
+          if (!m) return
+
+          const canvas = m.get('canvas')
+          const viewbox = canvas.viewbox()
+          
+          const rect = wrap.getBoundingClientRect()
+          const clientX = e.clientX - rect.left
+          const clientY = e.clientY - rect.top
+          
+          const svgX = Math.round(viewbox.x + (clientX / viewbox.scale))
+          const svgY = Math.round(viewbox.y + (clientY / viewbox.scale))
+
+          const position = { x: svgX, y: svgY }
+          const target = canvas.getRootElement()
+
+          const reader = new FileReader()
+          reader.onload = (event) => {
+            const img = new Image()
+            img.onload = () => {
+              const tempCanvas = document.createElement('canvas')
+              const MAX_WIDTH = 2048
+              const MAX_HEIGHT = 2048
+              let width = img.width
+              let height = img.height
+
+              if (width > height) {
+                if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH }
+              } else {
+                if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT }
+              }
+              tempCanvas.width = width
+              tempCanvas.height = height
+              const ctx = tempCanvas.getContext('2d')
+              ctx?.drawImage(img, 0, 0, width, height)
+              
+              const dataUrl = tempCanvas.toDataURL('image/webp', 0.90)
+              
+              const bo = m.get('bpmnFactory').create('bpmn:TextAnnotation', { text: '[IMAGE:' + dataUrl + ']' })
+              const newShape = m.get('elementFactory').createShape({ type: 'bpmn:TextAnnotation', businessObject: bo })
+              m.get('modeling').createShape(newShape, position, target)
+            }
+            img.src = event.target?.result as string
+          }
+          reader.readAsDataURL(file)
+        }
+      }
+
+      wrap.addEventListener('dragenter', preventDef)
+      wrap.addEventListener('dragover', preventDef)
+      wrap.addEventListener('drop', handleNativeDrop)
+
+      return () => {
+        wrap.removeEventListener('dragenter', preventDef)
+        wrap.removeEventListener('dragover', preventDef)
+        wrap.removeEventListener('drop', handleNativeDrop)
+      }
+    }, [modeler])
+
     return (
       <div ref={wrapRef} className="canvas-wrap">
         {/* Grid de fondo */}

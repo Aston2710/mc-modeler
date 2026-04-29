@@ -43,7 +43,10 @@ function CustomElementSizes(elementFactory: AnyObj) {
     if (is('bpmn:Lane'))                return ELEMENT_SIZES.lane
     if (is('bpmn:DataObjectReference')) return ELEMENT_SIZES.dataObject
     if (is('bpmn:DataStoreReference'))  return ELEMENT_SIZES.dataStore
-    if (is('bpmn:TextAnnotation'))      return ELEMENT_SIZES.textAnnotation
+    if (is('bpmn:TextAnnotation')) {
+      if (bo?.text?.startsWith('[IMAGE:')) return { width: 150, height: 100 }
+      return ELEMENT_SIZES.textAnnotation
+    }
     if (is('bpmn:Group'))               return ELEMENT_SIZES.group
 
     return original(element, di)

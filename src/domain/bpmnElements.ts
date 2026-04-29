@@ -53,6 +53,7 @@ export const BPMN_ELEMENTS: BpmnElementDef[] = [
   { type: 'lane', labelKey: 'palette.elements.lane', category: 'containers', bpmnType: 'bpmn:Lane' },
   { type: 'group', labelKey: 'palette.elements.group', category: 'containers', bpmnType: 'bpmn:Group' },
   { type: 'textAnnotation', labelKey: 'palette.elements.textAnnotation', category: 'containers', bpmnType: 'bpmn:TextAnnotation' },
+  { type: 'image', labelKey: 'imagen', category: 'containers', bpmnType: 'bpmn:TextAnnotation' },
   { type: 'dataObject', labelKey: 'palette.elements.dataObject', category: 'containers', bpmnType: 'bpmn:DataObjectReference' },
 ]
 
@@ -80,6 +81,7 @@ export const BIZAGI_GROUPS: BizagiGroup[] = [
   { type: 'pool',              variants: ['lane'] },
   { type: 'group',             variants: [] },
   { type: 'textAnnotation',    variants: [] },
+  { type: 'image',             variants: [] },
   { type: 'dataObject',        variants: [] },
 ]
 

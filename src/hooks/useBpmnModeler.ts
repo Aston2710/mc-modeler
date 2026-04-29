@@ -55,6 +55,33 @@ export function useBpmnModeler(
       setZoom(Math.round(viewbox.scale * 100) / 100)
     })
 
+    // Interceptar arrastre de herramienta de Imagen
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    eventBus.on('create.end', 2000, (event: any) => {
+      const { context, x, y } = event
+      const { shape, target } = context
+      const position = { x, y }
+      if (shape.type === 'bpmn:TextAnnotation' && shape.businessObject.text === '[IMAGE_PENDING]') {
+        // Prevent bpmn-js from creating the pending shape
+        event.preventDefault()
+        event.stopPropagation()
+        
+        if (!target) return false // Drop cancelado
+
+        // Abrir modal y delegar la creación real a la respuesta del modal
+        useUIStore.getState().setImageUploadContext({
+          onConfirm: (url: string) => {
+            const bo = modeler.get('bpmnFactory').create('bpmn:TextAnnotation', { text: '[IMAGE:' + url + ']' })
+            const newShape = modeler.get('elementFactory').createShape({ type: 'bpmn:TextAnnotation', businessObject: bo })
+            // Ejecutamos la creación usando el motor core de diagram-js (modeling)
+            modeler.get('modeling').createShape(newShape, position, target)
+          }
+        })
+        useUIStore.getState().openModal('imageUpload')
+        return false
+      }
+    })
+
     // Signal that the modeler is ready — callers can now safely call importXml
     onReadyRef.current?.()
 
@@ -288,6 +315,12 @@ export function useBpmnModeler(
           processRef: processBO,
           isExpanded: true,
         })
+        m.get('create').start(event, shape)
+      } else if (elementType === 'image') {
+        const bo = m.get('bpmnFactory').create('bpmn:TextAnnotation', {
+          text: '[IMAGE_PENDING]'
+        })
+        shape = m.get('elementFactory').createShape({ type: 'bpmn:TextAnnotation', businessObject: bo })
         m.get('create').start(event, shape)
       } else if (eventDefinitionType) {
         // Event with marker (timer, message, signal, etc.) — attach event definition

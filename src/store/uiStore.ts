@@ -29,6 +29,7 @@ interface UIState {
   setUnsavedChanges: (v: boolean) => void
   setDiagramListFilter: (f: 'all' | 'recent') => void
   setDiagramListSearch: (q: string) => void
+  setImageUploadContext: (ctx: { onConfirm: (url: string) => void } | null) => void
 }
 
 export const useUIStore = create<UIState>()(
@@ -44,6 +45,7 @@ export const useUIStore = create<UIState>()(
     unsavedChanges: false,
     diagramListFilter: 'all',
     diagramListSearch: '',
+    imageUploadContext: null,
 
     setPropertiesPanelOpen: (open) => set((s) => { s.propertiesPanelOpen = open }),
     setPalettePanelOpen: (open) => set((s) => { s.palettePanelOpen = open }),
@@ -67,5 +69,6 @@ export const useUIStore = create<UIState>()(
     setUnsavedChanges: (v) => set((s) => { s.unsavedChanges = v }),
     setDiagramListFilter: (f) => set((s) => { s.diagramListFilter = f }),
     setDiagramListSearch: (q) => set((s) => { s.diagramListSearch = q }),
+    setImageUploadContext: (ctx) => set((s) => { s.imageUploadContext = ctx }),
   }))
 )

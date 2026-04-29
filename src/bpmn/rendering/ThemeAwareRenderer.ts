@@ -195,6 +195,32 @@ ThemeAwareRenderer.prototype.drawShape = function (
     return polygon
   }
 
+  // Interceptar la imagen simulada en TextAnnotation
+  if (isType(element, 'bpmn:TextAnnotation') && element.businessObject.text?.startsWith('[IMAGE:')) {
+    const url = element.businessObject.text.replace('[IMAGE:', '').replace(']', '')
+    const w = element.width
+    const h = element.height
+    
+    // Crear la imagen SVG
+    const image = document.createElementNS('http://www.w3.org/2000/svg', 'image')
+    image.setAttribute('href', url)
+    image.setAttribute('width', w.toString())
+    image.setAttribute('height', h.toString())
+    image.setAttribute('preserveAspectRatio', 'none')
+    
+    // Borde sutil para saber que está ahí si la imagen no carga
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+    rect.setAttribute('width', w.toString())
+    rect.setAttribute('height', h.toString())
+    rect.setAttribute('fill', 'transparent')
+    rect.setAttribute('stroke', '#ccc')
+    rect.setAttribute('stroke-dasharray', '4')
+    
+    parentGfx.appendChild(image)
+    parentGfx.appendChild(rect)
+    return rect // Retornar el rect para que diagram-js pueda hacer hit-testing (selección)
+  }
+
   // Pasamos los colores como attrs — bpmn-js los aplica a través de
   // getFillColor / getStrokeColor / getLabelColor respetando el color DI
   return BpmnRenderer.prototype.drawShape.call(this, parentGfx, element, {
