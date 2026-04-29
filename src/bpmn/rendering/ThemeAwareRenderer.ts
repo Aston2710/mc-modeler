@@ -231,17 +231,41 @@ ThemeAwareRenderer.prototype.drawShape = function (
 }
 
 /**
- * Dibuja una conexión con el color del tema.
+ * Dibuja una conexión con el color del tema y círculos en los extremos (estilo Bizagi).
  */
 ThemeAwareRenderer.prototype.drawConnection = function (
   parentGfx: SVGElement,
   element: AnyElement,
 ): SVGElement {
   const colors = connectionColors()
-  return BpmnRenderer.prototype.drawConnection.call(this, parentGfx, element, {
+  const result = BpmnRenderer.prototype.drawConnection.call(this, parentGfx, element, {
     stroke:     colors.stroke,
     defaultLabelColor: colors.labelColor,
   })
+
+  // Circles at start/end of the connection (Bizagi-style endpoint markers)
+  const wps: Array<{ x: number; y: number }> = element.waypoints
+  if (wps && wps.length >= 2) {
+    const stroke = colors.stroke
+    const svgNS = 'http://www.w3.org/2000/svg'
+
+    const addEndpointCircle = (x: number, y: number) => {
+      const c = document.createElementNS(svgNS, 'circle')
+      c.setAttribute('cx', String(x))
+      c.setAttribute('cy', String(y))
+      c.setAttribute('r', '4')
+      c.setAttribute('fill', 'white')
+      c.setAttribute('stroke', stroke)
+      c.setAttribute('stroke-width', '1.5')
+      c.setAttribute('pointer-events', 'none')
+      parentGfx.appendChild(c)
+    }
+
+    addEndpointCircle(wps[0].x, wps[0].y)
+    addEndpointCircle(wps[wps.length - 1].x, wps[wps.length - 1].y)
+  }
+
+  return result
 }
 
 export default ThemeAwareRenderer

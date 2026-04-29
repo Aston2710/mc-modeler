@@ -13,9 +13,10 @@ import GroupMoveModule from './elements/GroupMoveModule'
 import LassoIntersectionModule from './canvas/LassoIntersectionModule'
 import LaneDropModule from './elements/LaneDropModule'
 import ImageContextPadModule from './elements/ImageContextPadModule'
+import StrictOrthogonalLayouter from './connections/StrictOrthogonalLayouter'
 
 export const MODELER_CONFIG = {
-  additionalModules: [TranslateModule, ThemeAwareRendererModule, CanvasLassoModule, ScrollPanModule, PoolInteriorLassoModule, CustomResizeModule, CustomSelectionModule, CustomElementSizesModule, CanvasPageModule, BoundaryConstraintModule, GroupMoveModule, LassoIntersectionModule, LaneDropModule, ImageContextPadModule],
-  // Arrow keys: 10px per press; Shift+arrow: 50px (big jump like most canvas tools)
+  additionalModules: [TranslateModule, ThemeAwareRendererModule, CanvasLassoModule, ScrollPanModule, PoolInteriorLassoModule, CustomResizeModule, CustomSelectionModule, CustomElementSizesModule, CanvasPageModule, BoundaryConstraintModule, GroupMoveModule, LassoIntersectionModule, LaneDropModule, ImageContextPadModule, StrictOrthogonalLayouter],
+  // Arrow keys: 5px per press; Shift+arrow: 15px
   keyboardMoveSelection: { moveSpeed: 5, moveSpeedAccelerated: 15 },
 }

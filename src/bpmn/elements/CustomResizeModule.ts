@@ -75,7 +75,8 @@ function shouldOverride(element: AnyObj): boolean {
     bo.$instanceOf('bpmn:Gateway')      ||
     bo.$instanceOf('bpmn:CallActivity') ||
     bo.$instanceOf('bpmn:DataObject')   ||
-    bo.$instanceOf('bpmn:DataStore')
+    bo.$instanceOf('bpmn:DataStore')    ||
+    bo.$instanceOf('bpmn:TextAnnotation')
   )
 }
 
@@ -98,8 +99,8 @@ inherits(CustomResizeRules, RuleProvider)
 CustomResizeRules.$inject = ['eventBus']
 
 CustomResizeRules.prototype.init = function () {
-  // Prioridad 2000 > 1000 de BpmnRules → esta regla se evalúa primero
-  this.addRule('shape.resize', 2000, function (context: AnyObj) {
+  // Prioridad 10000 > cualquier regla interna de bpmn-js
+  this.addRule('shape.resize', 10000, function (context: AnyObj) {
     const { shape, newBounds } = context
 
     if (!shouldOverride(shape)) return undefined  // pasar a BpmnRules
@@ -110,6 +111,15 @@ CustomResizeRules.prototype.init = function () {
     }
 
     return true
+  })
+
+  // Esta regla es necesaria para que diagram-js genere los handles (los circulitos/cuadritos)
+  this.addRule('elements.resize', 10000, function (context: AnyObj) {
+    const { elements } = context
+    if (elements && elements.length === 1) {
+      if (shouldOverride(elements[0])) return true
+    }
+    return undefined
   })
 }
 

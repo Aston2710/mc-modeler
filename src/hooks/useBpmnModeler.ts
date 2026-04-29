@@ -131,7 +131,7 @@ export function useBpmnModeler(
     // escribiendo texto, permitiendo que el navegador muestre sus sugerencias ortográficas.
     const handleContextMenu = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null
-      if (target && (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.classList.contains('djs-direct-editing-content'))) {
+      if (target && (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || (target.classList && target.classList.contains('djs-direct-editing-content')))) {
         e.stopPropagation()
       }
     }
@@ -139,7 +139,7 @@ export function useBpmnModeler(
     // ── Forzar Idioma Español para Corrector Ortográfico ──
     const handleFocus = (e: FocusEvent) => {
       const target = e.target as HTMLElement | null
-      if (target && (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.classList.contains('djs-direct-editing-content'))) {
+      if (target && (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || (target.classList && target.classList.contains('djs-direct-editing-content')))) {
         target.setAttribute('spellcheck', 'true')
         target.setAttribute('lang', 'es') // Fuerza al navegador a usar el diccionario en español
       }
