@@ -158,6 +158,7 @@
       "subtitle": "Elige el formato de exportación",
       "formats": {
         "bpmn": { "name": "BPMN 2.0", "desc": "Archivo XML compatible con Bizagi, Camunda y otros" },
+        "bpm":  { "name": "BPM Bizagi", "desc": "Formato nativo Bizagi — doble clic para abrir en Bizagi Modeler" },
         "png": { "name": "PNG", "desc": "Imagen rasterizada, ideal para presentaciones" },
         "svg": { "name": "SVG", "desc": "Vector escalable, máxima calidad" },
         "pdf": { "name": "PDF", "desc": "Documento listo para imprimir o compartir" }

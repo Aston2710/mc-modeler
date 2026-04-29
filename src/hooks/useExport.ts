@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { toPng } from 'html-to-image'
 import { jsPDF } from 'jspdf'
 import { useUIStore } from '@/store/uiStore'
+import { exportToBpm } from '@/utils/bpmExport'
 
-export type ExportFormat = 'bpmn' | 'png' | 'svg' | 'pdf'
+export type ExportFormat = 'bpmn' | 'png' | 'svg' | 'pdf' | 'bpm'
 export type PngScale = 1 | 2 | 3
 export type PdfOrientation = 'landscape' | 'portrait'
 
@@ -43,7 +44,11 @@ export function useExport() {
 
     setExporting(true)
     try {
-      if (format === 'bpmn') {
+      if (format === 'bpm') {
+        const xml = await getXml()
+        const blob = await exportToBpm({ diagramName, bpmnXml: xml })
+        downloadBlob(blob, `${safeName}.bpm`)
+      } else if (format === 'bpmn') {
         const xml = await getXml()
         downloadText(xml, `${safeName}.bpmn`, 'application/xml')
       } else if (format === 'svg') {

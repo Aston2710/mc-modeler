@@ -12,9 +12,10 @@ interface ExportModalProps {
 
 const FORMATS: { id: ExportFormat; ext: string }[] = [
   { id: 'bpmn', ext: '.bpmn' },
-  { id: 'png', ext: '.png' },
-  { id: 'svg', ext: '.svg' },
-  { id: 'pdf', ext: '.pdf' },
+  { id: 'bpm',  ext: '.bpm'  },
+  { id: 'png',  ext: '.png'  },
+  { id: 'svg',  ext: '.svg'  },
+  { id: 'pdf',  ext: '.pdf'  },
 ]
 
 export function ExportModal({ diagramName, onExport, onCancel, isExporting }: ExportModalProps) {
