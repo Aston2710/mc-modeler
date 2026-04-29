@@ -50,22 +50,16 @@ export async function withTheme<T>(theme: ExportTheme, fn: () => Promise<T>): Pr
   }
 }
 
-// Post-processes the SVG string from bpmn-js saveSVG() to fix two things:
-// 1. External labels (pool/lane names, event labels, gateway labels) use SVG
-//    `currentColor` which inherits from CSS — fine on-screen, becomes black in
-//    standalone SVG files. Setting `color` on the root SVG element fixes this.
-// 2. No background is embedded — inject a <rect> so the file looks correct
-//    when opened directly in a browser or rendered to canvas.
 export function injectThemeIntoSvg(svg: string, themeName: 'light' | 'dark'): string {
+  const bg = THEME_BG[themeName] ?? '#ffffff'
   const text = THEME_TEXT[themeName] ?? '#0f172a'
-  const bg   = THEME_BG[themeName]   ?? '#ffffff'
 
-  return svg.replace(/<svg([^>]*)>/, (_, attrs: string) => {
-    const newAttrs = attrs.includes('style=')
-      ? attrs.replace(/style="([^"]*)"/, `style="$1;color:${text}"`)
-      : `${attrs} style="color:${text}"`
-    return `<svg${newAttrs}><rect width="100%" height="100%" fill="${bg}"/>`
-  })
+  return svg.replace(/<svg([^>]*)>/, (_, attrs) =>
+    `<svg${attrs}>
+      <style>
+        text, tspan { fill: ${text} !important; color: ${text} !important; stroke: none !important; }
+      </style>
+      <rect width="100%" height="100%" fill="${bg}"/>`)
 }
 
 // Returns a fully themed SVG: bpmn-js shapes re-rendered in target theme colors
