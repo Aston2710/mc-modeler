@@ -15,10 +15,10 @@ import LaneDropModule from './elements/LaneDropModule'
 import ImageContextPadModule from './elements/ImageContextPadModule'
 import StrictOrthogonalLayouter from './connections/StrictOrthogonalLayouter'
 import ConnectionEndpointCirclesModule from './connections/ConnectionEndpointCirclesModule'
-import KillBendpointsModule from './connections/KillBendpointsModule'
+import SmartBendpointsModule from './connections/SmartBendpointsModule'
 
 export const MODELER_CONFIG = {
-  additionalModules: [TranslateModule, ThemeAwareRendererModule, CanvasLassoModule, ScrollPanModule, PoolInteriorLassoModule, CustomResizeModule, CustomSelectionModule, CustomElementSizesModule, CanvasPageModule, BoundaryConstraintModule, GroupMoveModule, LassoIntersectionModule, LaneDropModule, ImageContextPadModule, StrictOrthogonalLayouter, ConnectionEndpointCirclesModule, KillBendpointsModule],
+  additionalModules: [TranslateModule, ThemeAwareRendererModule, CanvasLassoModule, ScrollPanModule, PoolInteriorLassoModule, CustomResizeModule, CustomSelectionModule, CustomElementSizesModule, CanvasPageModule, BoundaryConstraintModule, GroupMoveModule, LassoIntersectionModule, LaneDropModule, ImageContextPadModule, StrictOrthogonalLayouter, ConnectionEndpointCirclesModule, SmartBendpointsModule],
   // Arrow keys: 5px per press; Shift+arrow: 15px
   keyboardMoveSelection: { moveSpeed: 5, moveSpeedAccelerated: 15 },
 }

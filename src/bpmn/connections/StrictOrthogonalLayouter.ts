@@ -1,15 +1,14 @@
 /**
- * StrictOrthogonalLayouter — Anclaje Cardinal Discreto (estilo Bizagi)
+ * StrictOrthogonalLayouter — Anclaje Cardinal Discreto + Evasión de Cajas
  *
- * Cada conexión entre dos shapes normales:
- *   1. Calcula el delta (dx, dy) entre centros absolutos.
- *   2. Elige el par de puntos cardinales medios (Right→Left, Left→Right, Bottom→Top, Top→Bottom).
- *   3. Genera un path 100% ortogonal entre esos dos puntos.
+ * Pilares:
+ *   1. Hint-Aware: si hints.connectionStart/End existen, ancla al cardinal más
+ *      cercano (libre albedrío del usuario). Sin hint → delta de centros.
+ *   2. Evasión de cajas: connectRectangles() del motor nativo manhattan —
+ *      jamás cruza por dentro de un shape, genera U-turns seguros.
+ *   3. Retorno limpio: withoutRedundantPoints() elimina vértices redundantes.
  *
- * BpmnLayouter NUNCA se llama para shape→shape normales.
- * Solo se usa como fallback extremo si source/target no tienen dimensiones.
- *
- * ConnectionImportNormalizer re-rutea conexiones diagonales al importar XML.
+ *   BpmnLayouter solo como fallback extremo (sin dimensiones / auto-conexión).
  */
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -17,7 +16,7 @@
 import BpmnLayouter from 'bpmn-js/lib/features/modeling/BpmnLayouter'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import { withoutRedundantPoints } from 'diagram-js/lib/layout/ManhattanLayout'
+import { connectRectangles, withoutRedundantPoints } from 'diagram-js/lib/layout/ManhattanLayout'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import inherits from 'inherits-browser'
@@ -26,7 +25,7 @@ type Point = { x: number; y: number }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyShape = any
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function hasDiagonals(waypoints: Point[] | null | undefined): boolean {
   if (!waypoints || waypoints.length < 2) return false
@@ -38,6 +37,7 @@ function hasDiagonals(waypoints: Point[] | null | undefined): boolean {
   return false
 }
 
+/** Los 4 puntos cardinales medios de un shape rectangular */
 function cardinals(shape: AnyShape): {
   top: Point; bottom: Point; left: Point; right: Point; cx: number; cy: number
 } {
@@ -45,75 +45,39 @@ function cardinals(shape: AnyShape): {
   const cy = shape.y + shape.height / 2
   return {
     cx, cy,
-    top:    { x: cx,                   y: shape.y               },
-    bottom: { x: cx,                   y: shape.y + shape.height },
-    left:   { x: shape.x,              y: cy                    },
-    right:  { x: shape.x + shape.width, y: cy                   },
+    top:    { x: cx,                    y: shape.y                },
+    bottom: { x: cx,                    y: shape.y + shape.height },
+    left:   { x: shape.x,               y: cy                    },
+    right:  { x: shape.x + shape.width, y: cy                    },
   }
 }
 
-/**
- * Genera segmentos ortogonales entre dos puntos cardinales.
- * startVertical: el punto de inicio sale en dirección vertical (Top/Bottom).
- * endVertical:   el punto de llegada entra en dirección vertical (Top/Bottom).
- *
- * Casos:
- *   H→H : Z-shape  horiz → vert → horiz  (midX = promedio de x)
- *   V→V : Z-shape  vert → horiz → vert   (midY = promedio de y)
- *   H→V : L-shape  {end.x, start.y} como codo
- *   V→H : L-shape  {start.x, end.y} como codo
- */
-function buildCardinalPath(
-  start: Point,
-  end: Point,
-  startVertical: boolean,
-  endVertical: boolean,
-): Point[] {
-  const TOLERANCE = 2
-
-  // Línea recta si ya están alineados en el eje de salida
-  if (!startVertical && !endVertical && Math.abs(start.y - end.y) <= TOLERANCE) {
-    return [start, end]
+/** Snaps a point to the nearest cardinal of shape */
+function snapToCardinal(shape: AnyShape, hint: Point): Point {
+  const c = cardinals(shape)
+  const candidates: Point[] = [c.top, c.bottom, c.left, c.right]
+  let best = candidates[0]
+  let bestDist = Infinity
+  for (const p of candidates) {
+    const d = Math.hypot(p.x - hint.x, p.y - hint.y)
+    if (d < bestDist) { bestDist = d; best = p }
   }
-  if (startVertical && endVertical && Math.abs(start.x - end.x) <= TOLERANCE) {
-    return [start, end]
-  }
-
-  if (!startVertical && !endVertical) {
-    // H → V → H  (Z-shape; cubre tanto flujo normal como bucle/U)
-    const midX = Math.round((start.x + end.x) / 2)
-    return [start, { x: midX, y: start.y }, { x: midX, y: end.y }, end]
-  }
-
-  if (startVertical && endVertical) {
-    // V → H → V
-    const midY = Math.round((start.y + end.y) / 2)
-    return [start, { x: start.x, y: midY }, { x: end.x, y: midY }, end]
-  }
-
-  if (!startVertical && endVertical) {
-    // H → V  (L-shape)
-    return [start, { x: end.x, y: start.y }, end]
-  }
-
-  // V → H  (L-shape)
-  return [start, { x: start.x, y: end.y }, end]
+  return best
 }
 
-// ── Gateway tip routing (conservado del layouter anterior) ────────────────────
+// ── Gateway tip ───────────────────────────────────────────────────────────────
 
 function isGateway(element: AnyShape): boolean {
   const bo = element?.businessObject
   return !!(bo && typeof bo.$instanceOf === 'function' && bo.$instanceOf('bpmn:Gateway'))
 }
 
+/** Cardinal tip del diamante que mira hacia other */
 function getGatewayTip(gateway: AnyShape, other: AnyShape): Point {
   const cx = gateway.x + gateway.width / 2
   const cy = gateway.y + gateway.height / 2
-  const ox = other.x + other.width / 2
-  const oy = other.y + other.height / 2
-  const dx = ox - cx
-  const dy = oy - cy
+  const dx = (other.x + other.width / 2) - cx
+  const dy = (other.y + other.height / 2) - cy
   const dxNorm = Math.abs(dx) / (gateway.width / 2)
   const dyNorm = Math.abs(dy) / (gateway.height / 2)
 
@@ -128,18 +92,54 @@ function getGatewayTip(gateway: AnyShape, other: AnyShape): Point {
   }
 }
 
-function tipIsVertical(tip: Point, gateway: AnyShape): boolean {
-  const cx = gateway.x + gateway.width / 2
-  return Math.abs(tip.x - cx) < 2
+// ── Anchor picker — el núcleo hint-aware ──────────────────────────────────────
+
+/**
+ * Extrae la posición de arrastre/intención del usuario de los hints.
+ * diagram-js puede publicarla en connectionStart/End, dragPosition, o point.
+ * Cualquiera de los tres es suficiente para activar el magnetismo cardinal.
+ */
+function resolveHintPoint(
+  explicitPoint: Point | undefined,
+  hints: { dragPosition?: Point; point?: Point },
+): Point | undefined {
+  return explicitPoint ?? hints.dragPosition ?? hints.point
 }
 
-function buildGatewayPath(
-  start: Point,
-  end: Point,
-  srcExitsVertically: boolean,
-  tgtEntersVertically: boolean,
-): Point[] {
-  return buildCardinalPath(start, end, srcExitsVertically, tgtEntersVertically)
+/**
+ * Elige el punto de anclaje cardinal para shape.
+ *
+ * Prioridad:
+ *   1. Cualquier posición de arrastre del usuario → snap agresivo al cardinal
+ *      más cercano. El usuario manda absoluto (tasks Y gateways).
+ *   2. Sin posición de arrastre + gateway → tip del diamante calculado.
+ *   3. Sin ninguna pista → delta de centros (conexión automática).
+ *
+ * El magnetismo es intencional: si el ratón está cerca de la cara izquierda,
+ * la flecha sale por la izquierda aunque el destino esté a la derecha.
+ * connectRectangles generará el U-turn necesario sin atravesar el shape.
+ */
+function pickAnchor(shape: AnyShape, other: AnyShape, hintPoint: Point | undefined, hints: Record<string, unknown>): Point {
+  const pos = resolveHintPoint(hintPoint, hints as { dragPosition?: Point; point?: Point })
+
+  if (pos) {
+    return snapToCardinal(shape, pos)
+  }
+
+  if (isGateway(shape)) {
+    return getGatewayTip(shape, other)
+  }
+
+  const sc = cardinals(shape)
+  const tc = cardinals(other)
+  const dx = tc.cx - sc.cx
+  const dy = tc.cy - sc.cy
+
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0 ? sc.right : sc.left
+  } else {
+    return dy >= 0 ? sc.bottom : sc.top
+  }
 }
 
 // ── Post-import normalizer ────────────────────────────────────────────────────
@@ -150,29 +150,21 @@ function ConnectionImportNormalizer(eventBus: any, elementRegistry: any, modelin
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const connections: any[] = []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    elementRegistry.forEach((el: any) => {
-      if (el.waypoints) connections.push(el)
-    })
+    elementRegistry.forEach((el: any) => { if (el.waypoints) connections.push(el) })
 
     let fixed = 0
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     connections.forEach((conn: any) => {
       if (!conn.source || !conn.target) return
       if (!hasDiagonals(conn.waypoints)) return
-
-      const newWaypoints = layouter.layoutConnection(conn, {
-        source: conn.source,
-        target: conn.target,
-      })
+      const newWaypoints = layouter.layoutConnection(conn, { source: conn.source, target: conn.target })
       if (newWaypoints && newWaypoints.length >= 2) {
         modeling.updateWaypoints(conn, newWaypoints)
         fixed++
       }
     })
 
-    if (fixed > 0) {
-      commandStack.clear()
-    }
+    if (fixed > 0) commandStack.clear()
   })
 }
 
@@ -204,81 +196,23 @@ StrictOrthogonalLayouter.prototype.layoutConnection = function (connection: any,
     return BpmnLayouter.prototype.layoutConnection.call(this, connection, hints)
   }
 
-  // Auto-conexión
+  // Auto-conexión: delegar al motor nativo
   if (source === target) {
     return BpmnLayouter.prototype.layoutConnection.call(this, connection, hints)
   }
 
-  // ── Gateway: routing por tip cardinal de diamante ─────────────────────────
-  const srcIsGateway = isGateway(source)
-  const tgtIsGateway = isGateway(target)
+  // ── Pilar 1: elegir puntos cardinales (hint-aware) ────────────────────────
+  // resolveHintPoint busca connectionStart/End → dragPosition → point en hints.
+  const start = pickAnchor(source, target, hints.connectionStart, hints)
+  const end   = pickAnchor(target, source, hints.connectionEnd,   hints)
 
-  if (srcIsGateway || tgtIsGateway) {
-    const srcTip: Point = srcIsGateway ? getGatewayTip(source, target) : { x: source.x + source.width / 2, y: source.y + source.height / 2 }
-    const tgtTip: Point = tgtIsGateway ? getGatewayTip(target, source) : { x: target.x + target.width / 2, y: target.y + target.height / 2 }
+  // ── Pilar 2: enrutamiento nativo con evasión de cajas ────────────────────
+  // connectRectangles respeta start/end, genera U-turns seguros y nunca
+  // atraviesa el interior de un shape.
+  const waypoints = connectRectangles(source, target, start, end, hints)
 
-    let srcExitsVertically: boolean
-    let tgtEntersVertically: boolean
-
-    if (srcIsGateway) {
-      srcExitsVertically = tipIsVertical(srcTip, source)
-    } else {
-      srcExitsVertically = !tipIsVertical(tgtTip, target)
-    }
-
-    if (tgtIsGateway) {
-      tgtEntersVertically = tipIsVertical(tgtTip, target)
-    } else {
-      tgtEntersVertically = !srcExitsVertically
-    }
-
-    return withoutRedundantPoints(
-      buildGatewayPath(srcTip, tgtTip, srcExitsVertically, tgtEntersVertically)
-    )
-  }
-
-  // ── Anclaje Cardinal Discreto (shape normal → shape normal) ───────────────
-  const src = cardinals(source)
-  const tgt = cardinals(target)
-  const dx = tgt.cx - src.cx
-  const dy = tgt.cy - src.cy
-
-  let start: Point
-  let end: Point
-  let startVertical: boolean
-  let endVertical: boolean
-
-  if (Math.abs(dx) >= Math.abs(dy)) {
-    // Flujo horizontal
-    if (dx >= 0) {
-      // Destino a la derecha: sale por Right del origen, entra por Left del destino
-      start = src.right
-      end   = tgt.left
-    } else {
-      // Destino a la izquierda (bucle/U): sale por Left del origen, entra por Right del destino
-      start = src.left
-      end   = tgt.right
-    }
-    startVertical = false
-    endVertical   = false
-  } else {
-    // Flujo vertical
-    if (dy >= 0) {
-      // Destino abajo: sale por Bottom del origen, entra por Top del destino
-      start = src.bottom
-      end   = tgt.top
-    } else {
-      // Destino arriba: sale por Top del origen, entra por Bottom del destino
-      start = src.top
-      end   = tgt.bottom
-    }
-    startVertical = true
-    endVertical   = true
-  }
-
-  return withoutRedundantPoints(
-    buildCardinalPath(start, end, startVertical, endVertical)
-  )
+  // ── Pilar 3: retorno limpio ───────────────────────────────────────────────
+  return withoutRedundantPoints(waypoints)
 }
 
 export default {
