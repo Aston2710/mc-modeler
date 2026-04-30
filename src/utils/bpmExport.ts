@@ -303,7 +303,7 @@ function buildTask(
   const origId = el.getAttribute('id') ?? ''
   const id     = uid(idMap, origId)
   const name   = el.getAttribute('name') ?? ''
-  const b      = shapes.get(origId) ?? { x: 0, y: 0, width: 90, height: 60 }
+  const b      = shapes.get(origId) ?? { x: 0, y: 0, width: 120, height: 60 }
   return `<Activity Id="${id}" Name="${esc(name)}">
         <Description />
         <Implementation><Task /></Implementation>
@@ -588,7 +588,7 @@ function buildArtifacts(
     const origId = el.getAttribute('id') ?? ''
     const id     = uid(idMap, origId)
     const name   = el.getAttribute('name') ?? ''
-    const b      = shapes.get(origId) ?? { x: 0, y: 0, width: 200, height: 200 }
+    const b      = shapes.get(origId) ?? { x: 0, y: 0, width: 300, height: 300 }
     const lp     = externalLabel(b, undefined)
     parts.push(`<Artifact BizAgiArtifactTypeSpecified="false" Id="${id}" Name="${esc(name)}" ArtifactType="Group">
       <Group Id="${id}" Name="${esc(name)}" />

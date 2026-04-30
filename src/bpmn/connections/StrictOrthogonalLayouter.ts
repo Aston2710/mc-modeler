@@ -1,25 +1,20 @@
 /**
- * StrictOrthogonalLayouter
+ * StrictOrthogonalLayouter — Anclaje Cardinal Discreto (estilo Bizagi)
  *
- * Replaces BpmnLayouter as the 'layouter' service.
- * Never produces diagonal connections — when BpmnLayouter's repairConnection()
- * falls back to [start, end] (a diagonal line), we intercept and build a proper
- * Z-shaped / L-shaped orthogonal path instead.
+ * Cada conexión entre dos shapes normales:
+ *   1. Calcula el delta (dx, dy) entre centros absolutos.
+ *   2. Elige el par de puntos cardinales medios (Right→Left, Left→Right, Bottom→Top, Top→Bottom).
+ *   3. Genera un path 100% ortogonal entre esos dos puntos.
  *
- * Four-tier strategy:
- *   0. Gateway connections: route to/from the exact cardinal tip (top/right/bottom/left)
- *      so CroppingConnectionDocking always crops at a diamond vertex, not a random edge.
- *   1. Run BpmnLayouter normally (respects boundary-event routing rules, etc.).
- *   2. If result is diagonal, retry with element CENTERS as start/end.
- *   3. If still diagonal, buildOrthogonalPath() — always 100% orthogonal.
+ * BpmnLayouter NUNCA se llama para shape→shape normales.
+ * Solo se usa como fallback extremo si source/target no tienen dimensiones.
+ *
+ * ConnectionImportNormalizer re-rutea conexiones diagonales al importar XML.
  */
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import BpmnLayouter from 'bpmn-js/lib/features/modeling/BpmnLayouter'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-import { getMid } from 'diagram-js/lib/layout/LayoutUtil'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { withoutRedundantPoints } from 'diagram-js/lib/layout/ManhattanLayout'
@@ -43,73 +38,80 @@ function hasDiagonals(waypoints: Point[] | null | undefined): boolean {
   return false
 }
 
-/**
- * Build a guaranteed-orthogonal path from start → end.
- *
- * If points are already H/V aligned → 2-segment straight line.
- * Otherwise → 3-segment Z-shape:
- *   h:h (horizontal dominant) → horiz → vert → horiz
- *   v:v (vertical dominant)   → vert  → horiz → vert
- */
-function buildOrthogonalPath(
-  start: Point,
-  end: Point,
-  source: AnyShape,
-  target: AnyShape,
-): Point[] {
-  const sx = start.x, sy = start.y
-  const tx = end.x, ty = end.y
-  const TOLERANCE = 2
-
-  if (Math.abs(sy - ty) <= TOLERANCE) return [{ x: sx, y: sy }, { x: tx, y: ty }]
-  if (Math.abs(sx - tx) <= TOLERANCE) return [{ x: sx, y: sy }, { x: tx, y: ty }]
-
-  const horizDist = Math.abs(
-    (target.x + target.width / 2) - (source.x + source.width / 2)
-  )
-  const vertDist = Math.abs(
-    (target.y + target.height / 2) - (source.y + source.height / 2)
-  )
-
-  if (horizDist >= vertDist) {
-    const midX = Math.round((sx + tx) / 2)
-    return [
-      { x: sx, y: sy },
-      { x: midX, y: sy },
-      { x: midX, y: ty },
-      { x: tx, y: ty },
-    ]
-  } else {
-    const midY = Math.round((sy + ty) / 2)
-    return [
-      { x: sx, y: sy },
-      { x: sx, y: midY },
-      { x: tx, y: midY },
-      { x: tx, y: ty },
-    ]
+function cardinals(shape: AnyShape): {
+  top: Point; bottom: Point; left: Point; right: Point; cx: number; cy: number
+} {
+  const cx = shape.x + shape.width / 2
+  const cy = shape.y + shape.height / 2
+  return {
+    cx, cy,
+    top:    { x: cx,                   y: shape.y               },
+    bottom: { x: cx,                   y: shape.y + shape.height },
+    left:   { x: shape.x,              y: cy                    },
+    right:  { x: shape.x + shape.width, y: cy                   },
   }
 }
 
-// ── Gateway tip routing ───────────────────────────────────────────────────────
+/**
+ * Genera segmentos ortogonales entre dos puntos cardinales.
+ * startVertical: el punto de inicio sale en dirección vertical (Top/Bottom).
+ * endVertical:   el punto de llegada entra en dirección vertical (Top/Bottom).
+ *
+ * Casos:
+ *   H→H : Z-shape  horiz → vert → horiz  (midX = promedio de x)
+ *   V→V : Z-shape  vert → horiz → vert   (midY = promedio de y)
+ *   H→V : L-shape  {end.x, start.y} como codo
+ *   V→H : L-shape  {start.x, end.y} como codo
+ */
+function buildCardinalPath(
+  start: Point,
+  end: Point,
+  startVertical: boolean,
+  endVertical: boolean,
+): Point[] {
+  const TOLERANCE = 2
+
+  // Línea recta si ya están alineados en el eje de salida
+  if (!startVertical && !endVertical && Math.abs(start.y - end.y) <= TOLERANCE) {
+    return [start, end]
+  }
+  if (startVertical && endVertical && Math.abs(start.x - end.x) <= TOLERANCE) {
+    return [start, end]
+  }
+
+  if (!startVertical && !endVertical) {
+    // H → V → H  (Z-shape; cubre tanto flujo normal como bucle/U)
+    const midX = Math.round((start.x + end.x) / 2)
+    return [start, { x: midX, y: start.y }, { x: midX, y: end.y }, end]
+  }
+
+  if (startVertical && endVertical) {
+    // V → H → V
+    const midY = Math.round((start.y + end.y) / 2)
+    return [start, { x: start.x, y: midY }, { x: end.x, y: midY }, end]
+  }
+
+  if (!startVertical && endVertical) {
+    // H → V  (L-shape)
+    return [start, { x: end.x, y: start.y }, end]
+  }
+
+  // V → H  (L-shape)
+  return [start, { x: start.x, y: end.y }, end]
+}
+
+// ── Gateway tip routing (conservado del layouter anterior) ────────────────────
 
 function isGateway(element: AnyShape): boolean {
   const bo = element?.businessObject
   return !!(bo && typeof bo.$instanceOf === 'function' && bo.$instanceOf('bpmn:Gateway'))
 }
 
-/**
- * Returns the cardinal tip (top/right/bottom/left) of a gateway diamond
- * that faces the other element.
- *
- * Normalizes dx/dy by the half-extents of the diamond so that a gateway
- * that is wider than it is tall still picks the correct axis.
- */
 function getGatewayTip(gateway: AnyShape, other: AnyShape): Point {
   const cx = gateway.x + gateway.width / 2
   const cy = gateway.y + gateway.height / 2
   const ox = other.x + other.width / 2
   const oy = other.y + other.height / 2
-
   const dx = ox - cx
   const dy = oy - cy
   const dxNorm = Math.abs(dx) / (gateway.width / 2)
@@ -117,68 +119,31 @@ function getGatewayTip(gateway: AnyShape, other: AnyShape): Point {
 
   if (dxNorm >= dyNorm) {
     return dx >= 0
-      ? { x: gateway.x + gateway.width, y: cy }  // right tip
-      : { x: gateway.x, y: cy }                   // left tip
+      ? { x: gateway.x + gateway.width, y: cy }
+      : { x: gateway.x, y: cy }
   } else {
     return dy >= 0
-      ? { x: cx, y: gateway.y + gateway.height }  // bottom tip
-      : { x: cx, y: gateway.y }                   // top tip
+      ? { x: cx, y: gateway.y + gateway.height }
+      : { x: cx, y: gateway.y }
   }
 }
 
-/**
- * A top/bottom tip exits vertically; a left/right tip exits horizontally.
- * We detect by checking whether the tip x-coordinate equals the gateway center x.
- */
 function tipIsVertical(tip: Point, gateway: AnyShape): boolean {
   const cx = gateway.x + gateway.width / 2
   return Math.abs(tip.x - cx) < 2
 }
 
-/**
- * Build an orthogonal path that respects the exit/entry axis imposed by gateway tips.
- *
- * srcExitsVertically  true  → first segment is vertical  (top/bottom tip)
- * tgtEntersVertically true  → last  segment is vertical  (top/bottom tip)
- *
- * Combinations:
- *   V→H or H→V : L-shape  (3 points)
- *   V→V        : Z-shape  vert → horiz → vert  (4 points)
- *   H→H        : Z-shape  horiz → vert → horiz (4 points)
- */
 function buildGatewayPath(
   start: Point,
   end: Point,
   srcExitsVertically: boolean,
   tgtEntersVertically: boolean,
 ): Point[] {
-  if (srcExitsVertically !== tgtEntersVertically) {
-    // L-shape
-    if (srcExitsVertically) {
-      return [start, { x: start.x, y: end.y }, end]
-    } else {
-      return [start, { x: end.x, y: start.y }, end]
-    }
-  } else if (srcExitsVertically) {
-    // Both vertical: v → h → v
-    const midY = Math.round((start.y + end.y) / 2)
-    return [start, { x: start.x, y: midY }, { x: end.x, y: midY }, end]
-  } else {
-    // Both horizontal: h → v → h
-    const midX = Math.round((start.x + end.x) / 2)
-    return [start, { x: midX, y: start.y }, { x: midX, y: end.y }, end]
-  }
+  return buildCardinalPath(start, end, srcExitsVertically, tgtEntersVertically)
 }
 
-// ── Post-import normalizer ───────────────────────────────────────────────────
+// ── Post-import normalizer ────────────────────────────────────────────────────
 
-/**
- * Fixes diagonal connections that come in from imported XML.
- * layoutConnection is NOT called during bpmn-js import — waypoints from DI
- * are used as-is. This behavior listens for import.render.complete, re-routes
- * any connection that still has diagonals, then clears the undo stack so the
- * corrections are transparent to the user.
- */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ConnectionImportNormalizer(eventBus: any, elementRegistry: any, modeling: any, layouter: any, commandStack: any) {
   eventBus.on('import.render.complete', 100, () => {
@@ -206,7 +171,6 @@ function ConnectionImportNormalizer(eventBus: any, elementRegistry: any, modelin
     })
 
     if (fixed > 0) {
-      // Clear undo stack so import corrections are not undoable
       commandStack.clear()
     }
   })
@@ -214,7 +178,7 @@ function ConnectionImportNormalizer(eventBus: any, elementRegistry: any, modelin
 
 ConnectionImportNormalizer.$inject = ['eventBus', 'elementRegistry', 'modeling', 'layouter', 'commandStack']
 
-// ── Layouter ─────────────────────────────────────────────────────────────────
+// ── Layouter ──────────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function StrictOrthogonalLayouter(this: any, elementRegistry: unknown) {
@@ -231,20 +195,27 @@ StrictOrthogonalLayouter.prototype.layoutConnection = function (connection: any,
   const source: AnyShape = hints.source || connection.source
   const target: AnyShape = hints.target || connection.target
 
-  if (!source || !target || source === target) {
+  // Fallback extremo: sin shapes o sin dimensiones
+  if (
+    !source || !target ||
+    !source.width || !source.height ||
+    !target.width || !target.height
+  ) {
     return BpmnLayouter.prototype.layoutConnection.call(this, connection, hints)
   }
 
-  // ── Tier 0: gateway cardinal tip routing ─────────────────────────────────
-  // Force connections to/from gateways to attach at the 4 diamond cardinal tips.
-  // CroppingConnectionDocking will then crop at exactly the tip because the path
-  // segment nearest the gateway is perpendicular to the diamond face at that point.
+  // Auto-conexión
+  if (source === target) {
+    return BpmnLayouter.prototype.layoutConnection.call(this, connection, hints)
+  }
+
+  // ── Gateway: routing por tip cardinal de diamante ─────────────────────────
   const srcIsGateway = isGateway(source)
   const tgtIsGateway = isGateway(target)
 
   if (srcIsGateway || tgtIsGateway) {
-    const srcTip: Point = srcIsGateway ? getGatewayTip(source, target) : getMid(source)
-    const tgtTip: Point = tgtIsGateway ? getGatewayTip(target, source) : getMid(target)
+    const srcTip: Point = srcIsGateway ? getGatewayTip(source, target) : { x: source.x + source.width / 2, y: source.y + source.height / 2 }
+    const tgtTip: Point = tgtIsGateway ? getGatewayTip(target, source) : { x: target.x + target.width / 2, y: target.y + target.height / 2 }
 
     let srcExitsVertically: boolean
     let tgtEntersVertically: boolean
@@ -252,15 +223,12 @@ StrictOrthogonalLayouter.prototype.layoutConnection = function (connection: any,
     if (srcIsGateway) {
       srcExitsVertically = tipIsVertical(srcTip, source)
     } else {
-      // Non-gateway source: choose exit direction complementary to target entry
-      // so the path forms a clean L-shape rather than a U or Z.
       srcExitsVertically = !tipIsVertical(tgtTip, target)
     }
 
     if (tgtIsGateway) {
       tgtEntersVertically = tipIsVertical(tgtTip, target)
     } else {
-      // Non-gateway target: choose entry direction complementary to source exit.
       tgtEntersVertically = !srcExitsVertically
     }
 
@@ -269,23 +237,48 @@ StrictOrthogonalLayouter.prototype.layoutConnection = function (connection: any,
     )
   }
 
-  // ── Tier 1: normal BpmnLayouter ──────────────────────────────────────────
-  const result1 = BpmnLayouter.prototype.layoutConnection.call(this, connection, hints)
-  if (result1 && !hasDiagonals(result1)) return result1
+  // ── Anclaje Cardinal Discreto (shape normal → shape normal) ───────────────
+  const src = cardinals(source)
+  const tgt = cardinals(target)
+  const dx = tgt.cx - src.cx
+  const dy = tgt.cy - src.cy
 
-  // ── Tier 2: retry with element CENTERS as anchors ────────────────────────
-  const centerHints = {
-    ...hints,
-    connectionStart: getMid(source),
-    connectionEnd: getMid(target),
+  let start: Point
+  let end: Point
+  let startVertical: boolean
+  let endVertical: boolean
+
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    // Flujo horizontal
+    if (dx >= 0) {
+      // Destino a la derecha: sale por Right del origen, entra por Left del destino
+      start = src.right
+      end   = tgt.left
+    } else {
+      // Destino a la izquierda (bucle/U): sale por Left del origen, entra por Right del destino
+      start = src.left
+      end   = tgt.right
+    }
+    startVertical = false
+    endVertical   = false
+  } else {
+    // Flujo vertical
+    if (dy >= 0) {
+      // Destino abajo: sale por Bottom del origen, entra por Top del destino
+      start = src.bottom
+      end   = tgt.top
+    } else {
+      // Destino arriba: sale por Top del origen, entra por Bottom del destino
+      start = src.top
+      end   = tgt.bottom
+    }
+    startVertical = true
+    endVertical   = true
   }
-  const result2 = BpmnLayouter.prototype.layoutConnection.call(this, connection, centerHints)
-  if (result2 && !hasDiagonals(result2)) return result2
 
-  // ── Tier 3: guaranteed orthogonal fallback ────────────────────────────────
-  const s = getMid(source)
-  const t = getMid(target)
-  return withoutRedundantPoints(buildOrthogonalPath(s, t, source, target))
+  return withoutRedundantPoints(
+    buildCardinalPath(start, end, startVertical, endVertical)
+  )
 }
 
 export default {
