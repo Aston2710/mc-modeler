@@ -75,10 +75,10 @@ class QuadTree {
     const hh = height / 2
     const d = this.depth + 1
     this.children = [
-      new QuadTree({ x,      y,      width: hw, height: hh }, this.maxDepth, this.maxItems, d),
-      new QuadTree({ x + hw, y,      width: hw, height: hh }, this.maxDepth, this.maxItems, d),
-      new QuadTree({ x,      y + hh, width: hw, height: hh }, this.maxDepth, this.maxItems, d),
-      new QuadTree({ x + hw, y + hh, width: hw, height: hh }, this.maxDepth, this.maxItems, d),
+      new QuadTree({ x: x,      y: y,      width: hw, height: hh }, this.maxDepth, this.maxItems, d),
+      new QuadTree({ x: x + hw, y: y,      width: hw, height: hh }, this.maxDepth, this.maxItems, d),
+      new QuadTree({ x: x,      y: y + hh, width: hw, height: hh }, this.maxDepth, this.maxItems, d),
+      new QuadTree({ x: x + hw, y: y + hh, width: hw, height: hh }, this.maxDepth, this.maxItems, d),
     ]
   }
 
@@ -120,6 +120,7 @@ function buildObstacleGrid(
   for (const el of elements) {
     if (el.waypoints) continue
     if (el.id === srcId || el.id === tgtId) continue
+    if (el.type === 'label') continue
     const t = el.businessObject?.$type
     if (t === 'bpmn:Participant' || t === 'bpmn:Lane') continue
     obstacles.push(el)
@@ -153,6 +154,13 @@ function buildObstacleGrid(
       id:     el.id,
     })
   }
+
+  console.log('obstacles inserted:', obstacles.map(o => ({
+    id: o.id,
+    type: o.businessObject?.$type,
+    inflated: { x: o.x-margin, y: o.y-margin, w: o.width+margin*2, h: o.height+margin*2 }
+  })))
+  console.log('start:', JSON.stringify(start), 'end:', JSON.stringify(end))
 
   return { qtree, bounds: { minX, minY, maxX, maxY } }
 }
@@ -314,5 +322,34 @@ export function routeWithAStar(
   const { qtree, bounds } = buildObstacleGrid(elements, srcId, tgtId, margin)
   const raw = aStarRoute(start, end, qtree, bounds, gridSize)
   if (!raw) return null
-  return smoothPath(raw)
+
+  const smoothed = smoothPath(raw)
+
+  // Anclar primer y último punto a coordenadas exactas del puerto
+  smoothed[0] = { x: start.x, y: start.y }
+  smoothed[smoothed.length - 1] = { x: end.x, y: end.y }
+
+  // Forzar ortogonalidad estricta en puntos intermedios
+  for (let i = 1; i < smoothed.length - 1; i++) {
+    const prev = smoothed[i - 1]
+    const curr = smoothed[i]
+    if (Math.abs(curr.x - prev.x) > Math.abs(curr.y - prev.y)) {
+      curr.y = prev.y
+    } else {
+      curr.x = prev.x
+    }
+  }
+
+  // Insertar codo si el último segmento sigue siendo diagonal
+  const last = smoothed[smoothed.length - 1]
+  const prev2 = smoothed[smoothed.length - 2]
+  if (last.x !== prev2.x && last.y !== prev2.y) {
+    const horizontal = Math.abs(last.x - prev2.x) > Math.abs(last.y - prev2.y)
+    smoothed.splice(smoothed.length - 1, 0, {
+      x: horizontal ? last.x : prev2.x,
+      y: horizontal ? prev2.y : last.y,
+    })
+  }
+
+  return smoothed
 }
