@@ -174,9 +174,6 @@ BizagiLayouter.prototype.layoutConnection = function (connection: any, hints: an
     src.id, tgt.id
   )
 
-  console.log('A* result:', astarPath ? `${astarPath.length} points` : 'null — using fallbackZ')
-  console.log('elements count:', elements.length)
-
   if (astarPath && astarPath.length >= 2) {
     return [start, ...astarPath, end]
   }
