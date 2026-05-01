@@ -15,10 +15,11 @@ import LaneDropModule from './elements/LaneDropModule'
 import ImageContextPadModule from './elements/ImageContextPadModule'
 import BizagiLayouter from './connections/BizagiLayouter'
 import BizagiConnectionDocking from './connections/BizagiConnectionDocking'
+import BizagiSegmentHandles from './connections/BizagiSegmentHandles'
 import ConnectionEndpointCirclesModule from './connections/ConnectionEndpointCirclesModule'
 
 export const MODELER_CONFIG = {
-  additionalModules: [TranslateModule, ThemeAwareRendererModule, CanvasLassoModule, ScrollPanModule, PoolInteriorLassoModule, CustomResizeModule, CustomSelectionModule, CustomElementSizesModule, CanvasPageModule, BoundaryConstraintModule, GroupMoveModule, LassoIntersectionModule, LaneDropModule, ImageContextPadModule, ConnectionEndpointCirclesModule, BizagiLayouter, BizagiConnectionDocking],
+  additionalModules: [TranslateModule, ThemeAwareRendererModule, CanvasLassoModule, ScrollPanModule, PoolInteriorLassoModule, CustomResizeModule, CustomSelectionModule, CustomElementSizesModule, CanvasPageModule, BoundaryConstraintModule, GroupMoveModule, LassoIntersectionModule, LaneDropModule, ImageContextPadModule, ConnectionEndpointCirclesModule, BizagiLayouter, BizagiConnectionDocking, BizagiSegmentHandles],
   // Arrow keys: 5px per press; Shift+arrow: 15px
   keyboardMoveSelection: { moveSpeed: 5, moveSpeedAccelerated: 15 },
 }

@@ -1,20 +1,21 @@
 /**
  * BizagiLayouter — Híbrido: cardinals estrictos + Manhattan nativo.
  *
- * Responsabilidad de este módulo:
- *   1. Elegir el punto cardinal exacto (centro de cara) de salida y entrada,
- *      respetando hints de arrastre del usuario y tips de gateway.
- *   2. Aplicar port offset si otra conexión ya usa la misma cara cardinal.
- *   3. Delegar el path completo a connectRectangles (Manhattan nativo),
- *      que esquiva obstáculos y genera U-turns sin cruzar por dentro de shapes.
+ * Responsabilidad:
+ *   1. Elegir el cardinal exacto (centro de cara) de salida y entrada,
+ *      respetando hints de arrastre y tips de gateway.
+ *   2. Aplicar port offset si otra conexión ya usa la misma cara.
+ *   3. Pasar `hints.preferredLayouts = ['r:l']` (notación t|r|b|l) para que
+ *      connectRectangles genere stubs perpendiculares desde la cara correcta
+ *      sin adivinar por la geometría relativa de las cajas.
  *
- * BizagiConnectionDocking garantiza que esos cardinals no se deslicen
- * hacia las esquinas tras el recorte nativo.
+ * BizagiConnectionDocking impide que el recorte nativo deslice esos puntos
+ * cardinales hacia las esquinas tras el rendering.
  */
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import { connectRectangles } from 'diagram-js/lib/layout/ManhattanLayout'
+import { connectPoints } from 'diagram-js/lib/layout/ManhattanLayout'
 
 type Point = { x: number; y: number }
 type Face = 'top' | 'bottom' | 'left' | 'right'
@@ -22,6 +23,9 @@ type Face = 'top' | 'bottom' | 'left' | 'right'
 type Shape = any
 
 const PORT_OFFSET = 15
+
+// ManhattanLayout direction letters (must match /t|r|b|l/ regex in ManhattanLayout.js)
+const FACE_DIR: Record<Face, string> = { top: 't', right: 'r', bottom: 'b', left: 'l' }
 
 // ── Shape helpers ─────────────────────────────────────────────────────────────
 
@@ -54,7 +58,7 @@ function nearestFace(s: Shape, p: Point): Face {
   const candidates: [Face, number][] = [
     ['top',    Math.hypot(p.x - scx(s), p.y - s.y)],
     ['bottom', Math.hypot(p.x - scx(s), p.y - (s.y + s.height))],
-    ['left',   Math.hypot(p.x - s.x,           p.y - scy(s))],
+    ['left',   Math.hypot(p.x - s.x,             p.y - scy(s))],
     ['right',  Math.hypot(p.x - (s.x + s.width), p.y - scy(s))],
   ]
   return candidates.sort((a, b) => a[1] - b[1])[0][0]
@@ -63,9 +67,10 @@ function nearestFace(s: Shape, p: Point): Face {
 function gatewayFace(gw: Shape, other: Shape): Face {
   const dx = scx(other) - scx(gw)
   const dy = scy(other) - scy(gw)
-  const dxN = Math.abs(dx) / (gw.width / 2)
-  const dyN = Math.abs(dy) / (gw.height / 2)
-  if (dxN >= dyN) return dx >= 0 ? 'right' : 'left'
+  const absDx = Math.abs(dx)
+  const absDy = Math.abs(dy)
+  if (absDx > absDy * 1.5) return dx >= 0 ? 'right' : 'left'
+  if (absDy > absDx * 1.5) return dy >= 0 ? 'bottom' : 'top'
   return dy >= 0 ? 'bottom' : 'top'
 }
 
@@ -76,8 +81,14 @@ function defaultFace(src: Shape, tgt: Shape): Face {
   return dy >= 0 ? 'bottom' : 'top'
 }
 
-function pickFace(shape: Shape, other: Shape, hint?: Point): Face {
-  if (hint) return nearestFace(shape, hint)
+function isShapeCenter(shape: Shape, p: Point): boolean {
+  return Math.abs(p.x - scx(shape)) < 1 && Math.abs(p.y - scy(shape)) < 1
+}
+
+function pickFace(shape: Shape, other: Shape, hint?: Point, isShapeMove?: boolean): Face {
+  if (!isShapeMove && hint && typeof hint === 'object' && !isShapeCenter(shape, hint)) {
+    return nearestFace(shape, hint)
+  }
   if (isGateway(shape)) return gatewayFace(shape, other)
   return defaultFace(shape, other)
 }
@@ -103,32 +114,58 @@ BizagiLayouter.prototype.layoutConnection = function (connection: any, hints: an
   hints = hints || {}
   const src: Shape = hints.source || connection.source
   const tgt: Shape = hints.target || connection.target
-
   if (!src?.width || !src?.height || !tgt?.width || !tgt?.height) return connection.waypoints || []
   if (src === tgt) return connection.waypoints || []
 
-  const sFace = pickFace(src, tgt, hints.connectionStart)
-  const tFace = pickFace(tgt, src, hints.connectionEnd)
+  const shapeMoveMode = hints.connectionStart === false
+  const sFace = pickFace(src, tgt, shapeMoveMode ? undefined : hints.connectionStart, shapeMoveMode)
+  const tFace = pickFace(tgt, src, shapeMoveMode ? undefined : hints.connectionEnd, shapeMoveMode)
 
   let start = faceCardinal(src, sFace)
-  const end   = faceCardinal(tgt, tFace)
+  let end   = faceCardinal(tgt, tFace)
 
-  // Port offset: stagger connections sharing the same exit face
-  let sameCount = 0
+  // Port offset: stagger connections sharing the same exit face on source
+  let sameOutCount = 0
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const conn of (src.outgoing || []) as any[]) {
     if (conn === connection || !conn.waypoints?.length) continue
-    if (nearestFace(src, conn.waypoints[0]) === sFace) sameCount++
+    if (nearestFace(src, conn.waypoints[0]) === sFace) sameOutCount++
   }
-  if (sameCount > 0) {
-    const off = sameCount * PORT_OFFSET
+  if (sameOutCount > 0) {
+    const off = sameOutCount * PORT_OFFSET
+    // getDockingPoint inside connectRectangles preserves the non-primary axis:
+    // for 'r'/'l' it keeps y; for 't'/'b' it keeps x — offset goes there.
     start = isHoriz(sFace)
       ? { x: start.x, y: start.y + off }
       : { x: start.x + off, y: start.y }
   }
 
-  // Manhattan engine handles obstacle avoidance and U-turns
-  return connectRectangles(src, tgt, start, end, hints)
+  // Port offset: stagger connections sharing the same entry face on target
+  let sameInCount = 0
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const conn of (tgt.incoming || []) as any[]) {
+    if (conn === connection || !conn.waypoints?.length) continue
+    const lastWp = conn.waypoints[conn.waypoints.length - 1]
+    if (nearestFace(tgt, lastWp) === tFace) sameInCount++
+  }
+  if (sameInCount > 0) {
+    const off = sameInCount * PORT_OFFSET
+    end = isHoriz(tFace)
+      ? { x: end.x, y: end.y + off }
+      : { x: end.x + off, y: end.y }
+  }
+
+  // Force exact exit/entry faces via explicit trbl direction string.
+  // isExplicitDirections() in ManhattanLayout checks /t|r|b|l/ and bypasses
+  // the orientation-based direction guess, so Manhattan honours our cardinals.
+  const direction = `${FACE_DIR[sFace]}:${FACE_DIR[tFace]}`
+  return connectPoints(start, end, direction)
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+BizagiLayouter.prototype.repairConnection = function (connection: any, newEnd: any, hints: any) {
+  hints = hints || {}
+  return this.layoutConnection(connection, hints)
 }
 
 // ── ConnectionImportNormalizer ────────────────────────────────────────────────

@@ -1373,3 +1373,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .djs-bendpoint {
   opacity: 0 !important;
 }
+
+/* Suppress segment handles and bendpoints on connection hover — only show on selection */
+.djs-bendpoints.hover .djs-segment-dragger,
+.djs-bendpoints.hover .djs-bendpoint { display: none !important; }

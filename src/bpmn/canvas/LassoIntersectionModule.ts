@@ -96,7 +96,7 @@ function LassoIntersection(eventBus: AnyObj, elementRegistry: AnyObj, canvas: An
 
     const allElements: AnyObj[] = elementRegistry.getAll()
     const intersecting = new Set(allElements.filter((el: AnyObj) => shouldSelect(el, bbox)))
-    context.marked = initialMarked.union(intersecting)
+    context.marked = new Set([...initialMarked, ...intersecting])
   })
 
   eventBus.on('lasso.start', resetState)
