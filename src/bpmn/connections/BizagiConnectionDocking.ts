@@ -12,10 +12,24 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { getElementLineIntersection } from 'diagram-js/lib/layout/LayoutUtil'
+import { snapToNearestSlot } from './BizagiPortDistributor'
 
 type Point = { x: number; y: number }
+type Face = 'top' | 'bottom' | 'left' | 'right'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Shape = any
+
+function nearestFaceFromPoint(shape: Shape, p: Point): Face {
+  const cx = shape.x + shape.width / 2
+  const cy = shape.y + shape.height / 2
+  const candidates: [Face, number][] = [
+    ['top',    Math.hypot(p.x - cx,                      p.y - shape.y)],
+    ['bottom', Math.hypot(p.x - cx,                      p.y - (shape.y + shape.height))],
+    ['left',   Math.hypot(p.x - shape.x,                 p.y - cy)],
+    ['right',  Math.hypot(p.x - (shape.x + shape.width), p.y - cy)],
+  ]
+  return candidates.sort((a, b) => a[1] - b[1])[0][0]
+}
 
 function isGateway(shape: Shape): boolean {
   const bo = shape?.businessObject
@@ -131,7 +145,13 @@ BizagiConnectionDocking.prototype.getDockingPoint = function (connection: any, s
   const shapePath: string = this._graphicsFactory.getShapePath(shape)
   const twoPointPath = `M${inner.x},${inner.y} L${endpoint.x},${endpoint.y}`
   const cropped: Point | null = getElementLineIntersection(shapePath, twoPointPath, false)
-  return { point: endpoint, actual: cropped || endpoint, idx }
+  const dockPoint = cropped || endpoint
+  const face = nearestFaceFromPoint(shape, dockPoint)
+  const totalOnFace = dockStart
+    ? ((connection.source?.outgoing?.length) || 1)
+    : ((connection.target?.incoming?.length) || 1)
+  const snapped = snapToNearestSlot(shape, face, dockPoint, totalOnFace)
+  return { point: endpoint, actual: snapped, idx }
 }
 
 export default {

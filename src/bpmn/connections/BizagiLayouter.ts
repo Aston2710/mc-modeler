@@ -16,13 +16,13 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { connectPoints } from 'diagram-js/lib/layout/ManhattanLayout'
+import { getPortPoint } from './BizagiPortDistributor'
+import { routeWithAStar } from './AStarRouter'
 
 type Point = { x: number; y: number }
 type Face = 'top' | 'bottom' | 'left' | 'right'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Shape = any
-
-const PORT_OFFSET = 15
 
 // ManhattanLayout direction letters (must match /t|r|b|l/ regex in ManhattanLayout.js)
 const FACE_DIR: Record<Face, string> = { top: 't', right: 'r', bottom: 'b', left: 'l' }
@@ -103,11 +103,33 @@ function hasDiagonals(wps: Point[] | null | undefined): boolean {
   return false
 }
 
+// ── Stub & fallback helpers ───────────────────────────────────────────────────
+
+function applyStub(p: Point, face: Face, stub: number): Point {
+  switch (face) {
+    case 'top':    return { x: p.x, y: p.y - stub }
+    case 'bottom': return { x: p.x, y: p.y + stub }
+    case 'left':   return { x: p.x - stub, y: p.y }
+    case 'right':  return { x: p.x + stub, y: p.y }
+  }
+}
+
+function fallbackZ(p1: Point, p2: Point): Point[] {
+  const midX = Math.round((p1.x + p2.x) / 2)
+  const midY = Math.round((p1.y + p2.y) / 2)
+  if (Math.abs(p2.x - p1.x) >= Math.abs(p2.y - p1.y)) {
+    return [p1, { x: midX, y: p1.y }, { x: midX, y: p2.y }, p2]
+  }
+  return [p1, { x: p1.x, y: midY }, { x: p2.x, y: midY }, p2]
+}
+
 // ── BizagiLayouter ────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function BizagiLayouter(this: any) {}
-BizagiLayouter.$inject = []
+function BizagiLayouter(this: any, elementRegistry: any) {
+  this._elementRegistry = elementRegistry
+}
+BizagiLayouter.$inject = ['elementRegistry']
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 BizagiLayouter.prototype.layoutConnection = function (connection: any, hints: any) {
@@ -124,42 +146,40 @@ BizagiLayouter.prototype.layoutConnection = function (connection: any, hints: an
   let start = faceCardinal(src, sFace)
   let end   = faceCardinal(tgt, tFace)
 
-  // Port offset: stagger connections sharing the same exit face on source
-  let sameOutCount = 0
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  for (const conn of (src.outgoing || []) as any[]) {
-    if (conn === connection || !conn.waypoints?.length) continue
-    if (nearestFace(src, conn.waypoints[0]) === sFace) sameOutCount++
-  }
-  if (sameOutCount > 0) {
-    const off = sameOutCount * PORT_OFFSET
-    // getDockingPoint inside connectRectangles preserves the non-primary axis:
-    // for 'r'/'l' it keeps y; for 't'/'b' it keeps x — offset goes there.
-    start = isHoriz(sFace)
-      ? { x: start.x, y: start.y + off }
-      : { x: start.x + off, y: start.y }
+  // Capa 2: distribución porcentual de puertos (BizagiPortDistributor)
+  const outgoing = ((src.outgoing || []) as any[]).filter((c: any) => c !== connection)
+  const outOnFace = outgoing.filter((c: any) =>
+    c.waypoints?.length && nearestFace(src, c.waypoints[0]) === sFace
+  )
+  start = getPortPoint(src, sFace, outOnFace.length, outOnFace.length + 1)
+
+  const incoming = ((tgt.incoming || []) as any[]).filter((c: any) => c !== connection)
+  const inOnFace = incoming.filter((c: any) => {
+    const last = c.waypoints?.[c.waypoints.length - 1]
+    return last && nearestFace(tgt, last) === tFace
+  })
+  end = getPortPoint(tgt, tFace, inOnFace.length, inOnFace.length + 1)
+
+  const STUB = 10
+
+  // Capa 3: stub de seguridad 10px perpendicular al borde
+  const stubStart = applyStub(start, sFace, STUB)
+  const stubEnd   = applyStub(end,   tFace, STUB)
+
+  // Capa 4: A* con obstacle avoidance
+  const elements = this._elementRegistry ? this._elementRegistry.getAll() : []
+  const astarPath = routeWithAStar(
+    stubStart, stubEnd,
+    elements,
+    src.id, tgt.id
+  )
+
+  if (astarPath && astarPath.length >= 2) {
+    return [start, ...astarPath, end]
   }
 
-  // Port offset: stagger connections sharing the same entry face on target
-  let sameInCount = 0
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  for (const conn of (tgt.incoming || []) as any[]) {
-    if (conn === connection || !conn.waypoints?.length) continue
-    const lastWp = conn.waypoints[conn.waypoints.length - 1]
-    if (nearestFace(tgt, lastWp) === tFace) sameInCount++
-  }
-  if (sameInCount > 0) {
-    const off = sameInCount * PORT_OFFSET
-    end = isHoriz(tFace)
-      ? { x: end.x, y: end.y + off }
-      : { x: end.x + off, y: end.y }
-  }
-
-  // Force exact exit/entry faces via explicit trbl direction string.
-  // isExplicitDirections() in ManhattanLayout checks /t|r|b|l/ and bypasses
-  // the orientation-based direction guess, so Manhattan honours our cardinals.
-  const direction = `${FACE_DIR[sFace]}:${FACE_DIR[tFace]}`
-  return connectPoints(start, end, direction)
+  // Capa 5: fallback Z ortogonal (garantiza 90° aunque cruce un shape)
+  return fallbackZ(start, end)
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
