@@ -1,15 +1,16 @@
 /**
- * BizagiConnectionDocking
+ * BizagiConnectionDocking.ts
  *
- * - Gateway shapes: intersects the line (inner-waypoint → shape-center) against
- *   the 4 diamond edges to find the exact docking point on the diamond border.
- * - All other shapes: delegates to the native CroppingConnectionDocking logic
- *   (getElementLineIntersection against getShapePath).
+ * Intercepta el recorte visual de conexiones para que el punto de anclaje
+ * siempre aparezca en el borde real del shape (no en el centro geométrico).
  *
- * getCroppedWaypoints replaces only first and last waypoints; intermediates unchanged.
+ * Cambios respecto a la versión anterior:
+ *  - try/catch en getShapePath() → no explota durante drag ni import
+ *  - shapeEdgePoint() como fallback geométrico cuando el SVG no está listo
+ *  - Protección para waypoints vacíos/nulos
+ *  - Soporte mejorado para gateways con intersección precisa del diamante
  */
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { getElementLineIntersection } from 'diagram-js/lib/layout/LayoutUtil'
 
@@ -24,29 +25,19 @@ function isGateway(shape: Shape): boolean {
 
 // ── Diamond intersection ──────────────────────────────────────────────────────
 
-/**
- * Returns the intersection of the line (from `inner` toward shape center) with
- * one of the 4 diamond edges. Falls back to the nearest cardinal vertex.
- *
- * `inner` is the waypoint just before the gateway endpoint (outside the shape).
- * The line direction is inner → center, so t=0 is inner, t=1 is center.
- * The first intersection with t > 0 is the diamond border point.
- */
 function getDiamondDockingPoint(shape: Shape, inner: Point): Point {
-  const cx = shape.x + shape.width / 2
-  const cy = shape.y + shape.height / 2
-  const top:    Point = { x: cx,                     y: shape.y }
-  const right:  Point = { x: shape.x + shape.width,  y: cy }
-  const bottom: Point = { x: cx,                     y: shape.y + shape.height }
-  const left:   Point = { x: shape.x,                y: cy }
+  const mcx = shape.x + shape.width  / 2
+  const mcy = shape.y + shape.height / 2
 
-  // Direction from inner toward center
-  const dx = cx - inner.x
-  const dy = cy - inner.y
+  const top:    Point = { x: mcx,                    y: shape.y }
+  const right:  Point = { x: shape.x + shape.width,  y: mcy }
+  const bottom: Point = { x: mcx,                    y: shape.y + shape.height }
+  const left:   Point = { x: shape.x,                y: mcy }
 
-  if (Math.abs(dx) < 1e-10 && Math.abs(dy) < 1e-10) {
-    return top // degenerate: inner is at center
-  }
+  const dx = mcx - inner.x
+  const dy = mcy - inner.y
+
+  if (Math.abs(dx) < 1e-10 && Math.abs(dy) < 1e-10) return top
 
   const edges: [Point, Point][] = [
     [top, right], [right, bottom], [bottom, left], [left, top],
@@ -54,25 +45,54 @@ function getDiamondDockingPoint(shape: Shape, inner: Point): Point {
 
   let best: Point | null = null
   let bestT = Infinity
+
   for (const [a, b] of edges) {
     const dax = b.x - a.x
     const day = b.y - a.y
     const denom = dx * day - dy * dax
     if (Math.abs(denom) < 1e-10) continue
+
     const t = ((a.x - inner.x) * day - (a.y - inner.y) * dax) / denom
     const u = ((a.x - inner.x) * dy  - (a.y - inner.y) * dx)  / denom
+
     if (u < -1e-10 || u > 1 + 1e-10) continue
     if (Math.abs(t) < Math.abs(bestT)) {
       bestT = t
-      best = { x: Math.round(inner.x + t * dx), y: Math.round(inner.y + t * dy) }
+      best = {
+        x: Math.round(inner.x + t * dx),
+        y: Math.round(inner.y + t * dy),
+      }
     }
   }
+
   if (best) return best
 
-  // Fallback: nearest cardinal vertex to inner
-  return [top, right, bottom, left].reduce((best, v) =>
-    Math.hypot(v.x - inner.x, v.y - inner.y) < Math.hypot(best.x - inner.x, best.y - inner.y) ? v : best
+  return [top, right, bottom, left].reduce((b, v) =>
+    Math.hypot(v.x - inner.x, v.y - inner.y) < Math.hypot(b.x - inner.x, b.y - inner.y) ? v : b
   )
+}
+
+// ── Fallback geométrico ───────────────────────────────────────────────────────
+
+/**
+ * Calcula el punto de borde del shape más cercano a `reference`
+ * cuando getShapePath/getElementLineIntersection no está disponible.
+ */
+function shapeEdgePoint(shape: Shape, reference: Point): Point {
+  const mcx = shape.x + shape.width  / 2
+  const mcy = shape.y + shape.height / 2
+  const dx = reference.x - mcx
+  const dy = reference.y - mcy
+
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0
+      ? { x: shape.x + shape.width, y: mcy }
+      : { x: shape.x,               y: mcy }
+  } else {
+    return dy >= 0
+      ? { x: mcx, y: shape.y + shape.height }
+      : { x: mcx, y: shape.y }
+  }
 }
 
 // ── BizagiConnectionDocking ───────────────────────────────────────────────────
@@ -88,19 +108,21 @@ BizagiConnectionDocking.prototype.getCroppedWaypoints = function (connection: an
   source = source || connection.source
   target = target || connection.target
 
+  if (!source || !target) return connection.waypoints || []
+
   const sourceDocking = this.getDockingPoint(connection, source, true)
   const targetDocking = this.getDockingPoint(connection, target, false)
 
-  const wps: Point[] = connection.waypoints
+  const wps: Point[] = connection.waypoints || []
   const inner = wps.slice(sourceDocking.idx + 1, targetDocking.idx)
 
   const first: Point & { original?: Point } = {
     ...sourceDocking.actual,
-    original: (sourceDocking.point as any).original || sourceDocking.point,
+    original: (sourceDocking.point as Point & { original?: Point }).original || sourceDocking.point,
   }
   const last: Point & { original?: Point } = {
     ...targetDocking.actual,
-    original: (targetDocking.point as any).original || targetDocking.point,
+    original: (targetDocking.point as Point & { original?: Point }).original || targetDocking.point,
   }
 
   return [first, ...inner, last]
@@ -119,19 +141,30 @@ BizagiConnectionDocking.prototype.getDockingPoint = function (connection: any, s
 
   if (isGateway(shape)) {
     const innerIdx = dockStart ? 1 : wps.length - 2
-    const inner = wps[innerIdx]
+    const inner = wps[innerIdx] || endpoint
     const actual = getDiamondDockingPoint(shape, inner)
     return { point: endpoint, actual, idx }
   }
 
-  // Non-gateway: intersect segment inner→endpoint against shapePath.
-  // Avoids getConnectionPath which reads rendered SVG (unreliable during drag/import).
   const innerIdx = dockStart ? 1 : wps.length - 2
   const inner = wps[innerIdx] || endpoint
-  const shapePath: string = this._graphicsFactory.getShapePath(shape)
-  const twoPointPath = `M${inner.x},${inner.y} L${endpoint.x},${endpoint.y}`
-  const cropped: Point | null = getElementLineIntersection(shapePath, twoPointPath, false)
-  return { point: endpoint, actual: cropped || endpoint, idx }
+
+  let cropped: Point | null = null
+  try {
+    const shapePath: string = this._graphicsFactory.getShapePath(shape)
+    if (shapePath) {
+      const linePath = `M${inner.x},${inner.y} L${endpoint.x},${endpoint.y}`
+      cropped = getElementLineIntersection(shapePath, linePath, false) as Point | null
+    }
+  } catch {
+    cropped = null
+  }
+
+  if (!cropped) {
+    cropped = shapeEdgePoint(shape, inner)
+  }
+
+  return { point: endpoint, actual: cropped, idx }
 }
 
 export default {

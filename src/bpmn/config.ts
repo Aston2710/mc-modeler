@@ -18,8 +18,30 @@ import BizagiConnectionDocking from './connections/BizagiConnectionDocking'
 import BizagiSegmentHandles from './connections/BizagiSegmentHandles'
 import ConnectionEndpointCirclesModule from './connections/ConnectionEndpointCirclesModule'
 
+// NOTA: BizagiDragRouter eliminado — bpmn-js llama al layouter registrado
+// automáticamente durante el drag a través del canal oficial 'layouter'.
+// No se necesita ningún módulo interceptor adicional.
+
 export const MODELER_CONFIG = {
-  additionalModules: [TranslateModule, ThemeAwareRendererModule, CanvasLassoModule, ScrollPanModule, PoolInteriorLassoModule, CustomResizeModule, CustomSelectionModule, CustomElementSizesModule, CanvasPageModule, BoundaryConstraintModule, GroupMoveModule, LassoIntersectionModule, LaneDropModule, ImageContextPadModule, ConnectionEndpointCirclesModule, BizagiLayouter, BizagiConnectionDocking, BizagiSegmentHandles],
-  // Arrow keys: 5px per press; Shift+arrow: 15px
+  additionalModules: [
+    TranslateModule,
+    ThemeAwareRendererModule,
+    CanvasLassoModule,
+    ScrollPanModule,
+    PoolInteriorLassoModule,
+    CustomResizeModule,
+    CustomSelectionModule,
+    CustomElementSizesModule,
+    CanvasPageModule,
+    BoundaryConstraintModule,
+    GroupMoveModule,
+    LassoIntersectionModule,
+    LaneDropModule,
+    ImageContextPadModule,
+    ConnectionEndpointCirclesModule,
+    BizagiLayouter,
+    BizagiConnectionDocking,
+    BizagiSegmentHandles,
+  ],
   keyboardMoveSelection: { moveSpeed: 5, moveSpeedAccelerated: 15 },
 }
