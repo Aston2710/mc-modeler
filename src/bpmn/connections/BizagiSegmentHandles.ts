@@ -70,13 +70,17 @@ function BizagiSegmentHandles(this: any, eventBus: any, canvas: any, interaction
     const waypoints = connection.waypoints
     const intersection = getConnectionIntersection(canvas, waypoints, event)
     if (!intersection) return
-    const threshold = calculateIntersectionThreshold(connection, intersection)
-    if (isIntersectionMiddle(intersection, waypoints, threshold as number)) {
+
+    // REGLA DE ORO DE BIZAGI: Solo se arrastran segmentos rectos.
+    // Si el usuario intentó agarrar un "bendpoint" (una esquina), lo ignoramos.
+    // Si agarró un segmento de línea recta, permitimos el arrastre ortogonal.
+    if (!intersection.bendpoint) {
       connectionSegmentMove.start(event, connection, intersection.index)
-    } else {
-      bendpointMove.start(event, connection, intersection.index, !intersection.bendpoint)
+      return true
     }
-    return true
+    
+    // Devolvemos false para prohibir la deformación libre 2D (Pirámides)
+    return false
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -111,15 +115,9 @@ function BizagiSegmentHandles(this: any, eventBus: any, canvas: any, interaction
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function createBendpoints(gfx: any, connection: any) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    connection.waypoints.forEach(function (p: any) {
-      const bendpoint = addBendpoint(gfx)
-      svgAppend(gfx, bendpoint)
-      translate(bendpoint, p.x, p.y)
-    })
-    // No floating bendpoint here — native code adds addBendpoint(gfx, 'floating')
-    // which lets users click empty space on a segment to insert a point.
-    // Removing it prevents accidental point insertion (Bizagi doesn't have this).
+    // Vacío Intencionalmente.
+    // Bizagi no renderiza "puntitos" verdes en las esquinas porque no permite
+    // interactuar con ellas. Al dejar esto vacío, limpiamos la interfaz de basura visual.
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
