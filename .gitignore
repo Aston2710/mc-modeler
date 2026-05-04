@@ -140,3 +140,5 @@ dist
 #BPMN*
 *.bpm
 *.bpmn
+referencias_csharp/
+referencias*
