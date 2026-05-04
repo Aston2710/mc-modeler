@@ -40,6 +40,20 @@ function isGateway(el: Shape): boolean {
 
 function isConnector(el: Shape): boolean { return Array.isArray(el?.waypoints) }
 
+/**
+ * Equivalente a `value is IRoutingPool || value is IRoutingGroup` en C#.
+ * Pools, Lanes, SubProcesos expandidos y Groups son CONTENEDORES de routing,
+ * no obstáculos. Incluirlos causa que el router trace flechas alrededor de sus
+ * bordes en lugar de dentro de ellos.
+ */
+function isRoutingContainer(el: Shape): boolean {
+  const bo = el?.businessObject
+  if (!bo || typeof bo.$instanceOf !== 'function') return false
+  return bo.$instanceOf('bpmn:Participant')
+      || bo.$instanceOf('bpmn:Lane')
+      || bo.$instanceOf('bpmn:Group')
+}
+
 function toObstacle(s: Shape): RouterObstacle {
   return { x: s.x, y: s.y, width: s.width, height: s.height }
 }
@@ -99,6 +113,11 @@ function nearestGatewayFace(gw: Shape, p: Point): Face {
     .sort((a, b) => a[1] - b[1])[0][0]
 }
 
+/**
+ * Cara de salida/entrada dada la posición relativa de dos shapes — igual que
+ * BaseRouter.CreatePointDirection cuando ambas origins son shapes (no ports).
+ * Esta es la lógica "simple" que asume una única conexión.
+ */
 function gatewayFace(gw: Shape, other: Shape): Face {
   const dx = cx(other) - cx(gw)
   const dy = cy(other) - cy(gw)
@@ -116,6 +135,134 @@ function defaultFace(src: Shape, tgt: Shape): Face {
 
 function isShapeCenter(shape: Shape, p: Point): boolean {
   return Math.abs(p.x - cx(shape)) < 1 && Math.abs(p.y - cy(shape)) < 1
+}
+
+/**
+ * Retorna las caras ya utilizadas por conexiones existentes en un shape.
+ * Útil para garantizar que la nueva conexión use una cara diferente.
+ */
+function usedFaces(shape: Shape, outgoing: boolean, currentConn: Connection): Set<Face> {
+  const used = new Set<Face>()
+  const conns = (outgoing ? shape.outgoing : shape.incoming) || []
+  for (const conn of conns as Connection[]) {
+    if (conn === currentConn || !conn.waypoints?.length) continue
+    const wp = outgoing ? conn.waypoints[0] : conn.waypoints[conn.waypoints.length - 1]
+    const face = isGateway(shape) ? nearestGatewayFace(shape, wp) : nearestFace(shape, wp)
+    used.add(face)
+  }
+  return used
+}
+
+/**
+ * Traducción de DirectionalRouter.createDirectionalPoints(startShape, endShape).
+ *
+ * Cuando la figura TARGET ya tiene más de una conexión entrante (o el SOURCE más
+ * de una saliente), Bizagi no usa la cara dominante (la más cercana geométricamente)
+ * sino que compara la distancia horizontal vs vertical para elegir una cara
+ * alternativa. Esto evita que dos flechas salgan/entren por la misma cara y
+ * generen zig-zags al intentar rodear los obstáculos de la otra conexión.
+ *
+ * PARA GATEWAYS: además de la lógica geométrica de Bizagi, verificamos si la cara
+ * calculada ya está en uso. Si lo está, rotamos a la siguiente cara libre en orden
+ * de prioridad (right → bottom → left → top). Esto garantiza que cada flecha salga
+ * de un vértice diferente del rombo.
+ *
+ * @returns [srcFace, tgtFace] — las caras ajustadas para esta conexión
+ */
+function pickFacesMultiConn(
+  src: Shape, tgt: Shape, connection: Connection
+): [Face, Face] {
+  const r1 = { left: src.x, right: src.x + src.width,  top: src.y, bottom: src.y + src.height }
+  const r2 = { left: tgt.x, right: tgt.x + tgt.width,  top: tgt.y, bottom: tgt.y + tgt.height }
+
+  const outCount = ((src.outgoing || []) as Connection[]).filter(c => c !== connection).length
+  const inCount  = ((tgt.incoming || []) as Connection[]).filter(c => c !== connection).length
+
+  let sFace: Face = defaultFace(src, tgt)
+  let tFace: Face = defaultFace(tgt, src)
+
+  if (isGateway(src)) sFace = gatewayFace(src, tgt)
+  if (isGateway(tgt)) tFace = gatewayFace(tgt, src)
+
+  // Espejo de DirectionalRouter.createDirectionalPoints(startShape, endShape)
+  if (r1.right < r2.left) {
+    // src está completamente a la izquierda de tgt → caso Right
+    const hDist = r2.left - r1.right
+    if (inCount > 0) {
+      if (r1.bottom < r2.top) {
+        // src está arriba de tgt
+        const vDist = r2.top - r1.bottom
+        tFace = vDist > hDist ? 'top' : 'left'
+      } else if (r1.top > r2.bottom) {
+        // src está abajo de tgt
+        const vDist = r1.top - r2.bottom
+        tFace = vDist > hDist ? 'bottom' : 'left'
+      } else {
+        tFace = 'left' // solapamiento vertical → entrada por la izquierda
+      }
+    }
+    if (outCount > 0) {
+      if (r1.top > r2.bottom) {
+        const vDist = r1.top - r2.bottom
+        sFace = vDist > hDist ? 'top' : 'right'
+      } else if (r1.bottom < r2.top) {
+        const vDist = r2.top - r1.bottom
+        sFace = vDist > hDist ? 'bottom' : 'right'
+      } else {
+        sFace = 'right'
+      }
+    }
+  } else if (r1.left > r2.right) {
+    // src está completamente a la derecha de tgt
+    if (r1.top > r2.bottom) {
+      sFace = 'top'; tFace = 'bottom'
+    } else if (r1.bottom < r2.top) {
+      sFace = 'bottom'; tFace = 'top'
+    } else {
+      // Solapamiento vertical (figuras lado a lado con src a la derecha)
+      sFace = 'top'; tFace = 'top'
+    }
+  } else if (r1.top > r2.bottom) {
+    // src está completamente debajo de tgt (vertical)
+    // Si ya existe una línea entre ellos en dirección inversa → usar cara derecha
+    const hasBackline = ((src.incoming || []) as Connection[]).some(c =>
+      c !== connection && c.source?.id === tgt.id
+    )
+    if (hasBackline) {
+      sFace = 'right'; tFace = 'right'
+    } else {
+      sFace = 'top'; tFace = 'bottom'
+    }
+  } else {
+    // src está completamente encima de tgt (caso Down)
+    sFace = 'bottom'; tFace = 'top'
+  }
+
+  // ── Gateway: rotación de cara para evitar salir del mismo vértice ─────────────
+  // En el C#, CreatePointDirection solo produce uno de los 4 vértices exactos.
+  // Si la cara calculada ya está en uso, elegimos la siguiente cara libre disponible.
+  // Orden de prioridad: right → bottom → left → top (sentido horario, como Bizagi).
+  const FACE_PRIORITY: Face[] = ['right', 'bottom', 'left', 'top']
+
+  if (isGateway(src)) {
+    const usedSrc = usedFaces(src, true, connection)
+    if (usedSrc.has(sFace)) {
+      for (const f of FACE_PRIORITY) {
+        if (!usedSrc.has(f)) { sFace = f; break }
+      }
+    }
+  }
+
+  if (isGateway(tgt)) {
+    const usedTgt = usedFaces(tgt, false, connection)
+    if (usedTgt.has(tFace)) {
+      for (const f of FACE_PRIORITY) {
+        if (!usedTgt.has(f)) { tFace = f; break }
+      }
+    }
+  }
+
+  return [sFace, tFace]
 }
 
 function pickFace(shape: Shape, other: Shape, hint?: Point, shapeMoveMode?: boolean): Face {
@@ -158,37 +305,67 @@ BizagiLayouter.prototype.layoutConnection = function (connection: Connection, hi
   const shapeMoveMode = hints.connectionStart === false
                      || hints.connectionEnd   === false
                      || hasMovedAnchor
-  const sFace = pickFace(src, tgt, shapeMoveMode ? undefined : hints.connectionStart, shapeMoveMode)
-  const tFace = pickFace(tgt, src, shapeMoveMode ? undefined : hints.connectionEnd,   shapeMoveMode)
+
+  let sFace: Face
+  let tFace: Face
+
+  if (shapeMoveMode) {
+    // Durante drag de shape o re-anclaje de extremo: cara basada en hint o geometría simple
+    sFace = pickFace(src, tgt, undefined, true)
+    tFace = pickFace(tgt, src, undefined, true)
+  } else if (hints.connectionStart || hints.connectionEnd) {
+    // El usuario arrastró un extremo manualmente: respetar la cara del punto de anclaje
+    sFace = pickFace(src, tgt, hints.connectionStart, false)
+    tFace = pickFace(tgt, src, hints.connectionEnd,   false)
+  } else {
+    // Creación automática (Append Task, import, reconexión sin hint):
+    // Usar la lógica multi-conexión de Bizagi para evitar que dos flechas compartan cara
+    const outCount = ((src.outgoing || []) as Connection[]).filter((c: Connection) => c !== connection).length
+    const inCount  = ((tgt.incoming || []) as Connection[]).filter((c: Connection) => c !== connection).length
+    if (outCount > 0 || inCount > 0) {
+      ;[sFace, tFace] = pickFacesMultiConn(src, tgt, connection)
+    } else {
+      sFace = pickFace(src, tgt)
+      tFace = pickFace(tgt, src)
+    }
+  }
 
   let start = isGateway(src) ? gatewayCardinal(src, sFace) : faceCardinal(src, sFace)
   let end   = isGateway(tgt) ? gatewayCardinal(tgt, tFace) : faceCardinal(tgt, tFace)
 
-  // Port offset
-  let sameOut = 0
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  for (const conn of (src.outgoing || []) as any[]) {
-    if (conn === connection || !conn.waypoints?.length) continue
-    const wp0 = conn.waypoints[0]
-    const face = isGateway(src) ? nearestGatewayFace(src, wp0) : nearestFace(src, wp0)
-    if (face === sFace) sameOut++
-  }
-  if (sameOut > 0) {
-    const off = sameOut * PORT_OFFSET
-    start = isHoriz(sFace) ? { x: start.x, y: start.y + off } : { x: start.x + off, y: start.y }
+  // Port offset — SOLO para shapes rectangulares.
+  // Los Gateways (rombos) tienen puntos de salida fijos en sus 4 vértices cardinales.
+  // El C# nunca aplica offset a un PointDirection calculado con CreatePointDirection;
+  // simplemente elige una cara diferente. Aplicar offset desplaza el punto fuera del
+  // vértice y produce conexiones que no salen desde las puntas del rombo.
+  if (!isGateway(src)) {
+    let sameOut = 0
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const conn of (src.outgoing || []) as any[]) {
+      if (conn === connection || !conn.waypoints?.length) continue
+      const wp0 = conn.waypoints[0]
+      const face = nearestFace(src, wp0)
+      if (face === sFace) sameOut++
+    }
+    if (sameOut > 0) {
+      const off = sameOut * PORT_OFFSET
+      start = isHoriz(sFace) ? { x: start.x, y: start.y + off } : { x: start.x + off, y: start.y }
+    }
   }
 
-  let sameIn = 0
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  for (const conn of (tgt.incoming || []) as any[]) {
-    if (conn === connection || !conn.waypoints?.length) continue
-    const lastWp = conn.waypoints[conn.waypoints.length - 1]
-    const face = isGateway(tgt) ? nearestGatewayFace(tgt, lastWp) : nearestFace(tgt, lastWp)
-    if (face === tFace) sameIn++
-  }
-  if (sameIn > 0) {
-    const off = sameIn * PORT_OFFSET
-    end = isHoriz(tFace) ? { x: end.x, y: end.y + off } : { x: end.x + off, y: end.y }
+  if (!isGateway(tgt)) {
+    let sameIn = 0
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const conn of (tgt.incoming || []) as any[]) {
+      if (conn === connection || !conn.waypoints?.length) continue
+      const lastWp = conn.waypoints[conn.waypoints.length - 1]
+      const face = nearestFace(tgt, lastWp)
+      if (face === tFace) sameIn++
+    }
+    if (sameIn > 0) {
+      const off = sameIn * PORT_OFFSET
+      end = isHoriz(tFace) ? { x: end.x, y: end.y + off } : { x: end.x + off, y: end.y }
+    }
   }
 
   // Recolectar obstáculos
@@ -198,9 +375,13 @@ BizagiLayouter.prototype.layoutConnection = function (connection: Connection, hi
     if (isConnector(el)) return
     if (!el.width || !el.height) return
     if (!el.parent) return
+    if (el.type === 'label' || (el.id && el.id.includes('_label'))) return
+    // C# equivalente: `value is IRoutingPool || value is IRoutingGroup`
+    // Pools, Lanes y Groups son contenedores — no son obstáculos para el router
+    if (isRoutingContainer(el)) return
     const obs = toObstacle(el)
-    if (el === src) return
-    if (el === tgt) return
+    if (el.id === src.id) return
+    if (el.id === tgt.id) return
     obstacles.push(obs)
   })
 
@@ -209,7 +390,6 @@ BizagiLayouter.prototype.layoutConnection = function (connection: Connection, hi
   // Detect drag/modification hints to try and preserve existing route
   const isDragging = ('connectionStart' in hints) || ('connectionEnd' in hints) || ('waypoints' in hints) || hasMovedAnchor
   const existingWaypoints = isDragging && connection.waypoints ? connection.waypoints : undefined
-
   return router.calculateRoute(start, end, sFace as Face, tFace as Face, obstacles, existingWaypoints)
 }
 
