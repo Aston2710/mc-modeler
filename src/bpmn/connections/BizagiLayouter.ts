@@ -309,20 +309,31 @@ BizagiLayouter.prototype.layoutConnection = function (connection: Connection, hi
   let sFace: Face
   let tFace: Face
 
+  // Para Gateways, la rotación de caras (usedFaces) debe aplicarse SIEMPRE,
+  // incluido el shapeMoveMode. El Gateway tiene 4 vértices fijos; dos conexiones
+  // nunca pueden compartir el mismo vértice sin producir cruces.
+  const srcIsGw = isGateway(src)
+  const tgtIsGw = isGateway(tgt)
+  const outCount = ((src.outgoing || []) as Connection[]).filter((c: Connection) => c !== connection).length
+  const inCount  = ((tgt.incoming || []) as Connection[]).filter((c: Connection) => c !== connection).length
+  const hasMultiConn = outCount > 0 || inCount > 0
+
   if (shapeMoveMode) {
-    // Durante drag de shape o re-anclaje de extremo: cara basada en hint o geometría simple
-    sFace = pickFace(src, tgt, undefined, true)
-    tFace = pickFace(tgt, src, undefined, true)
+    if ((srcIsGw || tgtIsGw) && hasMultiConn) {
+      // Gateway en drag: usar lógica multi-conexión para mantener caras distintas
+      ;[sFace, tFace] = pickFacesMultiConn(src, tgt, connection)
+    } else {
+      // Shape rectangular en drag: cara por geometría simple
+      sFace = pickFace(src, tgt, undefined, true)
+      tFace = pickFace(tgt, src, undefined, true)
+    }
   } else if (hints.connectionStart || hints.connectionEnd) {
     // El usuario arrastró un extremo manualmente: respetar la cara del punto de anclaje
     sFace = pickFace(src, tgt, hints.connectionStart, false)
     tFace = pickFace(tgt, src, hints.connectionEnd,   false)
   } else {
     // Creación automática (Append Task, import, reconexión sin hint):
-    // Usar la lógica multi-conexión de Bizagi para evitar que dos flechas compartan cara
-    const outCount = ((src.outgoing || []) as Connection[]).filter((c: Connection) => c !== connection).length
-    const inCount  = ((tgt.incoming || []) as Connection[]).filter((c: Connection) => c !== connection).length
-    if (outCount > 0 || inCount > 0) {
+    if (hasMultiConn) {
       ;[sFace, tFace] = pickFacesMultiConn(src, tgt, connection)
     } else {
       sFace = pickFace(src, tgt)
@@ -390,7 +401,34 @@ BizagiLayouter.prototype.layoutConnection = function (connection: Connection, hi
   // Detect drag/modification hints to try and preserve existing route
   const isDragging = ('connectionStart' in hints) || ('connectionEnd' in hints) || ('waypoints' in hints) || hasMovedAnchor
   const existingWaypoints = isDragging && connection.waypoints ? connection.waypoints : undefined
-  return router.calculateRoute(start, end, sFace as Face, tFace as Face, obstacles, existingWaypoints)
+
+  // Inferir la cara previa desde los waypoints existentes (equivalente a `startDirection` en C# antes de createDirectionalPoints)
+  let prevStartDir: Face | undefined
+  let prevEndDir: Face | undefined
+  if (existingWaypoints && existingWaypoints.length >= 2) {
+    const wp0 = existingWaypoints[0]
+    const wp1 = existingWaypoints[1]
+    prevStartDir = isGateway(src) ? nearestGatewayFace(src, wp0) : nearestFace(src, wp0)
+    // Inferir la dirección del primer segmento para confirmar que coincide
+    const segDx = wp1.x - wp0.x
+    const segDy = wp1.y - wp0.y
+    if (Math.abs(segDx) > Math.abs(segDy)) {
+      prevStartDir = segDx > 0 ? 'right' : 'left'
+    } else if (Math.abs(segDy) > 0) {
+      prevStartDir = segDy > 0 ? 'bottom' : 'top'
+    }
+    const wpL  = existingWaypoints[existingWaypoints.length - 1]
+    const wpL1 = existingWaypoints[existingWaypoints.length - 2]
+    const segDx2 = wpL.x - wpL1.x
+    const segDy2 = wpL.y - wpL1.y
+    if (Math.abs(segDx2) > Math.abs(segDy2)) {
+      prevEndDir = segDx2 > 0 ? 'right' : 'left'
+    } else if (Math.abs(segDy2) > 0) {
+      prevEndDir = segDy2 > 0 ? 'bottom' : 'top'
+    }
+  }
+
+  return router.calculateRoute(start, end, sFace as Face, tFace as Face, obstacles, existingWaypoints, prevStartDir, prevEndDir)
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

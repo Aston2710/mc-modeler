@@ -44,7 +44,9 @@ export class BizagiDirectionalRouter {
     startDir: Face,
     endDir: Face,
     obstacles: RouterObstacle[],
-    existingWaypoints?: Point[]
+    existingWaypoints?: Point[],
+    prevStartDir?: Face,
+    prevEndDir?: Face
   ): Point[] {
     this.startPoint = start;
     this.endPoint = end;
@@ -52,29 +54,50 @@ export class BizagiDirectionalRouter {
     this.endDirection = endDir;
     this.obstacles = obstacles;
 
-    // Si venimos de un drag con waypoints previos, intentamos preservar la topología
+    /**
+     * Preservación de waypoints durante drag — equivalente a DirectionalRouter.CalculateRoute (C#).
+     *
+     * El C# tiene dos guardas críticas antes de adaptar:
+     *   1. `list.Count > 3` — solo si hay suficientes puntos
+     *   2. `startDirection.Direction == StartDirection.Direction` — SOLO si la cara de salida
+     *      NO cambió tras recalcular. Si la cara cambió (ej: el shape cruzó al otro lado),
+     *      descarta los waypoints y recalcula desde cero.
+     *
+     * En TS: `prevStartDir/prevEndDir` son las caras del layout anterior. Si no coinciden
+     * con `startDir/endDir` actuales, no intentamos adaptar.
+     */
     if (existingWaypoints && existingWaypoints.length > 3) {
+      const startDirUnchanged = !prevStartDir || prevStartDir === startDir;
+      const endDirUnchanged   = !prevEndDir   || prevEndDir   === endDir;
+
       const list = existingWaypoints.map(p => ({ x: p.x, y: p.y }));
 
-      // Adaptar primer segmento al nuevo startPoint
-      if (list[0].x !== this.startPoint.x || list[0].y !== this.startPoint.y) {
+      // Adaptar primer segmento — solo si la cara de salida no cambió
+      if (startDirUnchanged &&
+          (list[0].x !== this.startPoint.x || list[0].y !== this.startPoint.y)) {
+        // C#: RemoveAt(1) luego Insert(1, new PointF(startDir.X, list[1].Y))
+        // Tras el remove, list[1] es el que era list[2] → replicamos con splice
         if (list[0].x === list[1].x) {
-          list[1] = { x: this.startPoint.x, y: list[1].y };
+          // Primer segmento vertical → nuevo codo usa X del nuevo start
+          list.splice(1, 1, { x: this.startPoint.x, y: list[2]?.y ?? list[1].y });
         } else {
-          list[1] = { x: list[1].x, y: this.startPoint.y };
+          // Primer segmento horizontal → nuevo codo usa Y del nuevo start
+          list.splice(1, 1, { x: list[2]?.x ?? list[1].x, y: this.startPoint.y });
         }
         list[0] = { ...this.startPoint };
       }
 
-      // Adaptar último segmento al nuevo endPoint
-      const last = list.length - 1;
-      if (list[last].x !== this.endPoint.x || list[last].y !== this.endPoint.y) {
-        if (list[last].x === list[last - 1].x) {
-          list[last - 1] = { x: this.endPoint.x, y: list[last - 1].y };
-        } else {
-          list[last - 1] = { x: list[last - 1].x, y: this.endPoint.y };
+      // Adaptar último segmento — solo si la cara de entrada no cambió
+      if (endDirUnchanged) {
+        const last = list.length - 1;
+        if (list[last].x !== this.endPoint.x || list[last].y !== this.endPoint.y) {
+          if (list[last].x === list[last - 1].x) {
+            list.splice(last - 1, 1, { x: this.endPoint.x, y: list[last - 2]?.y ?? list[last - 1].y });
+          } else {
+            list.splice(last - 1, 1, { x: list[last - 2]?.x ?? list[last - 1].x, y: this.endPoint.y });
+          }
+          list[list.length - 1] = { ...this.endPoint };
         }
-        list[last] = { ...this.endPoint };
       }
 
       this.refinePoints(list);
