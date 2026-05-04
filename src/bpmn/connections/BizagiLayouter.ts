@@ -28,7 +28,8 @@ type Shape = any
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Connection = any
 
-const PORT_OFFSET = 15
+
+
 
 function cx(s: Shape): number { return s.x + s.width  / 2 }
 function cy(s: Shape): number { return s.y + s.height / 2 }
@@ -238,29 +239,10 @@ function pickFacesMultiConn(
     sFace = 'bottom'; tFace = 'top'
   }
 
-  // ── Gateway: rotación de cara para evitar salir del mismo vértice ─────────────
-  // En el C#, CreatePointDirection solo produce uno de los 4 vértices exactos.
-  // Si la cara calculada ya está en uso, elegimos la siguiente cara libre disponible.
-  // Orden de prioridad: right → bottom → left → top (sentido horario, como Bizagi).
-  const FACE_PRIORITY: Face[] = ['right', 'bottom', 'left', 'top']
-
-  if (isGateway(src)) {
-    const usedSrc = usedFaces(src, true, connection)
-    if (usedSrc.has(sFace)) {
-      for (const f of FACE_PRIORITY) {
-        if (!usedSrc.has(f)) { sFace = f; break }
-      }
-    }
-  }
-
-  if (isGateway(tgt)) {
-    const usedTgt = usedFaces(tgt, false, connection)
-    if (usedTgt.has(tFace)) {
-      for (const f of FACE_PRIORITY) {
-        if (!usedTgt.has(f)) { tFace = f; break }
-      }
-    }
-  }
+  // NOTA: No aplicamos rotación por "caras usadas" aquí.
+  // El C# (createDirectionalPoints) asigna la cara puramente por geometría relativa.
+  // Cuando dos conexiones salen por la misma cara de un Gateway, comparten el vértice —
+  // eso es comportamiento válido y esperado en Bizagi.
 
   return [sFace, tFace]
 }
@@ -344,40 +326,13 @@ BizagiLayouter.prototype.layoutConnection = function (connection: Connection, hi
   let start = isGateway(src) ? gatewayCardinal(src, sFace) : faceCardinal(src, sFace)
   let end   = isGateway(tgt) ? gatewayCardinal(tgt, tFace) : faceCardinal(tgt, tFace)
 
-  // Port offset — SOLO para shapes rectangulares.
-  // Los Gateways (rombos) tienen puntos de salida fijos en sus 4 vértices cardinales.
-  // El C# nunca aplica offset a un PointDirection calculado con CreatePointDirection;
-  // simplemente elige una cara diferente. Aplicar offset desplaza el punto fuera del
-  // vértice y produce conexiones que no salen desde las puntas del rombo.
-  if (!isGateway(src)) {
-    let sameOut = 0
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const conn of (src.outgoing || []) as any[]) {
-      if (conn === connection || !conn.waypoints?.length) continue
-      const wp0 = conn.waypoints[0]
-      const face = nearestFace(src, wp0)
-      if (face === sFace) sameOut++
-    }
-    if (sameOut > 0) {
-      const off = sameOut * PORT_OFFSET
-      start = isHoriz(sFace) ? { x: start.x, y: start.y + off } : { x: start.x + off, y: start.y }
-    }
-  }
+  // NOTA: No aplicamos PORT_OFFSET.
+  // El C# (BaseRouter.CreatePointDirection) nunca desplaza el punto cardinal.
+  // Si dos conexiones comparten la misma cara, comparten el mismo punto de anclaje.
+  // Aplicar un offset desplaza waypoints[0] fuera del vértice/cardinal real,
+  // lo que hace que getDiamondDockingPoint y getElementLineIntersection calculen
+  // una intersección diagonal en lugar del punto cardinal — causando los diagonales.
 
-  if (!isGateway(tgt)) {
-    let sameIn = 0
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const conn of (tgt.incoming || []) as any[]) {
-      if (conn === connection || !conn.waypoints?.length) continue
-      const lastWp = conn.waypoints[conn.waypoints.length - 1]
-      const face = nearestFace(tgt, lastWp)
-      if (face === tFace) sameIn++
-    }
-    if (sameIn > 0) {
-      const off = sameIn * PORT_OFFSET
-      end = isHoriz(tFace) ? { x: end.x, y: end.y + off } : { x: end.x + off, y: end.y }
-    }
-  }
 
   // Recolectar obstáculos
   const obstacles: RouterObstacle[] = []
@@ -428,7 +383,15 @@ BizagiLayouter.prototype.layoutConnection = function (connection: Connection, hi
     }
   }
 
-  return router.calculateRoute(start, end, sFace as Face, tFace as Face, obstacles, existingWaypoints, prevStartDir, prevEndDir)
+  return router.calculateRoute(
+    start, end,
+    sFace as Face, tFace as Face,
+    obstacles,
+    existingWaypoints,
+    prevStartDir, prevEndDir,
+    toObstacle(src),
+    toObstacle(tgt)
+  )
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

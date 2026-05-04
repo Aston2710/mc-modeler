@@ -37,6 +37,36 @@ export class BizagiDirectionalRouter {
   private startDirection!: Face;
   private endDirection!: Face;
   private obstacles: RouterObstacle[] = [];
+  // Obstacles del src y tgt — usados solo en isSolutionValid (C#: ignoreOriginShapes: false)
+  private srcObstacle?: RouterObstacle;
+  private tgtObstacle?: RouterObstacle;
+
+  /**
+   * Traducción directa de BaseRouter.IsPointInOrigin(PointF point, Origin origin).
+   *
+   * Verifica si un punto está exactamente en uno de los 4 puntos cardinales del shape
+   * (centro del lado izquierdo, derecho, superior o inferior). Si el waypoint ya está
+   * en el origen, NO se adapta — ya tiene la posición correcta.
+   *
+   * El C# usa cast explícito a (int) para redondear las coordenadas (shapes en px enteros).
+   */
+  private isPointInOrigin(point: Point, shape: RouterObstacle): boolean {
+    const rx = Math.trunc(shape.x);
+    const ry = Math.trunc(shape.y);
+    const rw = shape.width;
+    const rh = shape.height;
+    const centerY = ry + Math.trunc(rh / 2);
+    const centerX = rx + Math.trunc(rw / 2);
+    // Cara izquierda
+    if (point.x === rx && point.y === centerY) return true;
+    // Cara derecha
+    if (point.x === rx + rw && point.y === centerY) return true;
+    // Cara superior
+    if (point.y === ry && point.x === centerX) return true;
+    // Cara inferior
+    if (point.y === ry + rh && point.x === centerX) return true;
+    return false;
+  }
 
   public calculateRoute(
     start: Point,
@@ -46,13 +76,17 @@ export class BizagiDirectionalRouter {
     obstacles: RouterObstacle[],
     existingWaypoints?: Point[],
     prevStartDir?: Face,
-    prevEndDir?: Face
+    prevEndDir?: Face,
+    srcObstacle?: RouterObstacle,
+    tgtObstacle?: RouterObstacle
   ): Point[] {
     this.startPoint = start;
     this.endPoint = end;
     this.startDirection = startDir;
     this.endDirection = endDir;
     this.obstacles = obstacles;
+    this.srcObstacle = srcObstacle;
+    this.tgtObstacle = tgtObstacle;
 
     /**
      * Preservación de waypoints durante drag — equivalente a DirectionalRouter.CalculateRoute (C#).
@@ -72,9 +106,13 @@ export class BizagiDirectionalRouter {
 
       const list = existingWaypoints.map(p => ({ x: p.x, y: p.y }));
 
-      // Adaptar primer segmento — solo si la cara de salida no cambió
-      if (startDirUnchanged &&
-          (list[0].x !== this.startPoint.x || list[0].y !== this.startPoint.y)) {
+      // Adaptar primer segmento — solo si la cara no cambió Y el punto no está ya en el origen
+      // C#: `!IsPointInOrigin(list[0], StartOrigin) && startDirection.Direction == StartDirection.Direction`
+      // En TS, this.startPoint ES el punto cardinal calculado por el layouter.
+      // Si list[0] ya coincide exactamente con él, no hay nada que adaptar.
+      const startAtCardinal = list[0].x === this.startPoint.x && list[0].y === this.startPoint.y;
+
+      if (startDirUnchanged && !startAtCardinal) {
         // C#: RemoveAt(1) luego Insert(1, new PointF(startDir.X, list[1].Y))
         // Tras el remove, list[1] es el que era list[2] → replicamos con splice
         if (list[0].x === list[1].x) {
@@ -86,6 +124,7 @@ export class BizagiDirectionalRouter {
         }
         list[0] = { ...this.startPoint };
       }
+
 
       // Adaptar último segmento — solo si la cara de entrada no cambió
       if (endDirUnchanged) {
@@ -101,6 +140,7 @@ export class BizagiDirectionalRouter {
       }
 
       this.refinePoints(list);
+      this.forceOrthogonal(list);
 
       if (this.isSolutionValid(list, this.startPoint, this.endPoint)) {
         this.calculateSolution();
@@ -123,6 +163,44 @@ export class BizagiDirectionalRouter {
     this.verifySolutionLines();
     this.refineSolution();
     this.refinePoints(this.solution);
+    // Garantía final: ningún segmento diagonal puede sobrevivir
+    this.forceOrthogonal(this.solution);
+  }
+
+  /**
+   * Sanitizador de ortogonalidad.
+   * Recorre los waypoints y, si detecta un segmento diagonal (dx != 0 && dy != 0),
+   * inserta un codo intermedio para convertirlo en una L ortogonal.
+   * El codo se elige en la dirección que minimiza el solapamiento con el shape destino:
+   *  - Si el segmento viene de una cara horizontal (el primer segmento sale horizontal),
+   *    el codo es (p2.x, p1.y) — primero avanzamos en X, luego en Y.
+   *  - Si el segmento viene de una cara vertical, el codo es (p1.x, p2.y).
+   *
+   * IMPORTANTE: Este método es el último escudo. NO debe modificar segmentos que ya son
+   * ortogonales (dx == 0 || dy == 0). Solo activa para diagonales reales.
+   */
+  private forceOrthogonal(points: Point[]): void {
+    for (let i = 1; i < points.length; i++) {
+      const p1 = points[i - 1];
+      const p2 = points[i];
+      const dx = Math.abs(p2.x - p1.x);
+      const dy = Math.abs(p2.y - p1.y);
+      if (dx > 0.5 && dy > 0.5) {
+        // Segmento diagonal detectado — insertar codo
+        // Decidir dirección del codo:
+        // Si el segmento anterior (i-2 → i-1) era horizontal, el codo va en X primero.
+        let elbowFirst: 'x' | 'y' = 'x';
+        if (i >= 2) {
+          const pp = points[i - 2];
+          if (Math.abs(pp.x - p1.x) < 0.5) elbowFirst = 'y'; // anterior era vertical
+        }
+        const elbow: Point = elbowFirst === 'x'
+          ? { x: p2.x, y: p1.y }  // codo: llega a X de destino, mantiene Y
+          : { x: p1.x, y: p2.y }; // codo: mantiene X, llega a Y de destino
+        points.splice(i, 0, elbow);
+        i++; // saltar el codo recién insertado
+      }
+    }
   }
 
   // ── Generación de ruta inicial en L / Z ───────────────────────────────────────
@@ -206,20 +284,41 @@ export class BizagiDirectionalRouter {
 
   private isSolutionValid(list: Point[], start: Point, end: Point): boolean {
     if (!list || list.length < 2) return false;
+
+    // C#: !IsPointInOrigin(solution[0], start) valida que el primer punto sea un cardinal.
+    // En TS, start IS el cardinal calculado por el layouter — comparación exacta es equivalente.
     if (list[0].x !== start.x || list[0].y !== start.y) return false;
     const last = list[list.length - 1];
     if (last.x !== end.x || last.y !== end.y) return false;
 
+    // C# usa GetShapeFromPoint(p, ignoreOriginShapes: false) para los puntos intermedios.
+    // Esto significa que src y tgt SÍ se incluyen en el chequeo — un waypoint que caiga
+    // dentro del shape destino (que acaba de ser arrastrado encima) invalida la solución.
+    // En TS el obstáculo list no incluye src/tgt, así que los pasamos por separado.
+    const allObstacles = [
+      ...this.obstacles,
+      ...(this.srcObstacle ? [this.srcObstacle] : []),
+      ...(this.tgtObstacle ? [this.tgtObstacle] : []),
+    ];
+
     for (let i = 1; i < list.length; i++) {
       const p1 = list[i - 1];
       const p2 = list[i];
-      // Los codos intermedios no deben caer dentro de la zona de exclusión
-      if (i < list.length - 1 && this.getShapeFromPoint(p2.x, p2.y) !== null) {
-        return false;
+
+      // Puntos intermedios (no el último) no pueden caer dentro de NINGÚN shape,
+      // incluido el propio src o tgt recién movido.
+      if (i < list.length - 1) {
+        for (const obs of allObstacles) {
+          if (p2.x > obs.x - this.padding.x && p2.x < obs.x + obs.width + this.padding.x &&
+              p2.y > obs.y - this.padding.y && p2.y < obs.y + obs.height + this.padding.y) {
+            return false;
+          }
+        }
       }
-      if (this.getIntersectedShapes(p1, p2).length !== 0) {
-        return false;
-      }
+
+      // Ningún segmento puede cruzar un obstáculo (usando la lista SIN src/tgt,
+      // igual que el C# usa GetIntersectedShapes que sí excluye los originales)
+      if (this.getIntersectedShapes(p1, p2).length !== 0) return false;
     }
     return true;
   }
@@ -282,7 +381,11 @@ export class BizagiDirectionalRouter {
   // Equivalente a BaseRouter.cs: VerifySolutionLines
 
   private verifySolutionLines(): void {
-    for (let i = 1; i < this.solution.length; i++) {
+    // Límite de seguridad: si la solución crece más de 20 puntos el bypass loop
+    // está desbocado. Abandonar y dejar que calculateSolution devuelva la ruta directa.
+    const MAX_POINTS = 20;
+
+    for (let i = 1; i < this.solution.length && this.solution.length <= MAX_POINTS; i++) {
       const startPoint = this.solution[i - 1];
       const endPoint = this.solution[i];
       const intersectedShapes = this.getIntersectedShapes(startPoint, endPoint);
@@ -341,6 +444,8 @@ export class BizagiDirectionalRouter {
       }
 
       // Validar que el bypass no introduzca nuevas colisiones
+      // C#: comprueba los 3 primeros puntos (el 4to es typo en C# — nunca lo chequea)
+      // Nosotros chequeamos los 4 para mayor seguridad.
       let flag = true;
       if (this.getShapeFromPoint(pointF.x, pointF.y) ||
           this.getShapeFromPoint(pointF2.x, pointF2.y) ||
@@ -348,16 +453,29 @@ export class BizagiDirectionalRouter {
           this.getShapeFromPoint(pointF4.x, pointF4.y)) {
         flag = false;
       }
-      if (this.getIntersectedShapes(pointF, pointF2).length !== 0 ||
+      if (flag && (
+          this.getIntersectedShapes(pointF, pointF2).length !== 0 ||
           this.getIntersectedShapes(pointF2, pointF3).length !== 0 ||
-          this.getIntersectedShapes(pointF3, pointF4).length !== 0) {
+          this.getIntersectedShapes(pointF3, pointF4).length !== 0)) {
         flag = false;
       }
 
       if (flag) {
         this.solution.splice(i, 0, pointF, pointF2, pointF3, pointF4);
-        i += 4;
+        // C# NO avanza i aquí — re-chequea los puntos insertados para detectar
+        // si el bypass mismo necesita evasión adicional.
+        // Nosotros saltamos los 3 primeros puntos del bypass (están garantizados
+        // por el flag check) y re-chequeamos desde el 4to (pointF4 → old endPoint),
+        // que es el único segmento que podría cruzar algo nuevo.
+        i += 3;
       }
+    }
+
+    // Si el límite fue alcanzado, la ruta está degenerada — limpiarla.
+    if (this.solution.length > MAX_POINTS) {
+      const first = this.solution[0];
+      const last  = this.solution[this.solution.length - 1];
+      this.solution = [first, last];
     }
   }
 

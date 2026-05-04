@@ -25,7 +25,7 @@ function isGateway(shape: Shape): boolean {
 
 // ── Diamond intersection ──────────────────────────────────────────────────────
 
-function getDiamondDockingPoint(shape: Shape, inner: Point): Point {
+function getDiamondDockingPoint(shape: Shape, inner: Point, endpoint?: Point): Point {
   const mcx = shape.x + shape.width  / 2
   const mcy = shape.y + shape.height / 2
 
@@ -33,7 +33,34 @@ function getDiamondDockingPoint(shape: Shape, inner: Point): Point {
   const right:  Point = { x: shape.x + shape.width,  y: mcy }
   const bottom: Point = { x: mcx,                    y: shape.y + shape.height }
   const left:   Point = { x: shape.x,                y: mcy }
+  const vertices = [top, right, bottom, left]
 
+  // Si el endpoint (waypoint[0] o waypoint[last]) ya ES exactamente un vértice cardinal,
+  // lo devolvemos directamente — no hay interseción que calcular.
+  if (endpoint) {
+    for (const v of vertices) {
+      if (Math.abs(endpoint.x - v.x) < 0.5 && Math.abs(endpoint.y - v.y) < 0.5) {
+        return v
+      }
+    }
+  }
+
+  // Si el segmento inner→endpoint es perfectamente ortogonal (H o V),
+  // snap al vértice cardinal más próximo al inner en esa dirección.
+  // Esto evita que una línea horizontal que llega al vértice derecho calcule
+  // una intersección diagonal con el rombo.
+  if (endpoint) {
+    if (Math.abs(inner.y - endpoint.y) < 0.5) {
+      // Segmento horizontal: el docking es Left o Right
+      return inner.x < endpoint.x ? right : left
+    }
+    if (Math.abs(inner.x - endpoint.x) < 0.5) {
+      // Segmento vertical: el docking es Top o Bottom
+      return inner.y < endpoint.y ? bottom : top
+    }
+  }
+
+  // Fallback: intersección geométrica general (para conexiones no rectas)
   const dx = mcx - inner.x
   const dy = mcy - inner.y
 
@@ -67,7 +94,7 @@ function getDiamondDockingPoint(shape: Shape, inner: Point): Point {
 
   if (best) return best
 
-  return [top, right, bottom, left].reduce((b, v) =>
+  return vertices.reduce((b, v) =>
     Math.hypot(v.x - inner.x, v.y - inner.y) < Math.hypot(b.x - inner.x, b.y - inner.y) ? v : b
   )
 }
@@ -142,7 +169,7 @@ BizagiConnectionDocking.prototype.getDockingPoint = function (connection: any, s
   if (isGateway(shape)) {
     const innerIdx = dockStart ? 1 : wps.length - 2
     const inner = wps[innerIdx] || endpoint
-    const actual = getDiamondDockingPoint(shape, inner)
+    const actual = getDiamondDockingPoint(shape, inner, endpoint)
     return { point: endpoint, actual, idx }
   }
 
