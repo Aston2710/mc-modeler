@@ -71,7 +71,7 @@ export class BizagiDirectionalRouter {
     this.tgtObstacle = tgtObstacle;
     this.obstacles = obstacles;
 
-    if (existingWaypoints && existingWaypoints.length > 3) {
+    if (existingWaypoints && existingWaypoints.length >= 3) {     // Correccion BUG-05
       const startDirUnchanged = !prevStartDir || prevStartDir === startDir;
       const endDirUnchanged   = !prevEndDir   || prevEndDir   === endDir;
 
@@ -79,7 +79,7 @@ export class BizagiDirectionalRouter {
       const startAtCardinal = this.trunc(list[0].x) === this.trunc(this.startPoint.x) &&
                               this.trunc(list[0].y) === this.trunc(this.startPoint.y);
 
-      if (startDirUnchanged && !startAtCardinal) {
+      if (startDirUnchanged && !startAtCardinal) {    // verificar luego BUG-06
         if (this.trunc(list[0].x) === this.trunc(list[1].x)) {
           list.splice(1, 1, { x: this.startPoint.x, y: list[2]?.y ?? list[1].y });
         } else {
@@ -204,7 +204,7 @@ export class BizagiDirectionalRouter {
     for (let i = 1; i < list.length; i++) {
       const p1 = list[i - 1];
       const p2 = list[i];
-      if (i < list.length - 1 && this.getShapeFromPoint(p2.x, p2.y, false) !== null) {
+      if (i < list.length - 1 && this.getShapeFromPoint(p2.x, p2.y, true) !== null) { // correccion BUG-07 (true/false)
         return false;
       }
       if (this.getIntersectedShapes(p1, p2).length !== 0) {

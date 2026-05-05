@@ -82,10 +82,12 @@ function gatewayFace(gw: Shape, other: Shape): Face {
 }
 
 function defaultFace(src: Shape, tgt: Shape): Face {
-  const dx = cx(tgt) - cx(src)
-  const dy = cy(tgt) - cy(src)
-  if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? 'right' : 'left'
-  return dy >= 0 ? 'bottom' : 'top'
+  const r1 = { right: src.x + src.width, left: src.x, bottom: src.y + src.height, top: src.y }
+  const r2 = { right: tgt.x + tgt.width, left: tgt.x, bottom: tgt.y + tgt.height, top: tgt.y }
+  if (r1.right <= r2.left)  return 'right'   // src completamente a la izquierda
+  if (r1.left >= r2.right)  return 'left'    // src completamente a la derecha (sale por izquierda)
+  if (r1.bottom <= r2.top)  return 'bottom'  // src completamente arriba
+  return 'top'                               // src completamente abajo (sale por arriba)
 }
 
 function isShapeCenter(shape: Shape, p: Point): boolean {
@@ -135,7 +137,7 @@ function pickFacesMultiConn(src: Shape, tgt: Shape, connection: Connection): [Fa
     } else if (r1.bottom < r2.top) {
       sFace = 'bottom'; tFace = 'top'
     } else {
-      sFace = 'top'; tFace = 'top'
+      sFace = 'top'; tFace = 'top' // ← INCORRECTO para inline (marca BUG-04)
     }
   } else if (r1.top > r2.bottom) {
     const hasBackline = ((src.incoming || []) as Connection[]).some(c =>
@@ -199,14 +201,15 @@ BizagiLayouter.prototype.layoutConnection = function (connection: Connection, hi
   const inCount  = ((tgt.incoming || []) as Connection[]).filter((c: Connection) => c !== connection).length
   const hasMultiConn = outCount > 0 || inCount > 0
 
-  if (hasMultiConn) {
-    ;[sFace, tFace] = pickFacesMultiConn(src, tgt, connection)
-  } else if (shapeMoveMode) {
+  // CORRECTO — shapeMoveMode debe tener prioridad sobre multiConn
+  if (shapeMoveMode) {
     sFace = pickFace(src, tgt, undefined, true)
     tFace = pickFace(tgt, src, undefined, true)
-  } else if (hints.connectionStart || hints.connectionEnd) {
+  } else if (hasMovedAnchor) {
     sFace = pickFace(src, tgt, hints.connectionStart, false)
     tFace = pickFace(tgt, src, hints.connectionEnd,   false)
+  } else if (hasMultiConn) {
+    ;[sFace, tFace] = pickFacesMultiConn(src, tgt, connection)
   } else {
     sFace = pickFace(src, tgt)
     tFace = pickFace(tgt, src)
@@ -250,10 +253,11 @@ BizagiLayouter.prototype.layoutConnection = function (connection: Connection, hi
     const wpL1 = existingWaypoints[existingWaypoints.length - 2]
     const segDx2 = wpL.x - wpL1.x
     const segDy2 = wpL.y - wpL1.y
+    
     if (Math.abs(segDx2) > Math.abs(segDy2)) {
-      prevEndDir = segDx2 > 0 ? 'right' : 'left'
+      prevEndDir = segDx2 > 0 ? 'left' : 'right'   // ← opuesto al viaje
     } else if (Math.abs(segDy2) > 0) {
-      prevEndDir = segDy2 > 0 ? 'bottom' : 'top'
+      prevEndDir = segDy2 > 0 ? 'top' : 'bottom'    // ← opuesto al viaje
     }
   }
 
