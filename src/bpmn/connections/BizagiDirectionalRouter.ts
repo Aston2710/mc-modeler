@@ -1,6 +1,5 @@
 /**
  * BizagiDirectionalRouter.ts
- *  3. El "Pixel de Escape" (+ 1 / - 1) viene directamente de BaseRouter.cs: al empujar
  * Traducción ESTRICTA de DirectionalRouter y BaseRouter de Bizagi.
  */
 

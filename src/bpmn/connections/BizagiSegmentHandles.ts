@@ -71,15 +71,25 @@ function BizagiSegmentHandles(this: any, eventBus: any, canvas: any, interaction
     const intersection = getConnectionIntersection(canvas, waypoints, event)
     if (!intersection) return
 
-    // REGLA DE ORO DE BIZAGI: Solo se arrastran segmentos rectos.
-    // Si el usuario intentó agarrar un "bendpoint" (una esquina), lo ignoramos.
-    // Si agarró un segmento de línea recta, permitimos el arrastre ortogonal.
+    // Si NO es una esquina (es decir, es la barra recta del segmento), permitir arrastre ortogonal
     if (!intersection.bendpoint) {
       connectionSegmentMove.start(event, connection, intersection.index)
       return true
     }
+
+    // EXCEPCIÓN PARA CÍRCULOS BLANCOS: Si es un bendpoint, verificar si es el INICIO o el FIN
+    if (intersection.bendpoint) {
+      const isStart = intersection.index === 0
+      const isEnd = intersection.index === waypoints.length - 1
+
+      if (isStart || isEnd) {
+        // Permitimos mover exclusivamente los orígenes y destinos (reconectar)
+        bendpointMove.start(event, connection, intersection.index)
+        return true
+      }
+    }
     
-    // Devolvemos false para prohibir la deformación libre 2D (Pirámides)
+    // Prohibir la deformación libre 2D (pirámides) en las esquinas intermedias
     return false
   }
 
