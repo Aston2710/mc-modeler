@@ -141,3 +141,4 @@ dist
 *.bpmn
 
 referencias_csharp/
+*.zip

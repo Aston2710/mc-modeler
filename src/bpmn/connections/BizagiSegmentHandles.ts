@@ -33,7 +33,14 @@ import { append as svgAppend, attr as svgAttr, classes as svgClasses, create as 
 import { translate } from 'diagram-js/lib/util/SvgTransformUtil'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function BizagiSegmentHandles(this: any, eventBus: any, canvas: any, interactionEvents: any, bendpointMove: any, connectionSegmentMove: any) {
+function BizagiSegmentHandles(
+    this: any, 
+    eventBus: any, 
+    canvas: any, 
+    interactionEvents: any, 
+    bendpointMove: any, 
+    connectionSegmentMove: any,
+) { 
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function isIntersectionMiddle(intersection: any, waypoints: any[], threshold: number): boolean {
@@ -246,6 +253,40 @@ function BizagiSegmentHandles(this: any, eventBus: any, canvas: any, interaction
       }
     }
   })
+
+  eventBus.on('bendpoint.move.move', function (event: any) {  //FIX BUG-09
+    const context = event.context
+    const newWaypoints = context.newWaypoints
+    if (!newWaypoints || newWaypoints.length < 2) return
+
+    // Detectar si es endpoint por índice, no por context.type
+    const isStart = context.bendpointIndex === 0
+    const isEnd   = context.bendpointIndex === newWaypoints.length - 1
+    if (!isStart && !isEnd) return  // es un bendpoint intermedio → no snap
+
+    const hoverShape = context.hover
+    if (!hoverShape || !hoverShape.width) return
+
+    const idx = isStart ? 0 : newWaypoints.length - 1
+    const cursorPoint = newWaypoints[idx]
+
+    const snapped = snapToCardinal(hoverShape, cursorPoint)
+    newWaypoints[idx] = { x: snapped.x, y: snapped.y, original: cursorPoint }
+  })
+
+  function snapToCardinal(shape: any, point: { x: number; y: number }): { x: number; y: number } {   //FIX BUG-09
+    const cardinals = [
+      { x: shape.x + shape.width / 2, y: shape.y },                    // top
+      { x: shape.x + shape.width / 2, y: shape.y + shape.height },     // bottom
+      { x: shape.x,                   y: shape.y + shape.height / 2 }, // left
+      { x: shape.x + shape.width,     y: shape.y + shape.height / 2 }, // right
+    ]
+    return cardinals.reduce((nearest, cardinal) => {
+      const dNearest = Math.hypot(nearest.x - point.x, nearest.y - point.y)
+      const dCurrent = Math.hypot(cardinal.x - point.x, cardinal.y - point.y)
+      return dCurrent < dNearest ? cardinal : nearest
+    })
+  }
 
   // Public API — matches native Bendpoints so other services can call these
   this.addHandles = addHandles
