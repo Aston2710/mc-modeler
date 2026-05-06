@@ -379,8 +379,33 @@ function ConnectionImportNormalizer(eventBus: any, elementRegistry: any, modelin
 }
 ConnectionImportNormalizer.$inject = ['eventBus', 'elementRegistry', 'modeling', 'layouter', 'commandStack']
 
+function WaypointRounder(eventBus: any, modeling: any) {
+  const rounding = new Set<string>()  // IDs de conexiones en proceso
+
+  eventBus.on('connection.changed', function (event: any) {
+    const conn = event.element
+    if (!conn?.waypoints?.length) return
+    if (rounding.has(conn.id)) return  // esta conexión ya está siendo redondeada
+
+    const rounded = conn.waypoints.map(
+      (p: any) => ({ x: Math.round(p.x), y: Math.round(p.y) })
+    )
+
+    const hasFloats = conn.waypoints.some(
+      (p: any, i: number) => p.x !== rounded[i].x || p.y !== rounded[i].y
+    )
+    if (!hasFloats) return
+
+    rounding.add(conn.id)
+    modeling.updateWaypoints(conn, rounded)
+    rounding.delete(conn.id)
+  })
+}
+WaypointRounder.$inject = ['eventBus', 'modeling']
+
 export default {
-  __init__: ['connectionImportNormalizer'],
+  __init__: ['connectionImportNormalizer', 'waypointRounder'],
   layouter: ['type', BizagiLayouter],
   connectionImportNormalizer: ['type', ConnectionImportNormalizer],
+  waypointRounder: ['type', WaypointRounder],
 }
