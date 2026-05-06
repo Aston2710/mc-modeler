@@ -15,7 +15,7 @@ import { forEach } from 'min-dash'
 import { event as domEvent, query as domQuery, queryAll as domQueryAll } from 'min-dom'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import { BENDPOINT_CLS, SEGMENT_DRAGGER_CLS, addBendpoint, addSegmentDragger, calculateSegmentMoveRegion, getConnectionIntersection } from 'diagram-js/lib/features/bendpoints/BendpointUtil'
+import { BENDPOINT_CLS, SEGMENT_DRAGGER_CLS, addSegmentDragger, calculateSegmentMoveRegion, getConnectionIntersection } from 'diagram-js/lib/features/bendpoints/BendpointUtil'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { escapeCSS } from 'diagram-js/lib/util/EscapeUtil'
@@ -28,10 +28,6 @@ import { isPrimaryButton } from 'diagram-js/lib/util/Mouse'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { append as svgAppend, attr as svgAttr, classes as svgClasses, create as svgCreate, remove as svgRemove } from 'tiny-svg'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-import { translate } from 'diagram-js/lib/util/SvgTransformUtil'
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function BizagiSegmentHandles(
     this: any, 

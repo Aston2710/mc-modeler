@@ -73,13 +73,13 @@ export class BizagiDirectionalRouter {
 
     if (existingWaypoints && existingWaypoints.length >= 3) {     // Correccion BUG-05
       const startDirUnchanged = !prevStartDir || prevStartDir === startDir;
-      const endDirUnchanged   = !prevEndDir   || prevEndDir   === endDir;
+      const endDirUnchanged = !prevEndDir || prevEndDir === endDir;
 
       const list = existingWaypoints.map(p => ({ x: p.x, y: p.y }));
       const startAtCardinal = this.trunc(list[0].x) === this.trunc(this.startPoint.x) &&
-                              this.trunc(list[0].y) === this.trunc(this.startPoint.y);
+        this.trunc(list[0].y) === this.trunc(this.startPoint.y);
 
-      if (startDirUnchanged && !startAtCardinal) {    // verificar luego BUG-06
+      if (startDirUnchanged && !startAtCardinal) {
         if (this.trunc(list[0].x) === this.trunc(list[1].x)) {
           list.splice(1, 1, { x: this.startPoint.x, y: list[2]?.y ?? list[1].y });
         } else {
@@ -91,7 +91,7 @@ export class BizagiDirectionalRouter {
       if (endDirUnchanged) {
         const last = list.length - 1;
         if (this.trunc(list[last].x) !== this.trunc(this.endPoint.x) ||
-            this.trunc(list[last].y) !== this.trunc(this.endPoint.y)) {
+          this.trunc(list[last].y) !== this.trunc(this.endPoint.y)) {
           if (this.trunc(list[last].x) === this.trunc(list[last - 1].x)) {
             list.splice(last - 1, 1, { x: this.endPoint.x, y: list[last - 2]?.y ?? list[last - 1].y });
           } else {
@@ -204,9 +204,18 @@ export class BizagiDirectionalRouter {
     for (let i = 1; i < list.length; i++) {
       const p1 = list[i - 1];
       const p2 = list[i];
-      if (i < list.length - 1 && this.getShapeFromPoint(p2.x, p2.y, true) !== null) { // correccion BUG-07 (true/false)
-        return false;
+      const isLastPoint = i === list.length - 1;
+
+      // Puntos intermedios (no el último) no deben caer dentro de ningún shape,
+      // incluyendo el tgt. El último punto sí puede estar en el borde del tgt (es el cardinal).
+      if (!isLastPoint) {
+        if (this.getShapeFromPoint(p2.x, p2.y, true) !== null) return false;
+        // Verificar también contra tgt: un punto intermedio dentro del tgt invalida la ruta.
+        if (this.tgtObstacle && this.isPointInsideObstacle(p2, this.tgtObstacle)) return false;
       }
+
+      // isSolutionValid usa getIntersectedShapes (solo this.obstacles, sin src/tgt)
+      // para no invalidar el último segmento que llega al target shape.
       if (this.getIntersectedShapes(p1, p2).length !== 0) {
         return false;
       }
@@ -217,7 +226,21 @@ export class BizagiDirectionalRouter {
   private verifySolutionPoints(): void {
     for (let i = 2; i < this.solution.length; i++) {
       const pointF = this.solution[i - 1];
-      const shapeFromPoint = this.getShapeFromPoint(pointF.x, pointF.y, true);
+      const isLastPoint = i - 1 === this.solution.length - 1;
+
+      // Verificar el punto intermedio contra todos los shapes, incluyendo tgt para puntos
+      // que NO son el último (el último es el cardinal de llegada al tgt, es válido).
+      let shapeFromPoint: RouterObstacle | null = null;
+      if (!isLastPoint) {
+        shapeFromPoint = this.getShapeFromPoint(pointF.x, pointF.y, true);
+        // Si no se detectó con ignoreOriginShapes=true, verificar también contra tgt
+        if (!shapeFromPoint && this.tgtObstacle && this.isPointInsideObstacle(pointF, this.tgtObstacle)) {
+          shapeFromPoint = this.tgtObstacle;
+        }
+      } else {
+        shapeFromPoint = this.getShapeFromPoint(pointF.x, pointF.y, true);
+      }
+
       if (!shapeFromPoint) continue;
 
       const pointF2 = this.solution[i - 2];
@@ -236,7 +259,6 @@ export class BizagiDirectionalRouter {
 
       if (this.trunc(pointF2.y) === this.trunc(pointF.y)) {
         if (this.getShapeFromPoint(pointF3.x, y, true) === null && this.getShapeFromPoint(x, pointF2.y, true) === null) {
-          // CORRECCIÓN: Orden de inserción idéntico a C# (evita diagonales y garabatos)
           this.solution.splice(i - 1, 1,
             { x, y: pointF2.y },
             { x, y },
@@ -244,7 +266,6 @@ export class BizagiDirectionalRouter {
           );
         }
       } else if (this.getShapeFromPoint(x, pointF3.y, true) === null && this.getShapeFromPoint(pointF2.x, y, true) === null) {
-        // CORRECCIÓN: Orden de inserción idéntico a C#
         this.solution.splice(i - 1, 1,
           { x: pointF2.x, y },
           { x, y },
@@ -258,7 +279,17 @@ export class BizagiDirectionalRouter {
     for (let i = 1; i < this.solution.length; i++) {
       const startPoint = this.solution[i - 1];
       const endPoint = this.solution[i];
-      const intersectedShapes = this.getIntersectedShapes(startPoint, endPoint);
+
+      // FIX: incluir src y tgt como obstáculos para detectar traversal del shape destino/origen.
+      // Equivalente a C# GetIntersectedShapes que itera container.Shapes.Values (incluye todos).
+      // SOLO en verifySolutionLines — isSolutionValid y changeCorner usan getIntersectedShapes
+      // (sin src/tgt) para no invalidar el segmento final que llega al target.
+      const allObstaclesVSL = [
+        ...this.obstacles,
+        ...(this.srcObstacle ? [this.srcObstacle] : []),
+        ...(this.tgtObstacle ? [this.tgtObstacle] : []),
+      ];
+      const intersectedShapes = this.getIntersectedShapesFrom(allObstaclesVSL, startPoint, endPoint);
       if (intersectedShapes.length === 0) continue;
 
       let num = 0, num2 = 0, num3 = 0, num4 = 0;
@@ -283,7 +314,7 @@ export class BizagiDirectionalRouter {
         const x = (startPoint.x - num < num3 - startPoint.x) ? (num - this.padding.x - 1) : (num3 + this.padding.x + 1);
         const yp1 = (startPoint.y < endPoint.y) ? (num2 - this.padding.y - 1) : (num4 + this.padding.y + 1);
         const yp2 = (startPoint.y < endPoint.y) ? (num4 + this.padding.y + 1) : (num2 - this.padding.y - 1);
-        pointF  = { x: startPoint.x, y: yp1 };
+        pointF = { x: startPoint.x, y: yp1 };
         pointF2 = { x, y: yp1 };
         pointF3 = { x, y: yp2 };
         pointF4 = { x: startPoint.x, y: yp2 };
@@ -291,7 +322,7 @@ export class BizagiDirectionalRouter {
         const y = (num4 - startPoint.y < startPoint.y - num2) ? (num4 + this.padding.y + 1) : (num2 - this.padding.y - 1);
         const xp1 = (startPoint.x < endPoint.x) ? (num - this.padding.x - 1) : (num3 + this.padding.x + 1);
         const xp2 = (startPoint.x < endPoint.x) ? (num3 + this.padding.x + 1) : (num - this.padding.x - 1);
-        pointF  = { x: xp1, y: startPoint.y };
+        pointF = { x: xp1, y: startPoint.y };
         pointF2 = { x: xp1, y };
         pointF3 = { x: xp2, y };
         pointF4 = { x: xp2, y: startPoint.y };
@@ -299,15 +330,18 @@ export class BizagiDirectionalRouter {
 
       let flag = true;
       if (this.getShapeFromPoint(pointF.x, pointF.y, true) !== null ||
-          this.getShapeFromPoint(pointF2.x, pointF2.y, true) !== null ||
-          this.getShapeFromPoint(pointF3.x, pointF3.y, true) !== null ||
-          this.getShapeFromPoint(pointF4.x, pointF4.y, true) !== null) {
+        this.getShapeFromPoint(pointF2.x, pointF2.y, true) !== null ||
+        this.getShapeFromPoint(pointF3.x, pointF3.y, true) !== null ||
+        this.getShapeFromPoint(pointF4.x, pointF4.y, true) !== null) {
         flag = false;
       }
+      // La validación de los nuevos segmentos del bypass usa getIntersectedShapes
+      // (sin src/tgt): los nuevos segmentos no deben cruzar otros shapes intermedios,
+      // pero sí pueden terminar en el borde del target.
       if (flag && (
-          this.getIntersectedShapes(pointF, pointF2).length !== 0 ||
-          this.getIntersectedShapes(pointF2, pointF3).length !== 0 ||
-          this.getIntersectedShapes(pointF3, pointF4).length !== 0)) {
+        this.getIntersectedShapes(pointF, pointF2).length !== 0 ||
+        this.getIntersectedShapes(pointF2, pointF3).length !== 0 ||
+        this.getIntersectedShapes(pointF3, pointF4).length !== 0)) {
         flag = false;
       }
 
@@ -318,7 +352,10 @@ export class BizagiDirectionalRouter {
   }
 
   private refineSolution(): void {
+    const MAX_ITER = this.solution.length * 10;  // DT-04: safety net contra bucle infinito
+    let _iter = 0;
     for (let num = 1; num < this.solution.length - 3; num = (num <= 0 ? 1 : num + 1)) {
+      if (++_iter > MAX_ITER) break;
       const p1 = this.solution[num - 1];
       const p2 = this.solution[num];
       const p3 = this.solution[num + 1];
@@ -404,6 +441,8 @@ export class BizagiDirectionalRouter {
       if (index - 1 < 0 || index + 3 > this.solution.length - 1) return false;
       const startPoint = this.solution[index - 1];
       const endPoint = this.solution[index + 3];
+      // changeCorner usa getIntersectedShapes (sin src/tgt) para no bloquear
+      // simplificaciones de esquinas cerca del shape destino
       const intersected1 = this.getIntersectedShapes(startPoint, newPoint);
       const intersected2 = this.getIntersectedShapes(newPoint, endPoint);
       if (intersected1.length === 0 && intersected2.length === 0) {
@@ -421,11 +460,18 @@ export class BizagiDirectionalRouter {
       const p2 = points[i];
       const p3 = points[i + 1];
       if ((this.trunc(p1.x) === this.trunc(p2.x) && this.trunc(p2.x) === this.trunc(p3.x)) ||
-          (this.trunc(p1.y) === this.trunc(p2.y) && this.trunc(p2.y) === this.trunc(p3.y))) {
+        (this.trunc(p1.y) === this.trunc(p2.y) && this.trunc(p2.y) === this.trunc(p3.y))) {
         points.splice(i, 1);
         i--;
       }
     }
+  }
+
+  // Verifica si un punto cae dentro de un obstacle (incluyendo el padding).
+  // Usado para detectar puntos intermedios dentro de src/tgt que ignoreOriginShapes omite.
+  private isPointInsideObstacle(p: Point, obs: RouterObstacle): boolean {
+    return p.x >= obs.x - this.padding.x && p.x <= obs.x + obs.width + this.padding.x &&
+      p.y >= obs.y - this.padding.y && p.y <= obs.y + obs.height + this.padding.y;
   }
 
   private getShapeFromPoint(x: number, y: number, ignoreOriginShapes: boolean = true): RouterObstacle | null {
@@ -435,26 +481,49 @@ export class BizagiDirectionalRouter {
 
     for (const shape of allObstacles) {
       if (x >= shape.x - this.padding.x && x <= shape.x + shape.width + this.padding.x &&
-          y >= shape.y - this.padding.y && y <= shape.y + shape.height + this.padding.y) {
+        y >= shape.y - this.padding.y && y <= shape.y + shape.height + this.padding.y) {
         return shape;
       }
     }
     return null;
   }
 
+  // Detecta si un segmento TRAVERSA COMPLETAMENTE un shape (entra por un lado y sale por el otro).
+  // Usa únicamente this.obstacles — excluye src/tgt intencionalmente para que:
+  //   - isSolutionValid no invalide el segmento final que llega al target
+  //   - changeCorner pueda simplificar esquinas cerca del target
   private getIntersectedShapes(startPoint: Point, endPoint: Point): RouterObstacle[] {
     const arr: RouterObstacle[] = [];
     for (const value of this.obstacles) {
       if (this.trunc(startPoint.y) === this.trunc(endPoint.y) && startPoint.y >= value.y && startPoint.y <= value.y + value.height) {
-        // CORRECCIÓN: Lógica estricta de "atravesar" la figura
         if ((startPoint.x <= value.x && endPoint.x >= value.x + value.width) ||
-            (endPoint.x <= value.x && startPoint.x >= value.x + value.width)) {
+          (endPoint.x <= value.x && startPoint.x >= value.x + value.width)) {
           arr.push(value);
         }
       } else if (this.trunc(startPoint.x) === this.trunc(endPoint.x) && startPoint.x >= value.x && startPoint.x <= value.x + value.width) {
-        // CORRECCIÓN: Lógica estricta de "atravesar" la figura
         if ((startPoint.y <= value.y && endPoint.y >= value.y + value.height) ||
-            (endPoint.y <= value.y && startPoint.y >= value.y + value.height)) {
+          (endPoint.y <= value.y && startPoint.y >= value.y + value.height)) {
+          arr.push(value);
+        }
+      }
+    }
+    return arr;
+  }
+
+  // Variante de getIntersectedShapes que recibe el array de obstáculos explícitamente.
+  // Usada en verifySolutionLines para incluir src/tgt en la detección de traversal,
+  // equivalente al comportamiento de C# GetIntersectedShapes que itera container.Shapes.Values.
+  private getIntersectedShapesFrom(obstacles: RouterObstacle[], startPoint: Point, endPoint: Point): RouterObstacle[] {
+    const arr: RouterObstacle[] = [];
+    for (const value of obstacles) {
+      if (this.trunc(startPoint.y) === this.trunc(endPoint.y) && startPoint.y >= value.y && startPoint.y <= value.y + value.height) {
+        if ((startPoint.x <= value.x && endPoint.x >= value.x + value.width) ||
+          (endPoint.x <= value.x && startPoint.x >= value.x + value.width)) {
+          arr.push(value);
+        }
+      } else if (this.trunc(startPoint.x) === this.trunc(endPoint.x) && startPoint.x >= value.x && startPoint.x <= value.x + value.width) {
+        if ((startPoint.y <= value.y && endPoint.y >= value.y + value.height) ||
+          (endPoint.y <= value.y && startPoint.y >= value.y + value.height)) {
           arr.push(value);
         }
       }

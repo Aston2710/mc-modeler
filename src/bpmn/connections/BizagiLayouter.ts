@@ -90,10 +90,6 @@ function defaultFace(src: Shape, tgt: Shape): Face {
   return 'top'
 }
 
-function isShapeCenter(shape: Shape, p: Point): boolean {
-  return Math.abs(p.x - cx(shape)) < 1 && Math.abs(p.y - cy(shape)) < 1
-}
-
 // ── Preferencia por cardinales vacíos ─────────────────────────────────────────
 // BUG-11
 // Detecta qué caras del shape ya tienen conexiones ancladas,
@@ -233,11 +229,35 @@ function pickFacesMultiConn(src: Shape, tgt: Shape, connection: Connection): [Fa
 }
 
 function pickFace(shape: Shape, other: Shape, hint?: Point, shapeMoveMode?: boolean): Face {
-  if (!shapeMoveMode && hint && !isShapeCenter(shape, hint)) {
+  if (!shapeMoveMode && hint) {
     return isGateway(shape) ? nearestGatewayFace(shape, hint) : nearestFace(shape, hint)
   }
   if (isGateway(shape)) return gatewayFace(shape, other)
   return defaultFace(shape, other)
+}
+
+function getCardinals(shape: Shape): Point[] {
+  if (!shape?.width || !shape?.height) return []
+  const ccx = shape.x + shape.width  / 2
+  const ccy = shape.y + shape.height / 2
+  return [
+    { x: ccx,                    y: shape.y                }, // top
+    { x: ccx,                    y: shape.y + shape.height }, // bottom
+    { x: shape.x,                y: ccy                    }, // left
+    { x: shape.x + shape.width,  y: ccy                    }, // right
+  ]
+}
+
+function endpointsOffCardinal(conn: Connection): boolean {
+  const wps = conn.waypoints
+  if (!wps || wps.length < 2 || !conn.source || !conn.target) return false
+  const srcOk = getCardinals(conn.source).some(
+    c => Math.abs(c.x - wps[0].x) < 1.5 && Math.abs(c.y - wps[0].y) < 1.5
+  )
+  const tgtOk = getCardinals(conn.target).some(
+    c => Math.abs(c.x - wps[wps.length - 1].x) < 1.5 && Math.abs(c.y - wps[wps.length - 1].y) < 1.5
+  )
+  return !srcOk || !tgtOk
 }
 
 function hasDiagonals(wps: Point[] | null | undefined): boolean {
@@ -369,7 +389,7 @@ function ConnectionImportNormalizer(eventBus: any, elementRegistry: any, modelin
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     connections.forEach((conn: any) => {
       if (!conn.source || !conn.target) return
-      if (!hasDiagonals(conn.waypoints)) return
+      if (!hasDiagonals(conn.waypoints) && !endpointsOffCardinal(conn)) return
       const wp = layouter.layoutConnection(conn, { source: conn.source, target: conn.target })
       if (wp?.length >= 2) { modeling.updateWaypoints(conn, wp); fixed++ }
     })
