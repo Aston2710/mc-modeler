@@ -15,13 +15,13 @@ import { forEach } from 'min-dash'
 import { event as domEvent, query as domQuery, queryAll as domQueryAll } from 'min-dom'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import { BENDPOINT_CLS, SEGMENT_DRAGGER_CLS, addSegmentDragger, calculateSegmentMoveRegion, getConnectionIntersection } from 'diagram-js/lib/features/bendpoints/BendpointUtil'
+import { BENDPOINT_CLS, SEGMENT_DRAGGER_CLS, addSegmentDragger, getConnectionIntersection } from 'diagram-js/lib/features/bendpoints/BendpointUtil'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { escapeCSS } from 'diagram-js/lib/util/EscapeUtil'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import { pointsAligned, getMidPoint } from 'diagram-js/lib/util/Geometry'
+import { pointsAligned } from 'diagram-js/lib/util/Geometry'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { isPrimaryButton } from 'diagram-js/lib/util/Mouse'
@@ -38,36 +38,6 @@ function BizagiSegmentHandles(
     connectionSegmentMove: any,
     graphicsFactory: any,   // ← AÑADIR
 ) { 
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function isIntersectionMiddle(intersection: any, waypoints: any[], threshold: number): boolean {
-    const idx = intersection.index
-    const p = intersection.point
-    if (idx <= 0 || intersection.bendpoint) return false
-    const p0 = waypoints[idx - 1]
-    const p1 = waypoints[idx]
-    const mid = getMidPoint(p0, p1)
-    const aligned = pointsAligned(p0, p1)
-    const xDelta = Math.abs(p.x - mid.x)
-    const yDelta = Math.abs(p.y - mid.y)
-    return !!(aligned && xDelta <= threshold && yDelta <= threshold)
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function calculateIntersectionThreshold(connection: any, intersection: any): number | null {
-    const waypoints = connection.waypoints
-    if (intersection.index <= 0 || intersection.bendpoint) return null
-    const relevantSegment = {
-      start: waypoints[intersection.index - 1],
-      end: waypoints[intersection.index],
-    }
-    const alignment = pointsAligned(relevantSegment.start, relevantSegment.end)
-    if (!alignment) return null
-    const segmentLength = alignment === 'h'
-      ? relevantSegment.end.x - relevantSegment.start.x
-      : relevantSegment.end.y - relevantSegment.start.y
-    return calculateSegmentMoveRegion(segmentLength) / 2
-  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function activateBendpointMove(event: any, connection: any): boolean | undefined {
@@ -112,9 +82,9 @@ function BizagiSegmentHandles(
     let gfx = domQuery('.djs-bendpoints[data-element-id="' + escapeCSS(element.id) + '"]', layer)
     if (!gfx && create) {
       gfx = svgCreate('g')
-      svgAttr(gfx, { 'data-element-id': element.id })
+      svgAttr(gfx as SVGElement, { 'data-element-id': element.id })
       svgClasses(gfx).add('djs-bendpoints')
-      svgAppend(layer, gfx)
+      svgAppend(layer, gfx as SVGElement)
       bindInteractionEvents(gfx, 'mousedown', element)
       bindInteractionEvents(gfx, 'click', element)
       bindInteractionEvents(gfx, 'dblclick', element)
@@ -128,7 +98,7 @@ function BizagiSegmentHandles(
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function createBendpoints(gfx: any, connection: any) {
+  function createBendpoints(_gfx: any, _connection: any) {
     // Vacío Intencionalmente.
     // Bizagi no renderiza "puntitos" verdes en las esquinas porque no permite
     // interactuar con ellas. Al dejar esto vacío, limpiamos la interfaz de basura visual.
@@ -288,36 +258,36 @@ function BizagiSegmentHandles(
     const context = event.context
     const connection = context.connection
     if (!connection?.source || !connection?.target) return
-  
+
     // Las propiedades correctas del context según ConnectionSegmentMove.js:
     const segStartIdx = context.segmentStartIndex   // índice del waypoint INICIO del segmento
     const segEndIdx   = context.segmentEndIndex     // índice del waypoint FIN del segmento
     const origLen     = context.originalWaypoints?.length
     if (origLen == null) return
-  
+
     const isFirstSeg = segStartIdx === 0
     const isLastSeg  = segEndIdx === origLen - 1
-  
+
     // Solo actuar para el primer o último segmento (los adyacentes a src/tgt).
     // Para segmentos medios, bpmn-js mantiene la ortogonalidad correctamente.
     if (!isFirstSeg && !isLastSeg) return
-  
+
     // Trabajar sobre connection.waypoints que bpmn-js ya actualizó en su handler
     const wps = connection.waypoints
     if (!wps || wps.length < 2) return
     const last = wps.length - 1
-  
+
     let modified = false
-  
+
     if (isLastSeg && connection.target?.width) {
       const tgt = connection.target
       const prevToEnd = wps[last - 1]
       const newCardinal = nearestCardinalWithThreshold(tgt, prevToEnd, SEGMENT_CARDINAL_SWITCH_THRESHOLD)
-    
+
       // Sólo actualizar si el cardinal cambió para evitar redibujados innecesarios
       if (newCardinal.x !== wps[last].x || newCardinal.y !== wps[last].y) {
         wps[last] = { x: newCardinal.x, y: newCardinal.y }
-      
+
         // Corregir el waypoint adyacente para mantener ortogonalidad:
         // Cardinal izquierdo/derecho (y == tgt.cy) → último segmento debe ser horizontal
         // Cardinal superior/inferior (x == tgt.cx) → último segmento debe ser vertical
@@ -328,19 +298,19 @@ function BizagiSegmentHandles(
         } else if (Math.abs(newCardinal.x - tgtCx) < 0.5) {
           wps[last - 1] = { x: newCardinal.x, y: wps[last - 1].y }
         }
-      
+
         modified = true
       }
     }
-  
+
     if (isFirstSeg && connection.source?.width) {
       const src = connection.source
       const nextToStart = wps[1]
       const newCardinal = nearestCardinalWithThreshold(src, nextToStart, SEGMENT_CARDINAL_SWITCH_THRESHOLD)
-    
+
       if (newCardinal.x !== wps[0].x || newCardinal.y !== wps[0].y) {
         wps[0] = { x: newCardinal.x, y: newCardinal.y }
-      
+
         const srcCy = src.y + src.height / 2
         const srcCx = src.x + src.width  / 2
         if (Math.abs(newCardinal.y - srcCy) < 0.5) {
@@ -348,11 +318,11 @@ function BizagiSegmentHandles(
         } else if (Math.abs(newCardinal.x - srcCx) < 0.5) {
           wps[1] = { x: newCardinal.x, y: wps[1].y }
         }
-      
+
         modified = true
       }
     }
-  
+
     // Redibujar con los waypoints corregidos.
     // Necesario porque bpmn-js ya llamó redrawConnection con la versión sin corregir.
     if (modified) {

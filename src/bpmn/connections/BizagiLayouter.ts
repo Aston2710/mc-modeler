@@ -107,9 +107,11 @@ function gatewayExitFace(gw: Shape, other: Shape): Face {
   return 'top'                                // gateway completamente abajo → sale arriba
 }
 
-// Reemplaza defaultFace en todos los call sites donde se calcula sFace/tFace
-// naturalFace(shape, other) = face de 'shape' que geométricamente más cerca está del centro de 'other'
-// A diferencia de defaultFace, maneja correctamente los casos diagonales
+
+// naturalFace(shape, other): cara de 'shape' que geométricamente mira hacia 'other'.
+// Usa distancia euclidiana desde los midpoints de cada cara al centro del otro shape,
+// lo que maneja correctamente tanto los casos directos como los diagonales.
+
 function naturalFace(shape: Shape, other: Shape): Face {
   return isGateway(shape)
     ? nearestGatewayFace(shape, { x: cx(other), y: cy(other) })
@@ -246,17 +248,6 @@ function getCardinals(shape: Shape): Point[] {
   ]
 }
 
-function endpointsOffCardinal(conn: Connection): boolean {
-  const wps = conn.waypoints
-  if (!wps || wps.length < 2 || !conn.source || !conn.target) return false
-  const srcOk = getCardinals(conn.source).some(
-    c => Math.abs(c.x - wps[0].x) < 1.5 && Math.abs(c.y - wps[0].y) < 1.5
-  )
-  const tgtOk = getCardinals(conn.target).some(
-    c => Math.abs(c.x - wps[wps.length - 1].x) < 1.5 && Math.abs(c.y - wps[wps.length - 1].y) < 1.5
-  )
-  return !srcOk || !tgtOk
-}
 
 function hasDiagonals(wps: Point[] | null | undefined): boolean {
   if (!wps || wps.length < 2) return false
@@ -409,7 +400,6 @@ function WaypointRounder(eventBus: any, modeling: any, layouter: any, elementReg
     if (!needsRelayout && hasDiagonals(wps)) needsRelayout = true
     if (!needsRelayout && conn.source && conn.target && wps.length >= 2) {
       const srcId = conn.source.id
-      //const tgtId = conn.target.id
       const obstaclesNoSrc: RouterObstacle[] = []  // sin src, con tgt
     
       elementRegistry.forEach((el: any) => {
