@@ -36,6 +36,7 @@ function BizagiSegmentHandles(
     interactionEvents: any, 
     bendpointMove: any, 
     connectionSegmentMove: any,
+    graphicsFactory: any,   // ← AÑADIR
 ) { 
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -136,7 +137,12 @@ function BizagiSegmentHandles(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function createSegmentDraggers(gfx: any, connection: any) {
     const waypoints = connection.waypoints
+    const totalSegments = waypoints.length - 1
     for (let i = 1; i < waypoints.length; i++) {
+      // Solo crear dragger para segmentos intermedios (no el primero ni el último)
+      // Igual que Bizagi: el primer y último segmento están anclados al shape
+      // y no deben ser movibles independientemente
+      if (i === 1 || i === totalSegments) continue
       const segmentStart = waypoints[i - 1]
       const segmentEnd = waypoints[i]
       if (pointsAligned(segmentStart, segmentEnd)) {
@@ -270,6 +276,136 @@ function BizagiSegmentHandles(
     newWaypoints[idx] = { x: snapped.x, y: snapped.y, original: cursorPoint }
   })
 
+  // Umbral en píxeles para cambiar de cardinal durante drag de segmento.
+  // 0 = cambia en cuanto el punto previo cruza el centro del shape.
+  // Valor positivo = requiere N píxeles adicionales más allá del centro.
+  const SEGMENT_CARDINAL_SWITCH_THRESHOLD = 0
+  
+  // Prioridad 500: disparamos DESPUÉS del handler interno de bpmn-js (prioridad 1000).
+  // bpmn-js reconstruye los waypoints y llama redrawConnection primero.
+  // Nosotros corregimos los waypoints y llamamos redrawConnection de nuevo con la versión correcta.
+  eventBus.on('connectionSegment.move.move', 500, function (event: any) {
+    const context = event.context
+    const connection = context.connection
+    if (!connection?.source || !connection?.target) return
+  
+    // Las propiedades correctas del context según ConnectionSegmentMove.js:
+    const segStartIdx = context.segmentStartIndex   // índice del waypoint INICIO del segmento
+    const segEndIdx   = context.segmentEndIndex     // índice del waypoint FIN del segmento
+    const origLen     = context.originalWaypoints?.length
+    if (origLen == null) return
+  
+    const isFirstSeg = segStartIdx === 0
+    const isLastSeg  = segEndIdx === origLen - 1
+  
+    // Solo actuar para el primer o último segmento (los adyacentes a src/tgt).
+    // Para segmentos medios, bpmn-js mantiene la ortogonalidad correctamente.
+    if (!isFirstSeg && !isLastSeg) return
+  
+    // Trabajar sobre connection.waypoints que bpmn-js ya actualizó en su handler
+    const wps = connection.waypoints
+    if (!wps || wps.length < 2) return
+    const last = wps.length - 1
+  
+    let modified = false
+  
+    if (isLastSeg && connection.target?.width) {
+      const tgt = connection.target
+      const prevToEnd = wps[last - 1]
+      const newCardinal = nearestCardinalWithThreshold(tgt, prevToEnd, SEGMENT_CARDINAL_SWITCH_THRESHOLD)
+    
+      // Sólo actualizar si el cardinal cambió para evitar redibujados innecesarios
+      if (newCardinal.x !== wps[last].x || newCardinal.y !== wps[last].y) {
+        wps[last] = { x: newCardinal.x, y: newCardinal.y }
+      
+        // Corregir el waypoint adyacente para mantener ortogonalidad:
+        // Cardinal izquierdo/derecho (y == tgt.cy) → último segmento debe ser horizontal
+        // Cardinal superior/inferior (x == tgt.cx) → último segmento debe ser vertical
+        const tgtCy = tgt.y + tgt.height / 2
+        const tgtCx = tgt.x + tgt.width  / 2
+        if (Math.abs(newCardinal.y - tgtCy) < 0.5) {
+          wps[last - 1] = { x: wps[last - 1].x, y: newCardinal.y }
+        } else if (Math.abs(newCardinal.x - tgtCx) < 0.5) {
+          wps[last - 1] = { x: newCardinal.x, y: wps[last - 1].y }
+        }
+      
+        modified = true
+      }
+    }
+  
+    if (isFirstSeg && connection.source?.width) {
+      const src = connection.source
+      const nextToStart = wps[1]
+      const newCardinal = nearestCardinalWithThreshold(src, nextToStart, SEGMENT_CARDINAL_SWITCH_THRESHOLD)
+    
+      if (newCardinal.x !== wps[0].x || newCardinal.y !== wps[0].y) {
+        wps[0] = { x: newCardinal.x, y: newCardinal.y }
+      
+        const srcCy = src.y + src.height / 2
+        const srcCx = src.x + src.width  / 2
+        if (Math.abs(newCardinal.y - srcCy) < 0.5) {
+          wps[1] = { x: wps[1].x, y: newCardinal.y }
+        } else if (Math.abs(newCardinal.x - srcCx) < 0.5) {
+          wps[1] = { x: newCardinal.x, y: wps[1].y }
+        }
+      
+        modified = true
+      }
+    }
+  
+    // Redibujar con los waypoints corregidos.
+    // Necesario porque bpmn-js ya llamó redrawConnection con la versión sin corregir.
+    if (modified) {
+      context.newWaypoints = wps  // sincronizar para que move.end use la versión correcta
+      graphicsFactory.update('connection', connection, event.data.connectionGfx)
+    }
+  })
+  //
+  // Devuelve el cardinal del shape más cercano al punto dado,
+  // con un umbral opcional: requiere que el punto esté N píxeles
+  // MÁS ALLÁ del centro del shape antes de cambiar de cardinal.
+  function nearestCardinalWithThreshold(
+    shape: any,
+    point: { x: number; y: number },
+    threshold: number
+  ): { x: number; y: number } {
+    const cx = shape.x + shape.width  / 2
+    const cy = shape.y + shape.height / 2
+  
+    const cardinals = [
+      { x: cx,                    y: shape.y                }, // top
+      { x: cx,                    y: shape.y + shape.height }, // bottom
+      { x: shape.x,               y: cy                     }, // left
+      { x: shape.x + shape.width, y: cy                     }, // right
+    ]
+  
+    // Sin threshold: simplemente el cardinal más cercano al punto previo
+    if (threshold === 0) {
+      return cardinals.reduce((nearest, cardinal) => {
+        const dNearest = Math.hypot(nearest.x - point.x, nearest.y - point.y)
+        const dCurrent = Math.hypot(cardinal.x - point.x, cardinal.y - point.y)
+        return dCurrent < dNearest ? cardinal : nearest
+      })
+    }
+  
+    // Con threshold: el punto debe estar N píxeles más allá del centro
+    // en el eje dominante para cambiar de cardinal
+    const dx = point.x - cx
+    const dy = point.y - cy
+  
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      // Eje horizontal domina
+      if (dx > threshold)       return cardinals[3]  // right
+      if (dx < -threshold)      return cardinals[2]  // left
+      return Math.abs(dx) > Math.abs(dy) ? cardinals[dx > 0 ? 3 : 2] : cardinals[dy > 0 ? 1 : 0]
+    } else {
+      // Eje vertical domina
+      if (dy > threshold)       return cardinals[1]  // bottom
+      if (dy < -threshold)      return cardinals[0]  // top
+      return Math.abs(dy) > Math.abs(dx) ? cardinals[dy > 0 ? 1 : 0] : cardinals[dx > 0 ? 3 : 2]
+    }
+  }
+
   function snapToCardinal(shape: any, point: { x: number; y: number }): { x: number; y: number } {   //FIX BUG-09
     const cardinals = [
       { x: shape.x + shape.width / 2, y: shape.y },                    // top
@@ -297,6 +433,7 @@ BizagiSegmentHandles.$inject = [
   'interactionEvents',
   'bendpointMove',
   'connectionSegmentMove',
+  'graphicsFactory',
 ]
 
 export default {

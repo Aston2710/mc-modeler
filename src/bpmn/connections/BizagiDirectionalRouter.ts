@@ -219,6 +219,11 @@ export class BizagiDirectionalRouter {
       if (this.getIntersectedShapes(p1, p2).length !== 0) {
         return false;
       }
+      
+      // Rechazar segmentos no ortogonales (diagonales)
+      if (this.trunc(p1.x) !== this.trunc(p2.x) && this.trunc(p1.y) !== this.trunc(p2.y)) {
+        return false;
+      }
     }
     return true;
   }
@@ -329,6 +334,17 @@ export class BizagiDirectionalRouter {
       }
 
       let flag = true;
+
+      // Verificar también contra srcObstacle — el bypass no puede entrar en el src
+      if (flag && this.srcObstacle) {
+        if (/*this.isPointInsideObstacle(pointF,  this.srcObstacle) ||*/
+            this.isPointInsideObstacle(pointF2, this.srcObstacle) ||
+            this.isPointInsideObstacle(pointF3, this.srcObstacle) ||
+            this.isPointInsideObstacle(pointF4, this.srcObstacle)) {
+          flag = false;
+        }
+      }
+
       if (this.getShapeFromPoint(pointF.x, pointF.y, true) !== null ||
         this.getShapeFromPoint(pointF2.x, pointF2.y, true) !== null ||
         this.getShapeFromPoint(pointF3.x, pointF3.y, true) !== null ||
@@ -437,14 +453,20 @@ export class BizagiDirectionalRouter {
   }
 
   private changeCorner(index: number, newPoint: Point): boolean {
-    if (this.getShapeFromPoint(newPoint.x, newPoint.y, true) === null) {
+    // Incluir src y tgt en el check de punto: si el nuevo punto cae dentro
+    // del gateway o cualquier shape (incluyendo src/tgt), rechazar
+    if (this.getShapeFromPoint(newPoint.x, newPoint.y, false) === null) {
       if (index - 1 < 0 || index + 3 > this.solution.length - 1) return false;
       const startPoint = this.solution[index - 1];
       const endPoint = this.solution[index + 3];
-      // changeCorner usa getIntersectedShapes (sin src/tgt) para no bloquear
-      // simplificaciones de esquinas cerca del shape destino
-      const intersected1 = this.getIntersectedShapes(startPoint, newPoint);
-      const intersected2 = this.getIntersectedShapes(newPoint, endPoint);
+      // Incluir tgt y src en traversal check — equivalente exacto de C#
+      const allObs = [
+        ...this.obstacles,
+        ...(this.srcObstacle ? [this.srcObstacle] : []),
+        ...(this.tgtObstacle ? [this.tgtObstacle] : []),
+      ];
+      const intersected1 = this.getIntersectedShapesFrom(allObs, startPoint, newPoint);
+      const intersected2 = this.getIntersectedShapesFrom(allObs, newPoint, endPoint);
       if (intersected1.length === 0 && intersected2.length === 0) {
         this.solution.splice(index, 3, newPoint);
         return true;

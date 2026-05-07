@@ -13,6 +13,11 @@ ImageContextPadProvider.$inject = ['contextPad', 'modeling']
 ImageContextPadProvider.prototype.getContextPadEntries = function(element: AnyObj) {
   const modeling = this._modeling
 
+  // Conexiones: eliminar todo el menú contextual nativo (llave, basura, etc.)
+  if (Array.isArray(element?.waypoints)) {
+    return function(entries: AnyObj) { return {} }
+  }
+
   if (element.type === 'bpmn:TextAnnotation' && element.businessObject.text?.startsWith('[IMAGE:')) {
     return {
       'image.upload': {

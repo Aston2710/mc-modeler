@@ -73,6 +73,10 @@ function nearestGatewayFace(gw: Shape, p: Point): Face {
     .sort((a, b) => a[1] - b[1])[0][0]
 }
 
+// gatewayFace: cara del gateway que mira HACIA `other`.
+// Usado cuando el gateway es TARGET (cara de llegada) o para referencias de distancia.
+// Mantiene la lógica original de ángulos — equivalente a CreatePointDirection de C#
+// cuando se calcula la dirección del shape DESTINO hacia el source.
 function gatewayFace(gw: Shape, other: Shape): Face {
   const dx = cx(other) - cx(gw)
   const dy = cy(other) - cy(gw)
@@ -81,108 +85,98 @@ function gatewayFace(gw: Shape, other: Shape): Face {
   return dy >= 0 ? 'bottom' : 'top'
 }
 
-function defaultFace(src: Shape, tgt: Shape): Face {
-  const r1 = { right: src.x + src.width, left: src.x, bottom: src.y + src.height, top: src.y }
-  const r2 = { right: tgt.x + tgt.width, left: tgt.x, bottom: tgt.y + tgt.height, top: tgt.y }
-  if (r1.right <= r2.left)  return 'right'
-  if (r1.left >= r2.right)  return 'left'
-  if (r1.bottom <= r2.top)  return 'bottom'
-  return 'top'
+// gatewayExitFace: cara por la que debe SALIR el gateway cuando es SOURCE.
+// Equivalente exacto de C# createDirectionalPoints para el shape de inicio:
+// cuando el gateway está completamente a la derecha del target, C# sale perpendicular
+// (bottom/top) en lugar de directamente (left), produciendo rutas más cortas y naturales.
+// Separado de gatewayFace porque la lógica de salida (source) difiere de la de
+// llegada (target) en los casos donde los shapes no se solapan horizontalmente.
+function gatewayExitFace(gw: Shape, other: Shape): Face {
+  const r1 = { right: gw.x + gw.width, left: gw.x, bottom: gw.y + gw.height, top: gw.y }
+  const r2 = { right: other.x + other.width, left: other.x, bottom: other.y + other.height, top: other.y }
+
+  if (r1.right <= r2.left)  return 'right'   // gateway a la izquierda del target → sale derecha
+
+  if (r1.left >= r2.right) {                  // gateway completamente a la derecha del target
+    if (r1.bottom <= r2.top)  return 'bottom' // gateway encima → sale abajo (ruta directa ↓)
+    if (r1.top >= r2.bottom)  return 'top'    // gateway debajo → sale arriba (ruta directa ↑)
+    return 'top'                              // inline → U-shape hacia arriba (igual que C#)
+  }
+
+  if (r1.bottom <= r2.top)  return 'bottom'   // gateway completamente arriba → sale abajo
+  return 'top'                                // gateway completamente abajo → sale arriba
 }
 
-// ── Preferencia por cardinales vacíos ─────────────────────────────────────────
-// BUG-11
-// Detecta qué caras del shape ya tienen conexiones ancladas,
-// usando los waypoints reales de cada conexión existente.
-// Solo se usa al crear una nueva conexión (sin hints de drag ni movimiento).
+// Reemplaza defaultFace en todos los call sites donde se calcula sFace/tFace
+// naturalFace(shape, other) = face de 'shape' que geométricamente más cerca está del centro de 'other'
+// A diferencia de defaultFace, maneja correctamente los casos diagonales
+function naturalFace(shape: Shape, other: Shape): Face {
+  return isGateway(shape)
+    ? nearestGatewayFace(shape, { x: cx(other), y: cy(other) })
+    : nearestFace(shape, { x: cx(other), y: cy(other) })
+}
 
 function getOccupiedFaces(shape: Shape, excludeConnection: Connection): Set<Face> {
   const used = new Set<Face>()
-
   const outgoing: Connection[] = shape.outgoing || []
   for (const c of outgoing) {
     if (c === excludeConnection) continue
     const wps: Point[] | undefined = c.waypoints
     if (!wps || wps.length < 1) continue
-    // El primer waypoint es el punto de salida en el borde del shape fuente
     used.add(isGateway(shape) ? nearestGatewayFace(shape, wps[0]) : nearestFace(shape, wps[0]))
   }
-
   const incoming: Connection[] = shape.incoming || []
   for (const c of incoming) {
     if (c === excludeConnection) continue
     const wps: Point[] | undefined = c.waypoints
     if (!wps || wps.length < 1) continue
-    // El último waypoint es el punto de llegada en el borde del shape destino
     used.add(isGateway(shape) ? nearestGatewayFace(shape, wps[wps.length - 1]) : nearestFace(shape, wps[wps.length - 1]))
   }
-
   return used
 }
 
-// Devuelve la mejor cara disponible para `shape` en dirección a `other`.
-// Prioridad:
-//   1. La cara naturalmente preferida por geometría, si está libre
-//   2. La cara libre más cercana geométricamente a la cara preferida
-//   3. La cara preferida original si todas están ocupadas (sin opción)
-//
-// Los gateways quedan excluidos: sus 4 vértices son fijos y compartibles,
-// no tiene sentido forzar un cambio de cara en ellos.
-function pickFreeCardinalFace(shape: Shape, other: Shape, connection: Connection): Face {
-  if (isGateway(shape)) {
-    return gatewayFace(shape, other)
-  }
-
-  const preferredFace = defaultFace(shape, other)
+// isSource=true  → shape actúa como SOURCE: usar gatewayExitFace (lógica C# de salida)
+// isSource=false → shape actúa como TARGET: usar gatewayFace (cara más cercana al source)
+function pickFreeCardinalFace(shape: Shape, other: Shape, connection: Connection, isSource = true): Face {
+  const preferredFace = isGateway(shape)
+    ? (isSource ? gatewayExitFace(shape, other) : gatewayFace(shape, other))
+    : naturalFace(shape, other)
   const occupied = getOccupiedFaces(shape, connection)
-
-  // Cara preferida está libre → usarla directamente
   if (!occupied.has(preferredFace)) return preferredFace
-
-  // Todas las caras: ordenadas por proximidad geométrica a la cara preferida.
-  // "Proximidad" = distancia entre el cardinal de la cara candidata
-  // y el cardinal de la cara preferida del shape OTHER (el destino natural).
-  // Esto garantiza que la cara alternativa elegida sea la más coherente
-  // con la posición relativa de los dos shapes.
+  const getCardinalPoint = (s: Shape, f: Face): Point =>
+    isGateway(s) ? gatewayCardinal(s, f) : faceCardinal(s, f)
+  const referencePoint = getCardinalPoint(other,
+    isGateway(other) ? gatewayFace(other, shape) : naturalFace(other, shape)
+  )
   const allFaces: Face[] = ['right', 'left', 'bottom', 'top']
-  const referencePoint = faceCardinal(other, defaultFace(other, shape))
-
   const ordered = allFaces
     .filter(f => f !== preferredFace)
     .sort((a, b) => {
-      const pa = faceCardinal(shape, a)
-      const pb = faceCardinal(shape, b)
+      const pa = getCardinalPoint(shape, a)
+      const pb = getCardinalPoint(shape, b)
       return Math.hypot(pa.x - referencePoint.x, pa.y - referencePoint.y)
            - Math.hypot(pb.x - referencePoint.x, pb.y - referencePoint.y)
     })
-
-  // Devolver la primera cara libre en ese orden
   for (const f of ordered) {
     if (!occupied.has(f)) return f
   }
-
-  // Todas ocupadas → respetar la preferida geométrica (sin otra opción)
   return preferredFace
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 function pickFacesMultiConn(src: Shape, tgt: Shape, connection: Connection): [Face, Face] {
   const r1 = { left: src.x, right: src.x + src.width,  top: src.y, bottom: src.y + src.height }
   const r2 = { left: tgt.x, right: tgt.x + tgt.width,  top: tgt.y, bottom: tgt.y + tgt.height }
-
   const outCount = ((src.outgoing || []) as Connection[]).filter(c => c !== connection).length
   const inCount  = ((tgt.incoming || []) as Connection[]).filter(c => c !== connection).length
-
-  let sFace: Face = defaultFace(src, tgt)
-  let tFace: Face = defaultFace(tgt, src)
-
-  if (isGateway(src)) sFace = gatewayFace(src, tgt)
-  if (isGateway(tgt)) tFace = gatewayFace(tgt, src)
-
+  let sFace: Face = naturalFace(src, tgt)
+  let tFace: Face = naturalFace(tgt, src)
+  // src gateway: isSource=true → gatewayExitFace (cara de salida, lógica C#)
+  // tgt gateway: isSource=false → gatewayFace (cara de llegada, cara más cercana)
+  if (isGateway(src)) sFace = pickFreeCardinalFace(src, tgt, connection, true)
+  if (isGateway(tgt)) tFace = pickFreeCardinalFace(tgt, src, connection, false)
   if (r1.right < r2.left) {
     const hDist = r2.left - r1.right
-    if (inCount > 0) {
+    if (inCount > 0 && !isGateway(tgt)) {
       if (r1.bottom < r2.top) {
         const vDist = r2.top - r1.bottom
         tFace = vDist > hDist ? 'top' : 'left'
@@ -193,7 +187,7 @@ function pickFacesMultiConn(src: Shape, tgt: Shape, connection: Connection): [Fa
         tFace = 'left'
       }
     }
-    if (outCount > 0) {
+    if (outCount > 0 && !isGateway(src)) {
       if (r1.top > r2.bottom) {
         const vDist = r1.top - r2.bottom
         sFace = vDist > hDist ? 'top' : 'right'
@@ -205,26 +199,30 @@ function pickFacesMultiConn(src: Shape, tgt: Shape, connection: Connection): [Fa
       }
     }
   } else if (r1.left > r2.right) {
-    if (r1.top > r2.bottom) {
-      sFace = 'top'; tFace = 'bottom'
-    } else if (r1.bottom < r2.top) {
-      sFace = 'bottom'; tFace = 'top'
-    } else {
-      sFace = 'top'; tFace = 'top'
+    if (!isGateway(src) && !isGateway(tgt)) {
+      if (r1.top > r2.bottom) {
+        sFace = 'top'; tFace = 'bottom'
+      } else if (r1.bottom < r2.top) {
+        sFace = 'bottom'; tFace = 'top'
+      } else {
+        sFace = 'top'; tFace = 'top'
+      }
     }
   } else if (r1.top > r2.bottom) {
     const hasBackline = ((src.incoming || []) as Connection[]).some(c =>
       c !== connection && c.source?.id === tgt.id
     )
     if (hasBackline) {
-      sFace = 'right'; tFace = 'right'
+      if (!isGateway(src)) sFace = 'right'
+      if (!isGateway(tgt)) tFace = 'right'
     } else {
-      sFace = 'top'; tFace = 'bottom'
+      if (!isGateway(src)) sFace = 'top'
+      if (!isGateway(tgt)) tFace = 'bottom'
     }
   } else {
-    sFace = 'bottom'; tFace = 'top'
+    if (!isGateway(src)) sFace = 'bottom'
+    if (!isGateway(tgt)) tFace = 'top'
   }
-
   return [sFace, tFace]
 }
 
@@ -233,7 +231,7 @@ function pickFace(shape: Shape, other: Shape, hint?: Point, shapeMoveMode?: bool
     return isGateway(shape) ? nearestGatewayFace(shape, hint) : nearestFace(shape, hint)
   }
   if (isGateway(shape)) return gatewayFace(shape, other)
-  return defaultFace(shape, other)
+  return naturalFace(shape, other)
 }
 
 function getCardinals(shape: Shape): Point[] {
@@ -241,10 +239,10 @@ function getCardinals(shape: Shape): Point[] {
   const ccx = shape.x + shape.width  / 2
   const ccy = shape.y + shape.height / 2
   return [
-    { x: ccx,                    y: shape.y                }, // top
-    { x: ccx,                    y: shape.y + shape.height }, // bottom
-    { x: shape.x,                y: ccy                    }, // left
-    { x: shape.x + shape.width,  y: ccy                    }, // right
+    { x: ccx,                    y: shape.y                },
+    { x: ccx,                    y: shape.y + shape.height },
+    { x: shape.x,                y: ccy                    },
+    { x: shape.x + shape.width,  y: ccy                    },
   ]
 }
 
@@ -280,44 +278,33 @@ BizagiLayouter.prototype.layoutConnection = function (connection: Connection, hi
   hints = hints || {}
   const src: Shape = hints.source || connection.source
   const tgt: Shape = hints.target || connection.target
-
   if (!src?.width || !src?.height || !tgt?.width || !tgt?.height) return connection.waypoints || []
   if (src === tgt) return connection.waypoints || []
-
   const hasMovedAnchor = (hints.connectionStart != null && typeof hints.connectionStart === 'object')
                       || (hints.connectionEnd   != null && typeof hints.connectionEnd   === 'object')
-
   const shapeMoveMode = hints.connectionStart === false
                      || hints.connectionEnd   === false
-  //                   || hasMovedAnchor
-
   let sFace: Face
   let tFace: Face
-
   const outCount = ((src.outgoing || []) as Connection[]).filter((c: Connection) => c !== connection).length
   const inCount  = ((tgt.incoming || []) as Connection[]).filter((c: Connection) => c !== connection).length
   const hasMultiConn = outCount > 0 || inCount > 0
-
   if (hasMovedAnchor) {
-    // Usuario arrastró un endpoint → respetar su elección exacta
     sFace = pickFace(src, tgt, hints.connectionStart, false)
     tFace = pickFace(tgt, src, hints.connectionEnd,   false)
   } else if (shapeMoveMode) {
-    // Shape movido → recalcular por geometría pura
     sFace = pickFace(src, tgt, undefined, true)
     tFace = pickFace(tgt, src, undefined, true)
   } else if (hasMultiConn) {
-    // Múltiples conexiones existentes → face-switching geométrico (equivalente a C#)
     ;[sFace, tFace] = pickFacesMultiConn(src, tgt, connection)
   } else {
-    // Nueva conexión sin contexto previo → preferir cardinal vacío (mejora sobre C#)
-    sFace = pickFreeCardinalFace(src, tgt, connection)
-    tFace = pickFreeCardinalFace(tgt, src, connection)
+    // src: isSource=true → gatewayExitFace si es gateway
+    // tgt: isSource=false → gatewayFace si es gateway
+    sFace = pickFreeCardinalFace(src, tgt, connection, true)
+    tFace = pickFreeCardinalFace(tgt, src, connection, false)
   }
-
   const start = isGateway(src) ? gatewayCardinal(src, sFace) : faceCardinal(src, sFace)
   const end   = isGateway(tgt) ? gatewayCardinal(tgt, tFace) : faceCardinal(tgt, tFace)
-
   const obstacles: RouterObstacle[] = []
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   this._elementRegistry.forEach((el: any) => {
@@ -331,11 +318,9 @@ BizagiLayouter.prototype.layoutConnection = function (connection: Connection, hi
     if (el.id === tgt.id) return
     obstacles.push(obs)
   })
-
   const router: BizagiDirectionalRouter = this._router
-  const isDragging = ('connectionStart' in hints) || ('connectionEnd' in hints) || ('waypoints' in hints) || hasMovedAnchor
+  const isDragging = hasMovedAnchor
   const existingWaypoints = isDragging && connection.waypoints ? connection.waypoints : undefined
-
   let prevStartDir: Face | undefined
   let prevEndDir: Face | undefined
   if (existingWaypoints && existingWaypoints.length >= 2) {
@@ -353,14 +338,12 @@ BizagiLayouter.prototype.layoutConnection = function (connection: Connection, hi
     const wpL1 = existingWaypoints[existingWaypoints.length - 2]
     const segDx2 = wpL.x - wpL1.x
     const segDy2 = wpL.y - wpL1.y
-
     if (Math.abs(segDx2) > Math.abs(segDy2)) {
-      prevEndDir = segDx2 > 0 ? 'left' : 'right'   // opuesto al viaje
+      prevEndDir = segDx2 > 0 ? 'left' : 'right'
     } else if (Math.abs(segDy2) > 0) {
-      prevEndDir = segDy2 > 0 ? 'top' : 'bottom'    // opuesto al viaje
+      prevEndDir = segDy2 > 0 ? 'top' : 'bottom'
     }
   }
-
   return router.calculateRoute(
     start, end,
     sFace as Face, tFace as Face,
@@ -384,44 +367,94 @@ function ConnectionImportNormalizer(eventBus: any, elementRegistry: any, modelin
     const connections: any[] = []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     elementRegistry.forEach((el: any) => { if (el.waypoints) connections.push(el) })
-
     let fixed = 0
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     connections.forEach((conn: any) => {
       if (!conn.source || !conn.target) return
-      if (!hasDiagonals(conn.waypoints) && !endpointsOffCardinal(conn)) return
       const wp = layouter.layoutConnection(conn, { source: conn.source, target: conn.target })
       if (wp?.length >= 2) { modeling.updateWaypoints(conn, wp); fixed++ }
     })
-
     if (fixed > 0) commandStack.clear()
   })
 }
 ConnectionImportNormalizer.$inject = ['eventBus', 'elementRegistry', 'modeling', 'layouter', 'commandStack']
 
-function WaypointRounder(eventBus: any, modeling: any) {
-  const rounding = new Set<string>()  // IDs de conexiones en proceso
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function WaypointRounder(eventBus: any, modeling: any, layouter: any, elementRegistry: any) {
+  const rounding = new Set<string>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   eventBus.on('connection.changed', function (event: any) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const conn = event.element
     if (!conn?.waypoints?.length) return
-    if (rounding.has(conn.id)) return  // esta conexión ya está siendo redondeada
-
-    const rounded = conn.waypoints.map(
-      (p: any) => ({ x: Math.round(p.x), y: Math.round(p.y) })
-    )
-
-    const hasFloats = conn.waypoints.some(
-      (p: any, i: number) => p.x !== rounded[i].x || p.y !== rounded[i].y
-    )
-    if (!hasFloats) return
-
+    if (rounding.has(conn.id)) return
+    const wps = conn.waypoints
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rounded = wps.map((p: any) => ({ x: Math.round(p.x), y: Math.round(p.y) }))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const hasFloats = wps.some((p: any, i: number) => p.x !== rounded[i].x || p.y !== rounded[i].y)
+    let needsRelayout = false
+    if (conn.source && conn.target && wps.length >= 2) {
+      const srcCards = getCardinals(conn.source)
+      const tgtCards = getCardinals(conn.target)
+      const startOk = srcCards.some(
+        (c: Point) => Math.abs(c.x - wps[0].x) < 1.5 && Math.abs(c.y - wps[0].y) < 1.5
+      )
+      const endOk = tgtCards.some(
+        (c: Point) => Math.abs(c.x - wps[wps.length - 1].x) < 1.5 &&
+                      Math.abs(c.y - wps[wps.length - 1].y) < 1.5
+      )
+      if (!startOk || !endOk) needsRelayout = true
+    }
+    if (!needsRelayout && hasDiagonals(wps)) needsRelayout = true
+    if (!needsRelayout && conn.source && conn.target && wps.length >= 2) {
+      const srcId = conn.source.id
+      //const tgtId = conn.target.id
+      const obstaclesNoSrc: RouterObstacle[] = []  // sin src, con tgt
+    
+      elementRegistry.forEach((el: any) => {
+        if (Array.isArray(el?.waypoints)) return
+        if (!el.width || !el.height || !el.parent) return
+        if (el.type === 'label' || el.id?.includes('_label')) return
+        if (isRoutingContainer(el)) return
+        if (el.id === srcId) return
+        const obs = toObstacle(el)
+        obstaclesNoSrc.push(obs)
+        // ← ya no hay obstaclesNoSrcTgt ni el push condicional
+      })
+      outer: for (let i = 1; i < wps.length; i++) {
+        // ← ya no hay isLastSeg ni la distinción entre último y no último
+        const obs = obstaclesNoSrc  // mismo array para TODOS los segmentos
+        const p1 = wps[i - 1], p2 = wps[i]
+        for (const o of obs) {
+          if (Math.abs(p1.y - p2.y) <= 1 && p1.y >= o.y && p1.y <= o.y + o.height) {
+            if ((p1.x <= o.x && p2.x >= o.x + o.width) ||
+                (p2.x <= o.x && p1.x >= o.x + o.width)) {
+              needsRelayout = true; break outer
+            }
+          }
+          if (Math.abs(p1.x - p2.x) <= 1 && p1.x >= o.x && p1.x <= o.x + o.width) {
+            if ((p1.y <= o.y && p2.y >= o.y + o.height) ||
+                (p2.y <= o.y && p1.y >= o.y + o.height)) {
+              needsRelayout = true; break outer
+            }
+          }
+        }
+      }
+    }
+    // 
+    if (!hasFloats && !needsRelayout) return
     rounding.add(conn.id)
-    modeling.updateWaypoints(conn, rounded)
+    if (needsRelayout && conn.source && conn.target) {
+      const wp = layouter.layoutConnection(conn, { source: conn.source, target: conn.target })
+      if (wp?.length >= 2) modeling.updateWaypoints(conn, wp)
+    } else {
+      modeling.updateWaypoints(conn, rounded)
+    }
     rounding.delete(conn.id)
   })
 }
-WaypointRounder.$inject = ['eventBus', 'modeling']
+WaypointRounder.$inject = ['eventBus', 'modeling', 'layouter', 'elementRegistry']
 
 export default {
   __init__: ['connectionImportNormalizer', 'waypointRounder'],
