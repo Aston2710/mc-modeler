@@ -37,6 +37,29 @@ export function useBpmnModeler(
     const modeler = new BpmnModeler({ container: containerRef.current, ...MODELER_CONFIG }) as any
     modelerRef.current = modeler
 
+    // Silenciar el warning de ContextPad#getPad deprecado.
+    // bpmn-js 18.x llama internamente a getPad() desde getReplaceMenuPosition
+    // (menú de reemplazo de elementos). El warning está en el bundle de bpmn-js
+    // y no tiene fix disponible en 18.x. Se parchea el método para eliminar
+    // el console.warn sin alterar el comportamiento.
+    try {
+      const contextPad = modeler.get('contextPad')
+      if (contextPad && typeof contextPad.getPad === 'function') {
+        const originalGetPad = contextPad.getPad.bind(contextPad)
+        contextPad.getPad = function(target: unknown) {
+          // Llamar directamente a la lógica interna sin el console.warn
+          const isOpen = contextPad.isOpen(target)
+          const html = isOpen
+            ? contextPad._current?.html
+            : contextPad._createHtml(target)
+          return { html }
+        }
+        void originalGetPad // evitar warning de variable no usada
+      }
+    } catch {
+      // Si la API interna cambia, fallar silenciosamente
+    }
+
     const eventBus = modeler.get('eventBus')
 
     eventBus.on('commandStack.changed', () => {

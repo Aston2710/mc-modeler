@@ -29,6 +29,7 @@ interface UIState {
   setUnsavedChanges: (v: boolean) => void
   setDiagramListFilter: (f: 'all' | 'recent') => void
   setDiagramListSearch: (q: string) => void
+  imageUploadContext: { onConfirm: (url: string) => void } | null
   setImageUploadContext: (ctx: { onConfirm: (url: string) => void } | null) => void
 }
 

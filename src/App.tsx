@@ -5,7 +5,10 @@ import { useUIStore } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { useAutoSave } from '@/hooks/useAutoSave'
 import { useKeyboard } from '@/hooks/useKeyboard'
+//import { useExport, type ExportFormat, type PngScale, type PdfOrientation, type ExportTheme } from '@/hooks/useExport'
 import { useExport, type ExportFormat, type PngScale, type PdfOrientation, type ExportTheme } from '@/hooks/useExport'
+import { buildThumbnail } from '@/utils/thumbnailUtils'
+
 import { validateDiagram } from '@/domain/validation'
 
 import { Toolbar } from '@/components/layout/Toolbar'
@@ -69,10 +72,19 @@ export default function App() {
     const { activeTabId: id, diagrams: all } = useDiagramStore.getState()
     const diagram = all.find((d) => d.id === id)
     if (diagram && canvasRef.current) {
-      canvasRef.current.importXml(diagram.xml).catch((err: unknown) => {
-        console.error('[Flujo] importXml failed:', err)
-        addToast({ type: 'error', title: t('errors.loadFailed') })
-      })
+      // Resetear antes: evita que el evento commandStack.changed de importXML
+      // marque el diagrama como "con cambios" al simplemente abrirlo.
+      useUIStore.getState().setUnsavedChanges(false)
+      canvasRef.current.importXml(diagram.xml)
+        .then(() => {
+          // Resetear después también: bpmn-js puede disparar commandStack.changed
+          // de forma asíncrona al terminar de procesar el XML.
+          useUIStore.getState().setUnsavedChanges(false)
+        })
+        .catch((err: unknown) => {
+          console.error('[Flujo] importXml failed:', err)
+          addToast({ type: 'error', title: t('errors.loadFailed') })
+        })
     }
   }, [addToast, t])
 
@@ -106,17 +118,23 @@ export default function App() {
     setCanRedo(canvasRef.current?.canRedo() ?? false)
   }, [setUnsavedChanges])
 
-  const handleSave = useCallback(async () => {
+const handleSave = useCallback(async () => {
     if (!activeTabId) return
     try {
-      const xml = await getXml()
-      await saveDiagram(activeTabId, xml)
+      // XML y SVG se exportan del mismo estado del canvas, en el mismo tick,
+      // antes de que el usuario pueda hacer otro cambio. Esto garantiza que
+      // el thumbnail siempre refleja exactamente lo que está guardado.
+      const [xml, thumbnail] = await Promise.all([
+        getXml(),
+        buildThumbnail(getSvg).catch(() => null),
+      ])
+      await saveDiagram(activeTabId, xml, undefined, thumbnail)
       setUnsavedChanges(false)
       addToast({ type: 'success', title: t('statusbar.saved'), duration: 2000 })
     } catch {
       addToast({ type: 'error', title: t('errors.saveFailed') })
     }
-  }, [activeTabId, getXml, saveDiagram, setUnsavedChanges, addToast, t])
+  }, [activeTabId, getXml, getSvg, saveDiagram, setUnsavedChanges, addToast, t])
 
   const handleGoHome = useCallback(() => {
     isCanvasReadyRef.current = false
@@ -180,7 +198,7 @@ export default function App() {
   }, [])
 
   // Auto-save
-  const { save: autoSave } = useAutoSave(getXml)
+  const { save: autoSave } = useAutoSave(getXml, getSvg)
   void autoSave
 
   // Keyboard shortcuts
