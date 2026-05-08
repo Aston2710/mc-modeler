@@ -270,7 +270,29 @@ BizagiLayouter.prototype.layoutConnection = function (connection: Connection, hi
   const src: Shape = hints.source || connection.source
   const tgt: Shape = hints.target || connection.target
   if (!src?.width || !src?.height || !tgt?.width || !tgt?.height) return connection.waypoints || []
-  if (src === tgt) return connection.waypoints || []
+  
+  //if (src === tgt) return connection.waypoints || []
+  
+  // Self-loop: source y target son el mismo shape.
+  // Generar una ruta en U que sale por top-right y entra por top-left,
+  // bordeando el shape por arriba. El offset vertical (40px) y horizontal (20px)
+  // son los mismos que usa Bizagi para este caso.
+  if (src === tgt) {
+    const offset = 40
+    const hOffset = 20
+    const exitX  = src.x + src.width  - hOffset   // sale cerca del borde derecho superior
+    const enterX = src.x              + hOffset   // entra cerca del borde izquierdo superior
+    const topY   = src.y                          // borde superior del shape
+    const loopY  = src.y - offset                 // punto más alto del bucle
+
+    return [
+      { x: exitX,  y: topY   },   // salida del shape (borde superior, lado derecho)
+      { x: exitX,  y: loopY  },   // sube verticalmente
+      { x: enterX, y: loopY  },   // cruza horizontalmente por arriba
+      { x: enterX, y: topY   },   // baja de vuelta al borde superior del shape
+    ]
+  }
+
   const hasMovedAnchor = (hints.connectionStart != null && typeof hints.connectionStart === 'object')
                       || (hints.connectionEnd   != null && typeof hints.connectionEnd   === 'object')
   const shapeMoveMode = hints.connectionStart === false
@@ -362,6 +384,7 @@ function ConnectionImportNormalizer(eventBus: any, elementRegistry: any, modelin
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     connections.forEach((conn: any) => {
       if (!conn.source || !conn.target) return
+      if (conn.source === conn.target && conn.waypoints?.length >= 2) return
       const wp = layouter.layoutConnection(conn, { source: conn.source, target: conn.target })
       if (wp?.length >= 2) { modeling.updateWaypoints(conn, wp); fixed++ }
     })
@@ -436,6 +459,7 @@ function WaypointRounder(eventBus: any, modeling: any, layouter: any, elementReg
     if (!hasFloats && !needsRelayout) return
     rounding.add(conn.id)
     if (needsRelayout && conn.source && conn.target) {
+      if (conn.source === conn.target) return
       const wp = layouter.layoutConnection(conn, { source: conn.source, target: conn.target })
       if (wp?.length >= 2) modeling.updateWaypoints(conn, wp)
     } else {
