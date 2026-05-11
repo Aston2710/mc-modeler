@@ -25,6 +25,8 @@ import { ValidationModal } from '@/components/modals/ValidationModal'
 import { ShortcutsModal } from '@/components/modals/ShortcutsModal'
 import { ImageUploadModal } from '@/components/modals/ImageUploadModal'
 import { ToastContainer } from '@/components/ui/ToastContainer'
+import { ProjectView } from '@/components/diagrams/ProjectView'
+import { diagramRepository } from '@/persistence'
 
 export default function App() {
   const { t } = useTranslation()
@@ -32,8 +34,9 @@ export default function App() {
   // Stores
   const {
     activeTabId, tabs, loadAll,
-    createDiagram, openDiagram, importDiagram,
+    createDiagram, createSubDiagram, openDiagram, importDiagram,
     saveDiagram, activeDiagram,
+    deleteWithChildren, getChildByElement,
   } = useDiagramStore()
   const {
     propertiesPanelOpen, palettePanelOpen,
@@ -52,6 +55,7 @@ export default function App() {
   const [view, setView] = useState<'home' | 'editor'>('home')
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
+  const [projectViewOpen, setProjectViewOpen] = useState(false)
 
   // Track whether the bpmn-js modeler has finished initializing
   const isCanvasReadyRef = useRef(false)
@@ -80,6 +84,8 @@ export default function App() {
           // Resetear después también: bpmn-js puede disparar commandStack.changed
           // de forma asíncrona al terminar de procesar el XML.
           useUIStore.getState().setUnsavedChanges(false)
+
+          if (id) void pushSubProcessThumbnails(id)
         })
         .catch((err: unknown) => {
           console.error('[Flujo] importXml failed:', err)
@@ -196,6 +202,57 @@ const handleSave = useCallback(async () => {
   const handleStartCreate = useCallback((bpmnType: string, event: MouseEvent) => {
     canvasRef.current?.startCreate(bpmnType, event)
   }, [])
+  
+  // Carga los thumbnails de sub procesos del diagrama activo en el canvas,
+  // para que los overlays se vean al volver a la pestaña del padre.
+  const pushSubProcessThumbnails = useCallback(async (parentId: string) => {
+    const { diagrams } = useDiagramStore.getState()
+    const children = diagrams.filter((d) => d.parentDiagramId === parentId)
+    for (const child of children) {
+      if (child.subProcessElementId) {
+        const thumb = await diagramRepository.getSubProcessThumbnail(
+          parentId,
+          child.subProcessElementId
+        )
+        if (thumb) {
+          canvasRef.current?.setSubProcessThumbnail(child.subProcessElementId, thumb)
+        }
+      }
+    }
+  }, [])
+
+  const handleSubProcessOpen = useCallback(async (rawElementId: string) => {
+    const isExpand = rawElementId.startsWith('__expand__')
+    const elementId = isExpand ? rawElementId.replace('__expand__', '') : rawElementId
+    const currentId = useDiagramStore.getState().activeTabId
+    if (!currentId) return
+    const existing = getChildByElement(currentId, elementId)
+
+    if (isExpand) {
+      // Toggle expand/collapse del overlay
+      if (existing?.thumbnail) {
+        canvasRef.current?.setSubProcessThumbnail(elementId, existing.thumbnail)
+      }
+      return
+    }
+
+    // "Editar subproceso": abrir o crear el diagrama hijo
+    if (existing) {
+      openDiagram(existing.id)
+    } else {
+      await createSubDiagram('Sub proceso', currentId, elementId)
+      addToast({ type: 'success', title: 'Subproceso creado', duration: 2000 })
+    }
+  }, [createSubDiagram, getChildByElement, openDiagram, addToast])
+
+  const handleSubProcessDelete = useCallback(async (elementId: string) => {
+    const currentId = useDiagramStore.getState().activeTabId
+    if (!currentId) return
+    const child = getChildByElement(currentId, elementId)
+    if (!child) return
+    await deleteWithChildren(child.id)
+    canvasRef.current?.setSubProcessThumbnail(elementId, null)
+  }, [getChildByElement, deleteWithChildren])
 
   // Auto-save
   const { save: autoSave } = useAutoSave(getXml, getSvg)
@@ -238,7 +295,7 @@ const handleSave = useCallback(async () => {
             canRedo={canRedo}
           />
 
-          <TabsBar onNew={handleNew} />
+          <TabsBar onNew={handleNew} onProjectView={() => setProjectViewOpen(true)} />
 
           <div
             className={[
@@ -258,6 +315,7 @@ const handleSave = useCallback(async () => {
                 ref={canvasRef}
                 onReady={handleCanvasReady}
                 onChanged={handleChanged}
+                onSubProcessOpen={handleSubProcessOpen}
               />
             </div>
 
@@ -305,6 +363,14 @@ const handleSave = useCallback(async () => {
         <ImageUploadModal />
       )}
 
+      {projectViewOpen && view === 'editor' && (
+        <ProjectView
+          onOpen={handleOpenDiagram}
+          onNew={() => { setProjectViewOpen(false); handleNew() }}
+          onClose={() => setProjectViewOpen(false)}
+        />
+      )}
+      
       <ToastContainer />
     </>
   )

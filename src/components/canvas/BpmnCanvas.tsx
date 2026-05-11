@@ -16,16 +16,18 @@ export interface BpmnCanvasHandle {
   scrollToElement: (elementId: string) => void
   updateElementProperty: (elementId: string, property: string, value: string) => void
   startCreate: (bpmnType: string, event: MouseEvent) => void
+  setSubProcessThumbnail: (elementId: string, thumbnail: string | null) => void
 }
 
 interface BpmnCanvasProps {
   onReady?: () => void
   onChanged?: () => void
   onSelectionChange?: (ids: string[]) => void
+  onSubProcessOpen?: (elementId: string) => void
 }
 
 export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
-  function BpmnCanvas({ onReady, onChanged, onSelectionChange }, ref) {
+  function BpmnCanvas({ onReady, onChanged, onSelectionChange, onSubProcessOpen }, ref) {
     const containerRef = useRef<HTMLDivElement>(null)
     const wrapRef = useRef<HTMLDivElement>(null)
     const hScrollRef = useRef<HTMLDivElement>(null)
@@ -33,8 +35,9 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
     const thumbHRef = useRef<HTMLDivElement>(null)
     const thumbVRef = useRef<HTMLDivElement>(null)
 
-    const modeler = useBpmnModeler(containerRef, { onReady, onChanged, onSelectionChange })
-
+    //const modeler = useBpmnModeler(containerRef, { onReady, onChanged, onSelectionChange })
+    const modeler = useBpmnModeler(containerRef, { onReady, onChanged, onSelectionChange, onSubProcessOpen })
+    
     useImperativeHandle(ref, () => ({
       importXml: modeler.importXml,
       exportXml: modeler.exportXml,
@@ -50,6 +53,7 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
       scrollToElement: modeler.scrollToElement,
       updateElementProperty: modeler.updateElementProperty,
       startCreate: modeler.startCreate,
+      setSubProcessThumbnail: modeler.setSubProcessThumbnail,
     }))
 
     // ── Scrollbars visibles estilo Bizagi ──────────────────────────────────

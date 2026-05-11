@@ -8,6 +8,8 @@ export interface Diagram {
   schemaVersion: number
   createdAt: string
   updatedAt: string
+  parentDiagramId: string | null
+  subProcessElementId: string | null
 }
 
 export interface Folder {

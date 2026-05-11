@@ -8,10 +8,14 @@ import { MODELER_CONFIG } from '@/bpmn/config'
 import { BPMN_ELEMENTS } from '@/domain/bpmnElements'
 
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyObj = any
+
 interface UseBpmnModelerOptions {
   onReady?: () => void
   onChanged?: () => void
   onSelectionChange?: (ids: string[]) => void
+  onSubProcessOpen?: (elementId: string) => void
 }
 
 export function useBpmnModeler(
@@ -26,9 +30,11 @@ export function useBpmnModeler(
   const onReadyRef = useRef(options.onReady)
   const onChangedRef = useRef(options.onChanged)
   const onSelectionChangeRef = useRef(options.onSelectionChange)
+  const onSubProcessOpenRef = useRef(options.onSubProcessOpen)
   onReadyRef.current = options.onReady
   onChangedRef.current = options.onChanged
   onSelectionChangeRef.current = options.onSelectionChange
+  onSubProcessOpenRef.current = options.onSubProcessOpen
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -105,9 +111,18 @@ export function useBpmnModeler(
       }
     })
 
+    // Sub-process events from SubProcessInterceptorModule
+    eventBus.on('subProcess.openEditor', (event: AnyObj) => {
+      onSubProcessOpenRef.current?.(event.elementId)
+    })
+    eventBus.on('subProcess.toggleExpand', (event: AnyObj) => {
+      onSubProcessOpenRef.current?.(`__expand__${event.elementId}`)
+    })
+
     // Signal that the modeler is ready — callers can now safely call importXml
     onReadyRef.current?.()
 
+    
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       const active = document.activeElement as HTMLElement | null
       if (active) {
@@ -383,6 +398,22 @@ export function useBpmnModeler(
     }
   }, [])
 
+  const setSubProcessThumbnail = useCallback((elementId: string, thumbnail: string | null) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = modelerRef.current as any
+    if (!m) return
+    try {
+      const eventBus = m.get('eventBus')
+      if (thumbnail) {
+        eventBus.fire('subProcess.thumbnailUpdated', { elementId, thumbnail })
+      } else {
+        eventBus.fire('subProcess.thumbnailCleared', { elementId })
+      }
+    } catch { /* modeler not ready */ }
+  }, [])
+
+
+
   return {
     modelerRef,
     importXml,
@@ -399,5 +430,6 @@ export function useBpmnModeler(
     scrollToElement,
     updateElementProperty,
     startCreate,
+    setSubProcessThumbnail,
   }
 }

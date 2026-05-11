@@ -1,13 +1,14 @@
 import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FileText, X, Plus } from 'lucide-react'
+import { FileText, X, Plus, FolderOpen } from 'lucide-react'
 import { useDiagramStore } from '@/store/diagramStore'
 
 interface TabsBarProps {
   onNew: () => void
+  onProjectView: () => void
 }
 
-export function TabsBar({ onNew }: TabsBarProps) {
+export function TabsBar({ onNew, onProjectView }: TabsBarProps) {
   const { t } = useTranslation()
   const tabs = useDiagramStore((s) => s.tabs)
   const activeTabId = useDiagramStore((s) => s.activeTabId)
@@ -34,6 +35,16 @@ export function TabsBar({ onNew }: TabsBarProps) {
 
   return (
     <div className="tabs-bar">
+      {/* Botón para abrir la vista de proyectos */}
+      <button
+        className="project-view-btn"
+        onClick={onProjectView}
+        title="Ver diagramas del proyecto"
+      >
+        <FolderOpen size={15} />
+      </button>
+
+      {/* Tabs */} 
       <div className="tabs-scroll">
         {tabs.map((tab) => (
           <div

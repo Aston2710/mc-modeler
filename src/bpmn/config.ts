@@ -17,6 +17,7 @@ import BizagiLayouter from './connections/BizagiLayouter'
 import BizagiConnectionDocking from './connections/BizagiConnectionDocking'
 import BizagiSegmentHandles from './connections/BizagiSegmentHandles'
 import ConnectionEndpointCirclesModule from './connections/ConnectionEndpointCirclesModule'
+import SubProcessInterceptorModule from './elements/SubProcessInterceptorModule'
 
 // NOTA: BizagiDragRouter eliminado — bpmn-js llama al layouter registrado
 // automáticamente durante el drag a través del canal oficial 'layouter'.
@@ -39,6 +40,7 @@ export const MODELER_CONFIG = {
     LaneDropModule,
     ImageContextPadModule,
     ConnectionEndpointCirclesModule,
+    SubProcessInterceptorModule,
     BizagiLayouter,
     BizagiConnectionDocking,
     BizagiSegmentHandles,
