@@ -43,24 +43,18 @@ export function useBpmnModeler(
     const modeler = new BpmnModeler({ container: containerRef.current, ...MODELER_CONFIG }) as any
     modelerRef.current = modeler
 
-    // Silenciar el warning de ContextPad#getPad deprecado.
-    // bpmn-js 18.x llama internamente a getPad() desde getReplaceMenuPosition
-    // (menú de reemplazo de elementos). El warning está en el bundle de bpmn-js
-    // y no tiene fix disponible en 18.x. Se parchea el método para eliminar
-    // el console.warn sin alterar el comportamiento.
     try {
       const contextPad = modeler.get('contextPad')
       if (contextPad && typeof contextPad.getPad === 'function') {
         const originalGetPad = contextPad.getPad.bind(contextPad)
         contextPad.getPad = function(target: unknown) {
-          // Llamar directamente a la lógica interna sin el console.warn
           const isOpen = contextPad.isOpen(target)
           const html = isOpen
             ? contextPad._current?.html
             : contextPad._createHtml(target)
           return { html }
         }
-        void originalGetPad // evitar warning de variable no usada
+        void originalGetPad
       }
     } catch {
       // Si la API interna cambia, fallar silenciosamente
@@ -84,25 +78,19 @@ export function useBpmnModeler(
       setZoom(Math.round(viewbox.scale * 100) / 100)
     })
 
-    // Interceptar arrastre de herramienta de Imagen
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     eventBus.on('create.end', 2000, (event: any) => {
       const { context, x, y } = event
       const { shape, target } = context
       const position = { x, y }
       if (shape.type === 'bpmn:TextAnnotation' && shape.businessObject.text === '[IMAGE_PENDING]') {
-        // Prevent bpmn-js from creating the pending shape
         event.preventDefault()
         event.stopPropagation()
-        
-        if (!target) return false // Drop cancelado
-
-        // Abrir modal y delegar la creación real a la respuesta del modal
+        if (!target) return false
         useUIStore.getState().setImageUploadContext({
           onConfirm: (url: string) => {
             const bo = modeler.get('bpmnFactory').create('bpmn:TextAnnotation', { text: '[IMAGE:' + url + ']' })
             const newShape = modeler.get('elementFactory').createShape({ type: 'bpmn:TextAnnotation', businessObject: bo })
-            // Ejecutamos la creación usando el motor core de diagram-js (modeling)
             modeler.get('modeling').createShape(newShape, position, target)
           }
         })
@@ -118,17 +106,19 @@ export function useBpmnModeler(
     eventBus.on('subProcess.toggleExpand', (event: AnyObj) => {
       onSubProcessOpenRef.current?.(`__expand__${event.elementId}`)
     })
+    eventBus.on('subProcess.delete', (event: AnyObj) => {
+      onSubProcessOpenRef.current?.(`__delete__${event.elementId}`)
+    })
 
     // Signal that the modeler is ready — callers can now safely call importXml
     onReadyRef.current?.()
 
-    
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       const active = document.activeElement as HTMLElement | null
       if (active) {
         const tag = active.tagName.toLowerCase()
         if (tag === 'input' || tag === 'textarea' || active.isContentEditable) {
-          return // let the user type in the UI
+          return
         }
       }
 
@@ -162,11 +152,7 @@ export function useBpmnModeler(
         }
       }
     }
-    
-    // ── Context Menu Interceptor: Permitir menú nativo (Spellcheck) al editar texto ──
-    // diagram-js bloquea el clic derecho por defecto en todo el lienzo.
-    // Usamos la fase de captura (true) para detener esa propagación si estamos
-    // escribiendo texto, permitiendo que el navegador muestre sus sugerencias ortográficas.
+
     const handleContextMenu = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null
       if (target && (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || (target.classList && target.classList.contains('djs-direct-editing-content')))) {
@@ -174,12 +160,11 @@ export function useBpmnModeler(
       }
     }
 
-    // ── Forzar Idioma Español para Corrector Ortográfico ──
     const handleFocus = (e: FocusEvent) => {
       const target = e.target as HTMLElement | null
       if (target && (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || (target.classList && target.classList.contains('djs-direct-editing-content')))) {
         target.setAttribute('spellcheck', 'true')
-        target.setAttribute('lang', 'es') // Fuerza al navegador a usar el diccionario en español
+        target.setAttribute('lang', 'es')
       }
     }
 
@@ -187,9 +172,6 @@ export function useBpmnModeler(
     window.addEventListener('contextmenu', handleContextMenu, true)
     window.addEventListener('focus', handleFocus, true)
 
-    // ── MutationObserver: re-render cuando cambia el tema (data-theme) ──────
-    // Cuando el usuario alterna entre modo claro y oscuro, el ThemeAwareRenderer
-    // necesita volver a pintar todos los elementos con los nuevos colores CSS.
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         if (
@@ -202,7 +184,6 @@ export function useBpmnModeler(
             const m = modelerRef.current as any
             const registry = m.get('elementRegistry')
             const drawingModule = m.get('graphicsFactory')
-            // Re-renderizar cada elemento del canvas
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             registry.getAll().forEach((element: any) => {
               try {
@@ -235,7 +216,6 @@ export function useBpmnModeler(
       modeler.destroy()
       modelerRef.current = null
     }
-  // containerRef is a stable ref — intentional single-run
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [containerRef])
 
@@ -246,12 +226,9 @@ export function useBpmnModeler(
     try {
       await modeler.importXML(xml)
     } catch (err) {
-      // If this modeler was destroyed mid-import (React StrictMode double-invoke),
-      // discard silently — the second invocation will succeed.
       if (modelerRef.current !== modeler) return
       throw err
     }
-    // Guard again: cleanup may have run while importXML was awaiting
     if (modelerRef.current !== modeler) return
     try {
       modeler.get('canvas').zoom('fit-viewport', 'all')
@@ -341,19 +318,15 @@ export function useBpmnModeler(
     modeler.get('modeling').updateProperties(el, { [property]: value })
   }, [])
 
-  // Starts bpmn-js native drag-create from a palette mousedown.
-  // Accepts domain element type (e.g. 'startTimerEvent') or legacy bpmnType.
   const startCreate = useCallback((elementType: string, event: MouseEvent) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const m = modelerRef.current as any
     if (!m) return
     try {
-      // Resolve from domain type → bpmnType + optional event definition
       const elDef = BPMN_ELEMENTS.find((e) => e.type === elementType)
       const bpmnType = elDef?.bpmnType ?? elementType
       const eventDefinitionType = elDef?.eventDefinitionType
 
-      // Connections: activate global connect tool (click source → drag to target)
       if (elDef?.category === 'connections') {
         m.get('globalConnect').start(event)
         return
@@ -361,11 +334,6 @@ export function useBpmnModeler(
 
       let shape
       if (bpmnType === 'bpmn:Participant') {
-        // bpmn-js degrades a Participant to a "black-box pool" when its
-        // businessObject has no processRef. We must create the Process
-        // explicitly via bpmnFactory and bind it before create.start(),
-        // then force rootElementRequired so the drop target is always the
-        // Collaboration root — not an existing Participant.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const processBO = m.get('bpmnFactory').create('bpmn:Process', { isExecutable: false })
         shape = m.get('elementFactory').createShape({
@@ -381,7 +349,6 @@ export function useBpmnModeler(
         shape = m.get('elementFactory').createShape({ type: 'bpmn:TextAnnotation', businessObject: bo })
         m.get('create').start(event, shape)
       } else if (eventDefinitionType) {
-        // Event with marker (timer, message, signal, etc.) — attach event definition
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const eventDef = m.get('bpmnFactory').create(eventDefinitionType) as any
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -411,8 +378,6 @@ export function useBpmnModeler(
       }
     } catch { /* modeler not ready */ }
   }, [])
-
-
 
   return {
     modelerRef,

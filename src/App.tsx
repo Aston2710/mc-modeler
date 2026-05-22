@@ -223,36 +223,38 @@ const handleSave = useCallback(async () => {
 
   const handleSubProcessOpen = useCallback(async (rawElementId: string) => {
     const isExpand = rawElementId.startsWith('__expand__')
-    const elementId = isExpand ? rawElementId.replace('__expand__', '') : rawElementId
+    const isDelete = rawElementId.startsWith('__delete__')
+    const elementId = rawElementId
+      .replace('__expand__', '')
+      .replace('__delete__', '')
     const currentId = useDiagramStore.getState().activeTabId
     if (!currentId) return
     const existing = getChildByElement(currentId, elementId)
 
+    if (isDelete) {
+      if (existing) {
+        await deleteWithChildren(existing.id)
+        canvasRef.current?.setSubProcessThumbnail(elementId, null)
+      }
+      return
+    }
+
     if (isExpand) {
-      // Toggle expand/collapse del overlay
       if (existing?.thumbnail) {
         canvasRef.current?.setSubProcessThumbnail(elementId, existing.thumbnail)
       }
       return
     }
 
-    // "Editar subproceso": abrir o crear el diagrama hijo
     if (existing) {
       openDiagram(existing.id)
     } else {
       await createSubDiagram('Sub proceso', currentId, elementId)
       addToast({ type: 'success', title: 'Subproceso creado', duration: 2000 })
     }
-  }, [createSubDiagram, getChildByElement, openDiagram, addToast])
+  }, [createSubDiagram, deleteWithChildren, getChildByElement, openDiagram, addToast])
 
-  const handleSubProcessDelete = useCallback(async (elementId: string) => {
-    const currentId = useDiagramStore.getState().activeTabId
-    if (!currentId) return
-    const child = getChildByElement(currentId, elementId)
-    if (!child) return
-    await deleteWithChildren(child.id)
-    canvasRef.current?.setSubProcessThumbnail(elementId, null)
-  }, [getChildByElement, deleteWithChildren])
+
 
   // Auto-save
   const { save: autoSave } = useAutoSave(getXml, getSvg)

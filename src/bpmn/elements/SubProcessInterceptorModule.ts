@@ -164,8 +164,9 @@ SubProcessDeleteNotifier.$inject = ['eventBus']
 // ── Module export ─────────────────────────────────────────────────────────────
 
 export default {
-  __init__: ['subProcessContextPadProvider', 'subProcessNativeDrilldownBlocker', 'subProcessOverlayManager'],
+  __init__: ['subProcessContextPadProvider', 'subProcessNativeDrilldownBlocker', 'subProcessOverlayManager', 'subProcessDeleteNotifier'],
   subProcessOverlayManager: ['type', SubProcessOverlayManager],
   subProcessContextPadProvider: ['type', SubProcessContextPadProvider],
   subProcessNativeDrilldownBlocker: ['type', SubProcessNativeDrilldownBlocker],
+  subProcessDeleteNotifier: ['type', SubProcessDeleteNotifier],
 }

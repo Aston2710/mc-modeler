@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react'
-import { X, Upload, Link as LinkIcon } from 'lucide-react'
+import { useRef } from 'react'
+import { X, Upload } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'
 
 export function ImageUploadModal() {

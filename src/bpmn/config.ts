@@ -13,6 +13,7 @@ import GroupMoveModule from './elements/GroupMoveModule'
 import LassoIntersectionModule from './canvas/LassoIntersectionModule'
 import LaneDropModule from './elements/LaneDropModule'
 import ImageContextPadModule from './elements/ImageContextPadModule'
+import DataObjectContextPadModule from './elements/DataObjectContextPadModule'
 import BizagiLayouter from './connections/BizagiLayouter'
 import BizagiConnectionDocking from './connections/BizagiConnectionDocking'
 import BizagiSegmentHandles from './connections/BizagiSegmentHandles'
@@ -39,6 +40,7 @@ export const MODELER_CONFIG = {
     LassoIntersectionModule,
     LaneDropModule,
     ImageContextPadModule,
+    DataObjectContextPadModule,
     ConnectionEndpointCirclesModule,
     SubProcessInterceptorModule,
     BizagiLayouter,
