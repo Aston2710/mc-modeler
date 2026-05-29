@@ -1,6 +1,6 @@
 import localforage from 'localforage'
 import type { IDiagramRepository } from './IDiagramRepository'
-import type { Diagram, Folder, UserPreferences } from '@/domain/types'
+import type { Diagram, Folder, Project, UserPreferences } from '@/domain/types'
 
 const SCHEMA_VERSION = 1
 
@@ -30,8 +30,9 @@ export class LocalRepository implements IDiagramRepository {
     const raw = (await store.getItem<Diagram[]>('flujo:diagrams')) ?? []
     return raw.map((d) => ({
       ...d,
-      parentDiagramId: null,
-      subProcessElementId: null,
+      parentDiagramId: d.parentDiagramId ?? null,
+      subProcessElementId: d.subProcessElementId ?? null,
+      projectId: d.projectId ?? null,
     }))
   }
 
@@ -99,6 +100,37 @@ export class LocalRepository implements IDiagramRepository {
     await store.setItem('flujo:diagrams', all.filter((d) => !idsToDelete.includes(d.id)))
     for (const did of idsToDelete) {
       await thumbStore.removeItem(did)
+    }
+  }
+
+  // ── Proyectos (modo local: persistencia básica en IndexedDB) ──
+  async getProjects(): Promise<Project[]> {
+    return (await store.getItem<Project[]>('flujo:projects')) ?? []
+  }
+
+  async saveProject(project: Project): Promise<void> {
+    const all = await this.getProjects()
+    const idx = all.findIndex((p) => p.id === project.id)
+    if (idx >= 0) all[idx] = project
+    else all.push(project)
+    await store.setItem('flujo:projects', all)
+  }
+
+  async deleteProject(id: string): Promise<void> {
+    const all = await this.getProjects()
+    await store.setItem('flujo:projects', all.filter((p) => p.id !== id))
+    // Diagramas del proyecto quedan sueltos.
+    const diagrams = await this.getAll()
+    const updated = diagrams.map((d) => (d.projectId === id ? { ...d, projectId: null } : d))
+    await store.setItem('flujo:diagrams', updated)
+  }
+
+  async setDiagramProject(diagramId: string, projectId: string | null): Promise<void> {
+    const all = await this.getAll()
+    const idx = all.findIndex((d) => d.id === diagramId)
+    if (idx >= 0) {
+      all[idx] = { ...all[idx], projectId }
+      await store.setItem('flujo:diagrams', all)
     }
   }
 

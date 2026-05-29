@@ -33,7 +33,30 @@
     "roleOwner": "Owner",
     "onlyOwnerCanShare": "Only the owner can manage access.",
     "inviteAccepted": "You joined the shared diagram.",
-    "inviteError": "Could not process the invitation."
+    "inviteError": "Could not process the invitation.",
+    "titleProject": "Share project",
+    "projectInviteAccepted": "You joined the shared project."
+  },
+  "projects": {
+    "title": "Projects",
+    "section": "Projects",
+    "myDiagrams": "My diagrams",
+    "shared": "Shared with me",
+    "new": "New project",
+    "newTitle": "New project",
+    "namePlaceholder": "Project name",
+    "create": "Create project",
+    "open": "Open project",
+    "rename": "Rename",
+    "delete": "Delete project",
+    "deleteConfirm": "Delete this project? Its diagrams are not deleted, they become loose.",
+    "share": "Share project",
+    "newDiagramHere": "New diagram here",
+    "empty": "No diagrams in this project",
+    "count_one": "{{count}} diagram",
+    "count_other": "{{count}} diagrams",
+    "moveToProject": "Move to project",
+    "noProject": "No project"
   },
   "toolbar": {
     "newDiagram": "New diagram",

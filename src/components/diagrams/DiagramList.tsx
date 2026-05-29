@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, Upload, Plus, FileText, Sun, Moon, X } from 'lucide-react'
+import { Search, Upload, Plus, FileText, Sun, Moon, X, FolderPlus, Folder, Share2, ArrowLeft, Trash2 } from 'lucide-react'
 import { useDiagramStore } from '@/store/diagramStore'
 import { useUIStore } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { useCollabStore } from '@/store/collabStore'
+import { isSupabaseConfigured } from '@/lib/supabase'
 import { formatRelativeTime } from '@/utils/dateFormatter'
 import type { CollaboratorRole, Diagram } from '@/domain/types'
 
@@ -12,12 +13,17 @@ interface DiagramListProps {
   onOpen: (id: string) => void
   onNew: () => void
   onImport: () => void
+  onNewProject?: () => void
+  onShareProject?: (projectId: string, projectName: string) => void
+  onNewInProject?: (projectId: string) => void
 }
 
-export function DiagramList({ onOpen, onNew, onImport }: DiagramListProps) {
+export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProject, onNewInProject }: DiagramListProps) {
   const { t } = useTranslation()
   const diagrams = useDiagramStore((s) => s.diagrams)
+  const projects = useDiagramStore((s) => s.projects)
   const deleteDiagram = useDiagramStore((s) => s.deleteDiagram)
+  const deleteProject = useDiagramStore((s) => s.deleteProject)
   const filter = useUIStore((s) => s.diagramListFilter)
   const search = useUIStore((s) => s.diagramListSearch)
   const setFilter = useUIStore((s) => s.setDiagramListFilter)
@@ -27,10 +33,20 @@ export function DiagramList({ onOpen, onNew, onImport }: DiagramListProps) {
   const setTheme = usePreferencesStore((s) => s.setTheme)
   const setLanguage = usePreferencesStore((s) => s.setLanguage)
   const rolesByDiagram = useCollabStore((s) => s.rolesByDiagram)
+  const rolesByProject = useCollabStore((s) => s.rolesByProject)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [openProjectId, setOpenProjectId] = useState<string | null>(null)
+
+  const openProject = openProjectId ? projects.find((p) => p.id === openProjectId) ?? null : null
 
   const filtered = diagrams
     .filter((d) => {
+      // Dentro de un proyecto → solo sus diagramas; en la raíz → solo sueltos.
+      if (openProjectId) {
+        if (d.projectId !== openProjectId) return false
+      } else if (d.projectId) {
+        return false
+      }
       if (search && !d.name.toLowerCase().includes(search.toLowerCase())) return false
       if (filter === 'recent') {
         const diff = Date.now() - new Date(d.updatedAt).getTime()
@@ -40,10 +56,19 @@ export function DiagramList({ onOpen, onNew, onImport }: DiagramListProps) {
     })
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
 
+  const diagramCountByProject = (projectId: string) =>
+    diagrams.filter((d) => d.projectId === projectId).length
+
   const handleDelete = async (id: string) => {
-    await deleteDiagram(id)
+    if (id.startsWith('project:')) {
+      await deleteProject(id.slice('project:'.length))
+    } else {
+      await deleteDiagram(id)
+    }
     setConfirmDeleteId(null)
   }
+
+  const confirmIsProject = confirmDeleteId?.startsWith('project:') ?? false
 
   const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark')
 
@@ -76,9 +101,16 @@ export function DiagramList({ onOpen, onNew, onImport }: DiagramListProps) {
       <div className="home-content">
         <div className="home-hero">
           <div>
-            <h1>{t('diagrams.title')}</h1>
+            {openProject ? (
+              <button className="btn-ghost" style={{ marginBottom: 8 }} onClick={() => setOpenProjectId(null)}>
+                <ArrowLeft size={14} /> {t('projects.title')}
+              </button>
+            ) : null}
+            <h1>{openProject ? openProject.name : t('diagrams.title')}</h1>
             <p>
-              {t('diagrams.subtitle_other', { count: diagrams.length })}
+              {openProject
+                ? t('projects.count', { count: filtered.length })
+                : t('diagrams.subtitle_other', { count: diagrams.length })}
             </p>
           </div>
           <div className="home-actions">
@@ -90,16 +122,57 @@ export function DiagramList({ onOpen, onNew, onImport }: DiagramListProps) {
                 placeholder={t('toolbar.myDiagrams') + '...'}
               />
             </div>
-            <button className="btn-ghost" onClick={onImport}>
-              <Upload size={14} />
-              {t('toolbar.import')}
-            </button>
-            <button className="btn-primary" onClick={onNew}>
+            {openProject && onShareProject && (rolesByProject[openProject.id] === 'owner') && (
+              <button className="btn-ghost" onClick={() => onShareProject(openProject.id, openProject.name)}>
+                <Share2 size={14} />
+                {t('projects.share')}
+              </button>
+            )}
+            {!openProject && (
+              <button className="btn-ghost" onClick={onImport}>
+                <Upload size={14} />
+                {t('toolbar.import')}
+              </button>
+            )}
+            {!openProject && isSupabaseConfigured && onNewProject && (
+              <button className="btn-ghost" onClick={onNewProject}>
+                <FolderPlus size={14} />
+                {t('projects.new')}
+              </button>
+            )}
+            <button
+              className="btn-primary"
+              onClick={() => (openProject && onNewInProject ? onNewInProject(openProject.id) : onNew())}
+            >
               <Plus size={14} />
               {t('toolbar.newDiagram')}
             </button>
           </div>
         </div>
+
+        {/* Sección de proyectos (solo en la vista raíz y en modo nube) */}
+        {!openProject && isSupabaseConfigured && projects.length > 0 && (
+          <div className="projects-row">
+            {projects.map((p) => (
+              <div key={p.id} className="project-card" onClick={() => setOpenProjectId(p.id)}>
+                <div className="project-card-icon"><Folder size={18} /></div>
+                <div className="project-card-body">
+                  <div className="project-card-name">{p.name}</div>
+                  <div className="project-card-meta">{t('projects.count', { count: diagramCountByProject(p.id) })}</div>
+                </div>
+                {rolesByProject[p.id] === 'owner' && (
+                  <button
+                    className="icon-btn"
+                    title={t('projects.delete')}
+                    onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(`project:${p.id}`) }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="filter-bar">
           <button
@@ -146,10 +219,10 @@ export function DiagramList({ onOpen, onNew, onImport }: DiagramListProps) {
         <div className="modal-backdrop" onClick={() => setConfirmDeleteId(null)}>
           <div className="modal" style={{ width: 'min(400px, 92vw)' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <div className="modal-title">{t('diagrams.actions.delete')}</div>
+              <div className="modal-title">{confirmIsProject ? t('projects.delete') : t('diagrams.actions.delete')}</div>
             </div>
             <div className="modal-body">
-              <p style={{ margin: 0, fontSize: 13 }}>{t('diagrams.deleteConfirm')}</p>
+              <p style={{ margin: 0, fontSize: 13 }}>{confirmIsProject ? t('projects.deleteConfirm') : t('diagrams.deleteConfirm')}</p>
             </div>
             <div className="modal-footer">
               <button className="btn-ghost" onClick={() => setConfirmDeleteId(null)}>

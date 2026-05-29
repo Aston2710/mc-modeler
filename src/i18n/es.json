@@ -33,7 +33,30 @@
     "roleOwner": "Propietario",
     "onlyOwnerCanShare": "Solo el propietario puede gestionar el acceso.",
     "inviteAccepted": "Te uniste al diagrama compartido.",
-    "inviteError": "No se pudo procesar la invitación."
+    "inviteError": "No se pudo procesar la invitación.",
+    "titleProject": "Compartir proyecto",
+    "projectInviteAccepted": "Te uniste al proyecto compartido."
+  },
+  "projects": {
+    "title": "Proyectos",
+    "section": "Proyectos",
+    "myDiagrams": "Mis diagramas",
+    "shared": "Compartidos conmigo",
+    "new": "Nuevo proyecto",
+    "newTitle": "Nuevo proyecto",
+    "namePlaceholder": "Nombre del proyecto",
+    "create": "Crear proyecto",
+    "open": "Abrir proyecto",
+    "rename": "Renombrar",
+    "delete": "Eliminar proyecto",
+    "deleteConfirm": "¿Eliminar este proyecto? Sus diagramas no se borran, quedan sueltos.",
+    "share": "Compartir proyecto",
+    "newDiagramHere": "Nuevo diagrama aquí",
+    "empty": "Sin diagramas en este proyecto",
+    "count_one": "{{count}} diagrama",
+    "count_other": "{{count}} diagramas",
+    "moveToProject": "Mover a proyecto",
+    "noProject": "Sin proyecto"
   },
   "toolbar": {
     "newDiagram": "Nuevo diagrama",

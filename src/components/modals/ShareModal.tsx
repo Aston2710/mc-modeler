@@ -9,20 +9,45 @@ import {
   addCollaboratorByEmail,
   createInviteLink,
   removeCollaborator,
+  listProjectCollaborators,
+  addProjectCollaboratorByEmail,
+  createProjectInviteLink,
+  removeProjectCollaborator,
 } from '@/lib/sharing'
 import type { Collaborator, CollaboratorRole } from '@/domain/types'
 
 interface ShareModalProps {
+  /** 'diagram' (por defecto) comparte un diagrama; 'project' comparte un proyecto entero. */
+  kind?: 'diagram' | 'project'
   diagramId: string
   diagramName: string
   onClose: () => void
 }
 
-export function ShareModal({ diagramId, diagramName, onClose }: ShareModalProps) {
+export function ShareModal({ kind = 'diagram', diagramId, diagramName, onClose }: ShareModalProps) {
   const { t } = useTranslation()
   const addToast = useUIStore((s) => s.addToast)
   const currentUserId = useAuthStore((s) => s.user?.id ?? null)
-  const isOwner = useCollabStore((s) => s.isOwner(diagramId))
+  const isProject = kind === 'project'
+  // Para proyecto, isOwner se resuelve con los roles de proyecto cargados.
+  const isOwner = useCollabStore((s) =>
+    isProject ? (s.rolesByProject[diagramId] === 'owner') : s.isOwner(diagramId)
+  )
+
+  // API según el tipo de recurso.
+  const api = isProject
+    ? {
+        list: listProjectCollaborators,
+        add: addProjectCollaboratorByEmail,
+        link: createProjectInviteLink,
+        remove: removeProjectCollaborator,
+      }
+    : {
+        list: listCollaborators,
+        add: addCollaboratorByEmail,
+        link: createInviteLink,
+        remove: removeCollaborator,
+      }
 
   const [collaborators, setCollaborators] = useState<Collaborator[]>([])
   const [email, setEmail] = useState('')
@@ -31,11 +56,12 @@ export function ShareModal({ diagramId, diagramName, onClose }: ShareModalProps)
 
   const refresh = useCallback(async () => {
     try {
-      setCollaborators(await listCollaborators(diagramId))
+      setCollaborators(await api.list(diagramId))
     } catch {
       /* noop */
     }
-  }, [diagramId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diagramId, isProject])
 
   useEffect(() => {
     void refresh()
@@ -46,14 +72,14 @@ export function ShareModal({ diagramId, diagramName, onClose }: ShareModalProps)
     if (!value) return
     setBusy(true)
     try {
-      const added = await addCollaboratorByEmail(diagramId, value, role)
+      const added = await api.add(diagramId, value, role)
       if (added) {
         addToast({ type: 'success', title: t('share.added') })
         setEmail('')
         await refresh()
       } else {
         // No tiene cuenta → generar enlace de invitación
-        const link = await createInviteLink(diagramId, role)
+        const link = await api.link(diagramId, role)
         await navigator.clipboard.writeText(link)
         addToast({ type: 'info', title: t('share.notRegistered'), message: t('share.linkCopied') })
       }
@@ -67,7 +93,7 @@ export function ShareModal({ diagramId, diagramName, onClose }: ShareModalProps)
   const handleCopyLink = async () => {
     setBusy(true)
     try {
-      const link = await createInviteLink(diagramId, role)
+      const link = await api.link(diagramId, role)
       await navigator.clipboard.writeText(link)
       addToast({ type: 'success', title: t('share.linkCopied') })
     } catch {
@@ -79,7 +105,7 @@ export function ShareModal({ diagramId, diagramName, onClose }: ShareModalProps)
 
   const handleRemove = async (userId: string) => {
     try {
-      await removeCollaborator(diagramId, userId)
+      await api.remove(diagramId, userId)
       await refresh()
     } catch {
       addToast({ type: 'error', title: t('share.inviteError') })
@@ -94,7 +120,7 @@ export function ShareModal({ diagramId, diagramName, onClose }: ShareModalProps)
       <div className="modal" style={{ width: 'min(480px, 92vw)' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
-            <div className="modal-title">{t('share.title')}</div>
+            <div className="modal-title">{isProject ? t('share.titleProject') : t('share.title')}</div>
             <div className="modal-sub">{diagramName}</div>
           </div>
           <button className="icon-btn" onClick={onClose}>
