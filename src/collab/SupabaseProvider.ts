@@ -7,6 +7,10 @@ interface ChannelHandlers {
   onCursor: (userId: string, cursor: CursorState | null) => void
   /** Fase 5: updates binarios de Yjs (base64) recibidos por broadcast. */
   onYjsUpdate?: (base64: string) => void
+  /** El canal quedó suscrito: momento para enviar el estado completo del Y.Doc. */
+  onSubscribed?: () => void
+  /** Se unió un nuevo participante (distinto a mí): reenviar estado completo. */
+  onJoin?: (userId: string) => void
 }
 
 /**
@@ -54,9 +58,14 @@ export class CollabChannel {
       })
     }
 
+    channel.on('presence', { event: 'join' }, ({ key }) => {
+      if (key !== this.me.userId) handlers.onJoin?.(key)
+    })
+
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
         void channel.track(this.me)
+        handlers.onSubscribed?.()
       }
     })
 

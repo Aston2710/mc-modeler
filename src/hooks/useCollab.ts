@@ -60,6 +60,13 @@ export function useCollab(
       schedulePersist()
     }
 
+    // Estado completo del doc → para que peers nuevos (o ya presentes) converjan.
+    const sendFullState = () => {
+      try {
+        channel.sendYjsUpdate(uint8ToBase64(Y.encodeStateAsUpdate(doc)))
+      } catch { /* noop */ }
+    }
+
     const startBinding = () => {
       if (disposed || binding) return
       const modeler = modelerRef.current
@@ -107,6 +114,9 @@ export function useCollab(
         onYjsUpdate: (incoming: string) => {
           try { Y.applyUpdate(doc, base64ToUint8(incoming), REMOTE_ORIGIN) } catch { /* noop */ }
         },
+        // Handshake: al suscribir y cuando entra alguien, mandamos el estado completo.
+        onSubscribed: sendFullState,
+        onJoin: () => sendFullState(),
       })
       startBindingWhenReady()
     })()
