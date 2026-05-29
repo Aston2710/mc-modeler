@@ -25,4 +25,5 @@ export const ELEMENT_SIZES = {
   dataStore:       { width: 50,  height: 50  },
   textAnnotation:  { width: 100, height: 30  },
   group:           { width: 300, height: 300 },
+  phase:           { width: 200, height: 250 }, // fase: columna vertical (alto = pool)
 } satisfies Record<string, Size>

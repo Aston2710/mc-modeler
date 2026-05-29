@@ -150,6 +150,9 @@ export class YjsBpmnBinding {
       } else {
         businessObject = bpmnFactory.create(snap.type, boAttrs)
       }
+      // Preservar el id semántico (necesario p. ej. para reconocer Fases 'Phase_*'
+      // al recargar el XML; sin esto bpmn-js asignaría un id automático al bo).
+      businessObject.id = snap.id
       const width = snap.width ?? 100
       const height = snap.height ?? 80
       const shape = m.get('elementFactory').createShape({ id: snap.id, type: snap.type, businessObject, width, height })
