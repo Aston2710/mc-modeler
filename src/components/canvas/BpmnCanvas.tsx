@@ -1,6 +1,6 @@
 import { useRef, forwardRef, useImperativeHandle, useEffect, useCallback, useState } from 'react'
 import { useBpmnModeler } from '@/hooks/useBpmnModeler'
-import { useCanvasPresence } from '@/hooks/useCanvasPresence'
+import { useCollab } from '@/hooks/useCollab'
 import { RemoteCursors } from '@/components/collab/RemoteCursors'
 
 export interface BpmnCanvasHandle {
@@ -43,8 +43,8 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
 
     const modeler = useBpmnModeler(containerRef, { onReady: handleReady, onChanged, onSelectionChange })
 
-    // Presencia en tiempo real (cursores). No-op en modo local / sin sesión.
-    useCanvasPresence(modeler.modelerRef, wrapRef)
+    // Colaboración en tiempo real (presencia + cursores + CRDT). No-op en modo local / sin sesión.
+    useCollab(modeler.modelerRef, wrapRef)
 
     useImperativeHandle(ref, () => ({
       importXml: modeler.importXml,
