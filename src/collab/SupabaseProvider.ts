@@ -23,6 +23,7 @@ interface ChannelHandlers {
  */
 export class CollabChannel {
   private channel: RealtimeChannel | null = null
+  private subscribed = false
 
   constructor(
     private diagramId: string,
@@ -64,8 +65,12 @@ export class CollabChannel {
 
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
+        this.subscribed = true
         void channel.track(this.me)
         handlers.onSubscribed?.()
+      } else {
+        // CLOSED / CHANNEL_ERROR / TIMED_OUT → no enviar por REST mientras tanto.
+        this.subscribed = false
       }
     })
 
@@ -73,7 +78,8 @@ export class CollabChannel {
   }
 
   sendCursor(cursor: CursorState | null): void {
-    this.channel?.send({
+    if (!this.channel || !this.subscribed) return
+    void this.channel.send({
       type: 'broadcast',
       event: 'cursor',
       payload: { userId: this.me.userId, cursor },
@@ -81,7 +87,10 @@ export class CollabChannel {
   }
 
   sendYjsUpdate(base64: string): void {
-    this.channel?.send({ type: 'broadcast', event: 'yjs', payload: { update: base64 } })
+    // Si aún no está suscrito, se omite: el handshake de estado completo
+    // (onSubscribed / onJoin) cubrirá cualquier cambio de este intervalo.
+    if (!this.channel || !this.subscribed) return
+    void this.channel.send({ type: 'broadcast', event: 'yjs', payload: { update: base64 } })
   }
 
   async disconnect(): Promise<void> {
