@@ -286,6 +286,16 @@ export function BpmnElementIcon({ type, size = 26 }: IconProps) {
           <rect x="3" y="5" width="24" height="20" rx="3" fill="none" stroke={C.text2} strokeWidth="1.5" strokeDasharray="5 3" />
         </svg>
       )
+    case 'phase':
+      return (
+        <svg width={s} height={s} viewBox="0 0 30 30">
+          {/* Columnas verticales con banda de encabezado (divisor de fases) */}
+          <rect x="3" y="5" width="24" height="20" rx="1.5" fill={C.poolFill} stroke={C.poolStroke} strokeWidth="1.5" />
+          <line x1="3" y1="10" x2="27" y2="10" stroke={C.poolStroke} strokeWidth="1.2" />
+          <line x1="11" y1="5" x2="11" y2="25" stroke={C.poolStroke} strokeWidth="1.2" />
+          <line x1="19" y1="5" x2="19" y2="25" stroke={C.poolStroke} strokeWidth="1.2" />
+        </svg>
+      )
     case 'textAnnotation':
       return (
         <svg width={s} height={s} viewBox="0 0 30 30">
