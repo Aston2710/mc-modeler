@@ -114,3 +114,109 @@ export async function removeCollaborator(diagramId: string, userId: string): Pro
     .eq('user_id', userId)
   if (error) throw error
 }
+
+// ════════════════════════════════════════════════════════════════
+// Proyectos (mismo patrón que diagramas, sobre project_*)
+// ════════════════════════════════════════════════════════════════
+
+/** Rol del usuario actual en cada proyecto al que tiene acceso. */
+export async function getMyProjectRoles(): Promise<Record<string, CollaboratorRole>> {
+  if (!supabase) return {}
+  const { data: u } = await supabase.auth.getUser()
+  if (!u.user) return {}
+  const { data, error } = await supabase
+    .from('project_collaborators')
+    .select('project_id, role')
+    .eq('user_id', u.user.id)
+  if (error) throw error
+  const map: Record<string, CollaboratorRole> = {}
+  for (const row of data as { project_id: string; role: CollaboratorRole }[]) {
+    map[row.project_id] = row.role
+  }
+  return map
+}
+
+export async function listProjectCollaborators(projectId: string): Promise<Collaborator[]> {
+  const client = sb()
+  const { data: collabs, error } = await client
+    .from('project_collaborators')
+    .select('user_id, role')
+    .eq('project_id', projectId)
+  if (error) throw error
+  const rows = (collabs ?? []) as { user_id: string; role: CollaboratorRole }[]
+
+  type Profile = { id: string; email: string | null; display_name: string | null; avatar_url: string | null }
+  const profilesById: Record<string, Profile> = {}
+  if (rows.length) {
+    const { data: profs } = await client
+      .from('profiles')
+      .select('id, email, display_name, avatar_url')
+      .in('id', rows.map((r) => r.user_id))
+    for (const p of (profs ?? []) as Profile[]) profilesById[p.id] = p
+  }
+  return rows.map((r) => {
+    const p = profilesById[r.user_id]
+    return {
+      userId: r.user_id,
+      email: p?.email ?? null,
+      displayName: p?.display_name ?? null,
+      avatarUrl: p?.avatar_url ?? null,
+      role: r.role,
+    }
+  })
+}
+
+export async function addProjectCollaboratorByEmail(
+  projectId: string,
+  email: string,
+  role: Exclude<CollaboratorRole, 'owner'>
+): Promise<boolean> {
+  const client = sb()
+  const { data: profile, error: pErr } = await client
+    .from('profiles')
+    .select('id')
+    .ilike('email', email.trim())
+    .maybeSingle()
+  if (pErr) throw pErr
+  if (!profile) return false
+  const { data: u } = await client.auth.getUser()
+  const { error } = await client.from('project_collaborators').upsert(
+    { project_id: projectId, user_id: (profile as { id: string }).id, role, invited_by: u.user?.id },
+    { onConflict: 'project_id,user_id' }
+  )
+  if (error) throw error
+  return true
+}
+
+export async function createProjectInviteLink(
+  projectId: string,
+  role: Exclude<CollaboratorRole, 'owner'>
+): Promise<string> {
+  const client = sb()
+  const { data: u } = await client.auth.getUser()
+  const token = crypto.randomUUID()
+  const { error } = await client.from('project_invites').insert({
+    project_id: projectId,
+    role,
+    token,
+    created_by: u.user?.id,
+  })
+  if (error) throw error
+  return `${window.location.origin}/?projectInvite=${token}`
+}
+
+/** Canjea un token de invitación de proyecto. Devuelve el project_id. */
+export async function redeemProjectInvite(token: string): Promise<string> {
+  const { data, error } = await sb().rpc('redeem_project_invite', { invite_token: token })
+  if (error) throw error
+  return data as string
+}
+
+export async function removeProjectCollaborator(projectId: string, userId: string): Promise<void> {
+  const { error } = await sb()
+    .from('project_collaborators')
+    .delete()
+    .eq('project_id', projectId)
+    .eq('user_id', userId)
+  if (error) throw error
+}

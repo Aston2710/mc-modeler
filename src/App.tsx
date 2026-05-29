@@ -6,9 +6,10 @@ import { usePreferencesStore } from '@/store/preferencesStore'
 import { useAuthStore } from '@/store/authStore'
 import { useCollabStore } from '@/store/collabStore'
 import { isSupabaseConfigured } from '@/lib/supabase'
-import { redeemInvite } from '@/lib/sharing'
+import { redeemInvite, redeemProjectInvite } from '@/lib/sharing'
 import { LoginView } from '@/components/auth/LoginView'
 import { ShareModal } from '@/components/modals/ShareModal'
+import { NewProjectModal } from '@/components/modals/NewProjectModal'
 import { useAutoSave } from '@/hooks/useAutoSave'
 import { useKeyboard } from '@/hooks/useKeyboard'
 //import { useExport, type ExportFormat, type PngScale, type PdfOrientation, type ExportTheme } from '@/hooks/useExport'
@@ -43,6 +44,7 @@ export default function App() {
     createDiagram, createSubDiagram, openDiagram, importDiagram,
     saveDiagram, activeDiagram,
     deleteWithChildren, getChildByElement,
+    loadProjects, createProject,
   } = useDiagramStore()
   const {
     propertiesPanelOpen, palettePanelOpen,
@@ -84,41 +86,59 @@ export default function App() {
   useEffect(() => {
     if (!isSupabaseConfigured || session) {
       void loadAll()
+      void loadProjects()
       void useCollabStore.getState().loadRoles()
     }
-  }, [session, loadAll])
+  }, [session, loadAll, loadProjects])
 
-  // Capturar token de invitación (?invite=) antes del posible redirect de login.
+  // Estado del proyecto que se está compartiendo (modal shareProject).
+  const [shareProjectInfo, setShareProjectInfo] = useState<{ id: string; name: string } | null>(null)
+
+  // Capturar tokens de invitación (?invite= / ?projectInvite=) antes del redirect de login.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const token = params.get('invite')
-    if (token) {
-      localStorage.setItem('flujo:pendingInvite', token)
+    const projectToken = params.get('projectInvite')
+    if (token) localStorage.setItem('flujo:pendingInvite', token)
+    if (projectToken) localStorage.setItem('flujo:pendingProjectInvite', projectToken)
+    if (token || projectToken) {
       params.delete('invite')
+      params.delete('projectInvite')
       const qs = params.toString()
       window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''))
     }
   }, [])
 
-  // Canjear invitación pendiente una vez hay sesión.
+  // Canjear invitación pendiente (diagrama o proyecto) una vez hay sesión.
   useEffect(() => {
     if (!isSupabaseConfigured || !session) return
     const token = localStorage.getItem('flujo:pendingInvite')
-    if (!token) return
+    const projectToken = localStorage.getItem('flujo:pendingProjectInvite')
+    if (!token && !projectToken) return
     localStorage.removeItem('flujo:pendingInvite')
+    localStorage.removeItem('flujo:pendingProjectInvite')
     void (async () => {
       try {
-        const diagramId = await redeemInvite(token)
-        await loadAll()
-        await useCollabStore.getState().loadRoles()
-        openDiagram(diagramId)
-        setView('editor')
-        addToast({ type: 'success', title: t('share.inviteAccepted') })
+        if (projectToken) {
+          await redeemProjectInvite(projectToken)
+          await loadProjects()
+          await loadAll()
+          await useCollabStore.getState().loadRoles()
+          addToast({ type: 'success', title: t('share.projectInviteAccepted') })
+        }
+        if (token) {
+          const diagramId = await redeemInvite(token)
+          await loadAll()
+          await useCollabStore.getState().loadRoles()
+          openDiagram(diagramId)
+          setView('editor')
+          addToast({ type: 'success', title: t('share.inviteAccepted') })
+        }
       } catch {
         addToast({ type: 'error', title: t('share.inviteError') })
       }
     })()
-  }, [session, loadAll, openDiagram, addToast, t])
+  }, [session, loadAll, loadProjects, openDiagram, addToast, t])
 
   // When tabs become available, switch to editor
   useEffect(() => {
@@ -201,16 +221,40 @@ export default function App() {
     setView('home')
   }, [])
 
+  // Proyecto destino para el próximo diagrama nuevo (null = suelto).
+  const [newDiagramProjectId, setNewDiagramProjectId] = useState<string | null>(null)
+
   const handleNew = useCallback(() => {
+    setNewDiagramProjectId(null)
+    openModal('newDiagram')
+  }, [openModal])
+
+  const handleNewInProject = useCallback((projectId: string) => {
+    setNewDiagramProjectId(projectId)
     openModal('newDiagram')
   }, [openModal])
 
   const handleNewConfirm = useCallback(async (name: string) => {
     closeModal()
-    await createDiagram(name)
+    await createDiagram(name, newDiagramProjectId)
     if (isSupabaseConfigured) await useCollabStore.getState().loadRoles()
     setView('editor')
-  }, [closeModal, createDiagram, setView])
+  }, [closeModal, createDiagram, newDiagramProjectId, setView])
+
+  const handleNewProject = useCallback(() => {
+    openModal('newProject')
+  }, [openModal])
+
+  const handleNewProjectConfirm = useCallback(async (name: string) => {
+    closeModal()
+    await createProject(name)
+    await useCollabStore.getState().loadRoles()
+  }, [closeModal, createProject])
+
+  const handleShareProject = useCallback((projectId: string, projectName: string) => {
+    setShareProjectInfo({ id: projectId, name: projectName })
+    openModal('shareProject')
+  }, [openModal])
 
   const handleOpenDiagram = useCallback((id: string) => {
     openDiagram(id)
@@ -343,6 +387,9 @@ export default function App() {
           onOpen={handleOpenDiagram}
           onNew={handleNew}
           onImport={() => openModal('import')}
+          onNewProject={handleNewProject}
+          onShareProject={handleShareProject}
+          onNewInProject={handleNewInProject}
         />
       ) : (
         <div className="app">
@@ -441,6 +488,17 @@ export default function App() {
           diagramId={activeDiagram()!.id}
           diagramName={activeDiagram()!.name}
           onClose={closeModal}
+        />
+      )}
+      {activeModal === 'newProject' && (
+        <NewProjectModal onConfirm={handleNewProjectConfirm} onCancel={closeModal} />
+      )}
+      {activeModal === 'shareProject' && shareProjectInfo && (
+        <ShareModal
+          kind="project"
+          diagramId={shareProjectInfo.id}
+          diagramName={shareProjectInfo.name}
+          onClose={() => { setShareProjectInfo(null); closeModal() }}
         />
       )}
 

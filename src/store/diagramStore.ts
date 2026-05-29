@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
-import type { Diagram, DiagramTab } from '@/domain/types'
+import type { Diagram, DiagramTab, Project } from '@/domain/types'
 import { diagramRepository } from '@/persistence'
 import { generateDiagramId } from '@/utils/idGenerator'
 
@@ -60,7 +60,7 @@ interface DiagramState {
   lastSavedAt: string | null
   // Actions
   loadAll: () => Promise<void>
-  createDiagram: (name: string) => Promise<string>
+  createDiagram: (name: string, projectId?: string | null) => Promise<string>
   createSubDiagram: (name: string, parentDiagramId: string, subProcessElementId: string) => Promise<string>
   openDiagram: (id: string) => void
   closeTab: (id: string) => void
@@ -71,12 +71,19 @@ interface DiagramState {
   duplicateDiagram: (id: string) => Promise<string>
   deleteDiagram: (id: string) => Promise<void>
   deleteWithChildren: (id: string) => Promise<void>
-  importDiagram: (xml: string, name: string) => Promise<string>
+  importDiagram: (xml: string, name: string, projectId?: string | null) => Promise<string>
   markTabDirty: (id: string, dirty: boolean) => void
   renameTab: (id: string, name: string) => void
   activeDiagram: () => Diagram | null
   getChildren: (parentId: string) => Diagram[]
   getChildByElement: (parentId: string, subProcessElementId: string) => Diagram | null
+  // Proyectos
+  projects: Project[]
+  loadProjects: () => Promise<void>
+  createProject: (name: string) => Promise<string>
+  renameProject: (id: string, name: string) => Promise<void>
+  deleteProject: (id: string) => Promise<void>
+  moveDiagramToProject: (diagramId: string, projectId: string | null) => Promise<void>
 }
 
 export const useDiagramStore = create<DiagramState>()(
@@ -86,6 +93,7 @@ export const useDiagramStore = create<DiagramState>()(
     activeTabId: null,
     isLoading: false,
     lastSavedAt: null,
+    projects: [],
 
     loadAll: async () => {
       set((s) => { s.isLoading = true })
@@ -104,7 +112,7 @@ export const useDiagramStore = create<DiagramState>()(
       })
     },
 
-    createDiagram: async (name) => {
+    createDiagram: async (name, projectId = null) => {
       const id = generateDiagramId()
       const now = new Date().toISOString()
       const diagram: Diagram = {
@@ -113,6 +121,7 @@ export const useDiagramStore = create<DiagramState>()(
         xml: EMPTY_BPMN,
         thumbnail: null,
         folderId: null,
+        projectId,
         elementCount: 0,
         schemaVersion: 1,
         createdAt: now,
@@ -138,6 +147,7 @@ export const useDiagramStore = create<DiagramState>()(
         xml: EMPTY_SUBPROCESS_BPMN,
         thumbnail: null,
         folderId: null,
+        projectId: null,
         elementCount: 0,
         schemaVersion: 1,
         createdAt: now,
@@ -265,7 +275,7 @@ export const useDiagramStore = create<DiagramState>()(
       })
     },
 
-    importDiagram: async (xml, name) => {
+    importDiagram: async (xml, name, projectId = null) => {
       const id = generateDiagramId()
       const now = new Date().toISOString()
       const diagram: Diagram = {
@@ -274,6 +284,7 @@ export const useDiagramStore = create<DiagramState>()(
         xml,
         thumbnail: null,
         folderId: null,
+        projectId,
         elementCount: 0,
         schemaVersion: 1,
         createdAt: now,
@@ -342,6 +353,49 @@ export const useDiagramStore = create<DiagramState>()(
         (d) => d.parentDiagramId === parentId && d.subProcessElementId === subProcessElementId
       ) ?? null
     },
-  
+
+    // ── Proyectos ──────────────────────────────────────────────
+    loadProjects: async () => {
+      const projects = await diagramRepository.getProjects()
+      set((s) => { s.projects = projects })
+    },
+
+    createProject: async (name) => {
+      const id = generateDiagramId()
+      const now = new Date().toISOString()
+      const project: Project = { id, name, ownerId: '', createdAt: now, updatedAt: now }
+      await diagramRepository.saveProject(project)
+      set((s) => { s.projects.push(project) })
+      return id
+    },
+
+    renameProject: async (id, name) => {
+      const project = get().projects.find((p) => p.id === id)
+      if (!project) return
+      const updated: Project = { ...project, name, updatedAt: new Date().toISOString() }
+      await diagramRepository.saveProject(updated)
+      set((s) => {
+        const p = s.projects.find((p) => p.id === id)
+        if (p) p.name = name
+      })
+    },
+
+    deleteProject: async (id) => {
+      await diagramRepository.deleteProject(id)
+      set((s) => {
+        s.projects = s.projects.filter((p) => p.id !== id)
+        // Diagramas del proyecto quedan sueltos.
+        s.diagrams.forEach((d) => { if (d.projectId === id) d.projectId = null })
+      })
+    },
+
+    moveDiagramToProject: async (diagramId, projectId) => {
+      await diagramRepository.setDiagramProject(diagramId, projectId)
+      set((s) => {
+        const d = s.diagrams.find((d) => d.id === diagramId)
+        if (d) d.projectId = projectId
+      })
+    },
+
   }))
 )

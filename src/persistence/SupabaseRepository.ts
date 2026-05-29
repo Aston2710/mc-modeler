@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import type { IDiagramRepository } from './IDiagramRepository'
-import type { Diagram, Folder, UserPreferences } from '@/domain/types'
+import type { Diagram, Folder, Project, UserPreferences } from '@/domain/types'
 import { LocalRepository } from './LocalRepository'
 
 const THUMB_BUCKET = 'thumbnails'
@@ -18,6 +18,7 @@ interface DiagramRow {
   schema_version: number
   parent_diagram_id: string | null
   sub_process_element_id: string | null
+  project_id: string | null
   created_at: string
   updated_at: string
 }
@@ -29,6 +30,7 @@ function rowToDiagram(r: DiagramRow): Diagram {
     xml: r.current_xml,
     thumbnail: null, // se obtiene aparte vía getThumbnail()
     folderId: r.folder_id,
+    projectId: r.project_id ?? null,
     elementCount: r.element_count,
     schemaVersion: r.schema_version,
     parentDiagramId: r.parent_diagram_id ?? null,
@@ -127,11 +129,62 @@ export class SupabaseRepository implements IDiagramRepository {
         schema_version: diagram.schemaVersion,
         parent_diagram_id: diagram.parentDiagramId ?? null,
         sub_process_element_id: diagram.subProcessElementId ?? null,
+        project_id: diagram.projectId ?? null,
         created_at: diagram.createdAt,
         updated_at: diagram.updatedAt,
       })
       if (error) throw error
     }
+  }
+
+  // ── Proyectos ──────────────────────────────────────────────────
+  async getProjects(): Promise<Project[]> {
+    const { data, error } = await this.sb
+      .from('projects')
+      .select('*')
+      .order('updated_at', { ascending: false })
+    if (error) throw error
+    return (data as { id: string; owner_id: string; name: string; created_at: string; updated_at: string }[]).map((p) => ({
+      id: p.id,
+      name: p.name,
+      ownerId: p.owner_id,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at,
+    }))
+  }
+
+  async saveProject(project: Project): Promise<void> {
+    const { data: existing, error: selErr } = await this.sb
+      .from('projects')
+      .select('id')
+      .eq('id', project.id)
+      .maybeSingle()
+    if (selErr) throw selErr
+    if (existing) {
+      const { error } = await this.sb.from('projects').update({ name: project.name }).eq('id', project.id)
+      if (error) throw error
+    } else {
+      const ownerId = await this.uid()
+      const { error } = await this.sb.from('projects').insert({
+        id: project.id,
+        owner_id: ownerId,
+        name: project.name,
+        created_at: project.createdAt,
+        updated_at: project.updatedAt,
+      })
+      if (error) throw error
+    }
+  }
+
+  async deleteProject(id: string): Promise<void> {
+    // Los diagramas quedan sueltos (FK ON DELETE SET NULL), no se borran.
+    const { error } = await this.sb.from('projects').delete().eq('id', id)
+    if (error) throw error
+  }
+
+  async setDiagramProject(diagramId: string, projectId: string | null): Promise<void> {
+    const { error } = await this.sb.from('diagrams').update({ project_id: projectId }).eq('id', diagramId)
+    if (error) throw error
   }
 
   async delete(id: string): Promise<void> {

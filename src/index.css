@@ -1162,6 +1162,26 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   background: var(--bg-1);
 }
 
+/* ── Fila de proyectos (home) ──────────────────────────────────── */
+.projects-row {
+  display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;
+}
+.project-card {
+  display: flex; align-items: center; gap: 10px;
+  min-width: 220px; max-width: 280px;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--panel); cursor: pointer; transition: border-color .15s, background .15s;
+}
+.project-card:hover { border-color: var(--accent); background: var(--bg-2); }
+.project-card-icon {
+  width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+  display: grid; place-items: center;
+  background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent);
+}
+.project-card-body { flex: 1; min-width: 0; }
+.project-card-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-card-meta { font-size: 11px; color: var(--text-3); }
+
 /* ── Badge de diagrama compartido ──────────────────────────────── */
 .shared-badge {
   position: absolute; top: 8px; left: 8px; z-index: 1;

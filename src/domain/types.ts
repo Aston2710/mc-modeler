@@ -4,6 +4,7 @@ export interface Diagram {
   xml: string
   thumbnail: string | null
   folderId: string | null
+  projectId: string | null
   elementCount: number
   schemaVersion: number
   createdAt: string
@@ -16,6 +17,14 @@ export interface Folder {
   id: string
   name: string
   createdAt: string
+}
+
+export interface Project {
+  id: string
+  name: string
+  ownerId: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface UserPreferences {
@@ -54,6 +63,8 @@ export type ActiveModal =
   | 'newDiagram'
   | 'imageUpload'
   | 'share'
+  | 'newProject'
+  | 'shareProject'
   | null
 
 export type CollaboratorRole = 'owner' | 'editor' | 'viewer'
