@@ -28,6 +28,30 @@ const EMPTY_BPMN = `<?xml version="1.0" encoding="UTF-8"?>
   </bpmndi:BPMNDiagram>
 </bpmn:definitions>`
 
+const EMPTY_SUBPROCESS_BPMN = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+  id="Definitions_sub"
+  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:collaboration id="Collaboration_sub">
+    <bpmn:participant id="Participant_sub" name="Sub proceso" processRef="Process_sub" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_sub" isExecutable="false">
+    <bpmn:startEvent id="StartEvent_sub" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_sub">
+    <bpmndi:BPMNPlane id="BPMNPlane_sub" bpmnElement="Collaboration_sub">
+      <bpmndi:BPMNShape id="Participant_sub_di" bpmnElement="Participant_sub" isHorizontal="true">
+        <dc:Bounds x="100" y="50" width="600" height="250" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="StartEvent_sub_di" bpmnElement="StartEvent_sub">
+        <dc:Bounds x="152" y="157" width="36" height="36" />
+      </bpmndi:BPMNShape>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>`
+
 interface DiagramState {
   diagrams: Diagram[]
   tabs: DiagramTab[]
@@ -37,17 +61,22 @@ interface DiagramState {
   // Actions
   loadAll: () => Promise<void>
   createDiagram: (name: string) => Promise<string>
+  createSubDiagram: (name: string, parentDiagramId: string, subProcessElementId: string) => Promise<string>
   openDiagram: (id: string) => void
   closeTab: (id: string) => void
   setActiveTab: (id: string) => void
-  saveDiagram: (id: string, xml: string, elementCount?: number) => Promise<void>
+  saveDiagram: (id: string, xml: string, elementCount?: number, thumbnail?: string | null) => Promise<void>
+  saveThumbnailOnly: (id: string, thumbnail: string) => Promise<void>
   renameDiagram: (id: string, name: string) => Promise<void>
   duplicateDiagram: (id: string) => Promise<string>
   deleteDiagram: (id: string) => Promise<void>
+  deleteWithChildren: (id: string) => Promise<void>
   importDiagram: (xml: string, name: string) => Promise<string>
   markTabDirty: (id: string, dirty: boolean) => void
   renameTab: (id: string, name: string) => void
   activeDiagram: () => Diagram | null
+  getChildren: (parentId: string) => Diagram[]
+  getChildByElement: (parentId: string, subProcessElementId: string) => Diagram | null
 }
 
 export const useDiagramStore = create<DiagramState>()(
@@ -61,8 +90,16 @@ export const useDiagramStore = create<DiagramState>()(
     loadAll: async () => {
       set((s) => { s.isLoading = true })
       const diagrams = await diagramRepository.getAll()
+      // Hidratar thumbnails desde el store separado (thumbnails no se guardan
+      // en el array principal de diagramas para mantenerlo ligero)
+      const withThumbs = await Promise.all(
+        diagrams.map(async (d) => ({
+          ...d,
+          thumbnail: await diagramRepository.getThumbnail(d.id),
+        }))
+      )
       set((s) => {
-        s.diagrams = diagrams
+        s.diagrams = withThumbs
         s.isLoading = false
       })
     },
@@ -80,6 +117,33 @@ export const useDiagramStore = create<DiagramState>()(
         schemaVersion: 1,
         createdAt: now,
         updatedAt: now,
+        parentDiagramId: null,
+        subProcessElementId: null,
+      }
+      await diagramRepository.save(diagram)
+      set((s) => {
+        s.diagrams.push(diagram)
+        s.tabs.push({ id, name, dirty: false })
+        s.activeTabId = id
+      })
+      return id
+    },
+
+    createSubDiagram: async (name, parentDiagramId, subProcessElementId) => {
+      const id = generateDiagramId()
+      const now = new Date().toISOString()
+      const diagram: Diagram = {
+        id,
+        name,
+        xml: EMPTY_SUBPROCESS_BPMN,
+        thumbnail: null,
+        folderId: null,
+        elementCount: 0,
+        schemaVersion: 1,
+        createdAt: now,
+        updatedAt: now,
+        parentDiagramId,
+        subProcessElementId,
       }
       await diagramRepository.save(diagram)
       set((s) => {
@@ -116,21 +180,44 @@ export const useDiagramStore = create<DiagramState>()(
       set((s) => { s.activeTabId = id })
     },
 
-    saveDiagram: async (id, xml, elementCount = 0) => {
+    saveDiagram: async (id, xml, elementCount = 0, thumbnail) => {
       const now = new Date().toISOString()
       const diagram = get().diagrams.find((d) => d.id === id)
       if (!diagram) return
       const updated: Diagram = { ...diagram, xml, elementCount, updatedAt: now }
       await diagramRepository.save(updated)
+      if (thumbnail !== undefined) {
+        await diagramRepository.saveThumbnail(id, thumbnail ?? '')
+      }
+
+      if (diagram.parentDiagramId && diagram.subProcessElementId && thumbnail) {
+        await diagramRepository.saveSubProcessThumbnail(
+          diagram.parentDiagramId,
+          diagram.subProcessElementId,
+          thumbnail
+        )
+      }
+
       set((s) => {
         const idx = s.diagrams.findIndex((d) => d.id === id)
-        if (idx >= 0) s.diagrams[idx] = updated
+        if (idx >= 0) {
+          s.diagrams[idx] = updated
+          if (thumbnail !== undefined) s.diagrams[idx].thumbnail = thumbnail ?? null
+        }
         const tab = s.tabs.find((t) => t.id === id)
         if (tab) tab.dirty = false
         s.lastSavedAt = now
       })
     },
 
+    saveThumbnailOnly: async (id, thumbnail) => {
+      await diagramRepository.saveThumbnail(id, thumbnail)
+      set((s) => {
+        const d = s.diagrams.find((d) => d.id === id)
+        if (d) d.thumbnail = thumbnail
+      })
+    },
+    
     renameDiagram: async (id, name) => {
       const diagram = get().diagrams.find((d) => d.id === id)
       if (!diagram) return
@@ -154,6 +241,8 @@ export const useDiagramStore = create<DiagramState>()(
         id: newId,
         name: `${source.name} (copia)`,
         thumbnail: null,
+        parentDiagramId: null,
+        subProcessElementId: null,
         createdAt: now,
         updatedAt: now,
       }
@@ -189,6 +278,8 @@ export const useDiagramStore = create<DiagramState>()(
         schemaVersion: 1,
         createdAt: now,
         updatedAt: now,
+        parentDiagramId: null,
+        subProcessElementId: null,
       }
       await diagramRepository.save(diagram)
       set((s) => {
@@ -217,5 +308,40 @@ export const useDiagramStore = create<DiagramState>()(
       const { diagrams, activeTabId } = get()
       return diagrams.find((d) => d.id === activeTabId) ?? null
     },
+    
+    deleteWithChildren: async (id) => {
+      const allDiagrams = get().diagrams
+      const collectIds = (parentId: string): string[] => {
+        const result: string[] = [parentId]
+        const children = allDiagrams.filter((d) => d.parentDiagramId === parentId)
+        for (const child of children) result.push(...collectIds(child.id))
+        return result
+      }
+      const idsToDelete = collectIds(id)
+      await diagramRepository.deleteWithChildren(id)
+      set((s) => {
+        s.diagrams = s.diagrams.filter((d) => !idsToDelete.includes(d.id))
+        for (const did of idsToDelete) {
+          const idx = s.tabs.findIndex((t) => t.id === did)
+          if (idx >= 0) {
+            s.tabs.splice(idx, 1)
+            if (s.activeTabId === did) {
+              s.activeTabId = s.tabs[Math.max(0, idx - 1)]?.id ?? null
+            }
+          }
+        }
+      })
+    },
+
+    getChildren: (parentId) => {
+      return get().diagrams.filter((d) => d.parentDiagramId === parentId)
+    },
+
+    getChildByElement: (parentId, subProcessElementId) => {
+      return get().diagrams.find(
+        (d) => d.parentDiagramId === parentId && d.subProcessElementId === subProcessElementId
+      ) ?? null
+    },
+  
   }))
 )

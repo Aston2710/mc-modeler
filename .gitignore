@@ -137,6 +137,8 @@ dist
 
 
 # custom ignores
-#BPMN*
 *.bpm
 *.bpmn
+
+referencias_csharp/
+*.zip

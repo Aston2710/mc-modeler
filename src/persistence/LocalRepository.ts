@@ -27,7 +27,12 @@ const thumbStore = localforage.createInstance({
 
 export class LocalRepository implements IDiagramRepository {
   async getAll(): Promise<Diagram[]> {
-    return (await store.getItem<Diagram[]>('flujo:diagrams')) ?? []
+    const raw = (await store.getItem<Diagram[]>('flujo:diagrams')) ?? []
+    return raw.map((d) => ({
+      ...d,
+      parentDiagramId: null,
+      subProcessElementId: null,
+    }))
   }
 
   async getById(id: string): Promise<Diagram | null> {
@@ -61,6 +66,40 @@ export class LocalRepository implements IDiagramRepository {
 
   async saveThumbnail(id: string, dataUrl: string): Promise<void> {
     await thumbStore.setItem(id, dataUrl)
+  }
+
+  private subProcKey(parentId: string, elementId: string): string {
+    return `subproc:${parentId}:${elementId}`
+  }
+
+  async getSubProcessThumbnail(parentId: string, elementId: string): Promise<string | null> {
+    return thumbStore.getItem<string>(this.subProcKey(parentId, elementId))
+  }
+
+  async saveSubProcessThumbnail(parentId: string, elementId: string, dataUrl: string): Promise<void> {
+    await thumbStore.setItem(this.subProcKey(parentId, elementId), dataUrl)
+  }
+
+  async deleteSubProcessThumbnail(parentId: string, elementId: string): Promise<void> {
+    await thumbStore.removeItem(this.subProcKey(parentId, elementId))
+  }
+
+  async deleteWithChildren(id: string): Promise<void> {
+    const collectIds = async (parentId: string): Promise<string[]> => {
+      const all = await this.getAll()
+      const result: string[] = [parentId]
+      const children = all.filter((d) => d.parentDiagramId === parentId)
+      for (const child of children) {
+        result.push(...await collectIds(child.id))
+      }
+      return result
+    }
+    const idsToDelete = await collectIds(id)
+    const all = await this.getAll()
+    await store.setItem('flujo:diagrams', all.filter((d) => !idsToDelete.includes(d.id)))
+    for (const did of idsToDelete) {
+      await thumbStore.removeItem(did)
+    }
   }
 
   async getFolders(): Promise<Folder[]> {

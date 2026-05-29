@@ -11,6 +11,14 @@ export interface IDiagramRepository {
   getThumbnail(id: string): Promise<string | null>
   saveThumbnail(id: string, dataUrl: string): Promise<void>
 
+  // Sub-process overlay thumbnails — keyed separately from diagram thumbnails
+  getSubProcessThumbnail(parentId: string, elementId: string): Promise<string | null>
+  saveSubProcessThumbnail(parentId: string, elementId: string, dataUrl: string): Promise<void>
+  deleteSubProcessThumbnail(parentId: string, elementId: string): Promise<void>
+
+  // Delete a diagram and all its descendant sub-process diagrams recursively
+  deleteWithChildren(id: string): Promise<void>
+
   // Folders
   getFolders(): Promise<Folder[]>
   saveFolder(folder: Folder): Promise<void>
