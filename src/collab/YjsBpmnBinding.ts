@@ -12,7 +12,7 @@ type Any = any
 /** Origen usado por Yjs cuando el transporte aplica updates remotos. */
 export const REMOTE_ORIGIN = Symbol('remote')
 
-const SYNC_DEBOUNCE_MS = 120
+const SYNC_DEBOUNCE_MS = 40
 
 /**
  * Binding bidireccional bpmn-js ⇄ Y.Doc.
@@ -39,13 +39,15 @@ export class YjsBpmnBinding {
   }
 
   start(): void {
-    const empty = this.ymap.size === 0
-    if (empty) {
-      // Primer cliente: sembrar el doc desde el canvas ya importado.
-      this.seedFromCanvas()
-    } else {
-      // Late-joiner: reconciliar el canvas hacia el estado del doc.
+    // No "sembramos" el diagrama completo: todos parten del mismo current_xml
+    // y el doc solo transporta los CAMBIOS. Esto evita que dos clientes
+    // sembrando a la vez se pisen por LWW.
+    if (this.ymap.size > 0) {
+      // Ya hay cambios en el doc (persistidos o de un peer): aplicarlos al canvas.
       this.reconcileCanvasToDoc()
+    } else {
+      // Baseline: registrar el estado actual sin escribir nada al doc.
+      this.last = this.currentSnapshots()
     }
 
     this.modeler.get('eventBus').on('commandStack.changed', this.onCommandStackChanged)
@@ -80,14 +82,6 @@ export class YjsBpmnBinding {
       if (isSyncable(el)) map.set(el.id, elementToSnapshot(el))
     })
     return map
-  }
-
-  private seedFromCanvas() {
-    const current = this.currentSnapshots()
-    this.doc.transact(() => {
-      current.forEach((snap, id) => this.ymap.set(id, snap))
-    }, this.origin)
-    this.last = current
   }
 
   private syncLocalToY() {
