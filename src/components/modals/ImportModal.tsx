@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { X, FileUp } from 'lucide-react'
+import { importBpm } from '@/utils/bpmImport'
 
 interface ImportModalProps {
   onImport: (xml: string, filename: string) => void
@@ -11,11 +12,27 @@ export function ImportModal({ onImport, onCancel }: ImportModalProps) {
   const { t } = useTranslation()
   const [dragOver, setDragOver] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const processFile = (file: File) => {
     setError(null)
-    if (!file.name.endsWith('.bpmn')) {
+    const lower = file.name.toLowerCase()
+
+    // .bpm de Bizagi → convertir XPDL a BPMN (binario)
+    if (lower.endsWith('.bpm')) {
+      setBusy(true)
+      file.arrayBuffer()
+        .then((buf) => importBpm(buf, file.name.replace(/\.bpm$/i, '')))
+        .then((xml) => {
+          onImport(xml, file.name.replace(/\.bpm$/i, ''))
+        })
+        .catch(() => setError(t('modals.import.invalidFile')))
+        .finally(() => setBusy(false))
+      return
+    }
+
+    if (!lower.endsWith('.bpmn')) {
       setError(t('modals.import.invalidExtension'))
       return
     }
@@ -26,7 +43,7 @@ export function ImportModal({ onImport, onCancel }: ImportModalProps) {
         setError(t('modals.import.invalidFile'))
         return
       }
-      const name = file.name.replace('.bpmn', '')
+      const name = file.name.replace(/\.bpmn$/i, '')
       onImport(xml, name)
     }
     reader.readAsText(file)
@@ -65,7 +82,7 @@ export function ImportModal({ onImport, onCancel }: ImportModalProps) {
             onClick={() => inputRef.current?.click()}
           >
             <FileUp size={40} style={{ color: 'var(--text-3)', marginBottom: 12 }} />
-            <div className="dz-title">{t('modals.import.dropzone')}</div>
+            <div className="dz-title">{busy ? t('modals.import.importing') : t('modals.import.dropzone')}</div>
             <div className="dz-sub" style={{ marginTop: 6 }}>
               {t('modals.import.or')}{' '}
               <span style={{ color: 'var(--primary)', fontWeight: 500, cursor: 'pointer' }}>
@@ -75,7 +92,7 @@ export function ImportModal({ onImport, onCancel }: ImportModalProps) {
             <input
               ref={inputRef}
               type="file"
-              accept=".bpmn"
+              accept=".bpmn,.bpm"
               style={{ display: 'none' }}
               onChange={handleFileChange}
             />

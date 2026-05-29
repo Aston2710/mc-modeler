@@ -218,13 +218,14 @@
     },
     "import": {
       "title": "Import diagram",
-      "subtitle": "Import a .bpmn file from Bizagi, Camunda or any compatible tool",
-      "dropzone": "Drop a .bpmn file here",
+      "subtitle": "Import a .bpmn or .bpm (Bizagi Modeler) file",
+      "dropzone": "Drop a .bpmn or .bpm file here",
+      "importing": "Importing…",
       "or": "or",
       "browse": "Browse file",
       "cancel": "Cancel",
-      "invalidFile": "File is not a valid BPMN XML",
-      "invalidExtension": "Only .bpmn files are accepted"
+      "invalidFile": "File is not a valid BPMN/.bpm",
+      "invalidExtension": "Only .bpmn or .bpm files are accepted"
     },
     "shortcuts": {
       "title": "Keyboard shortcuts",

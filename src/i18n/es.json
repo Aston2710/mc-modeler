@@ -218,13 +218,14 @@
     },
     "import": {
       "title": "Importar diagrama",
-      "subtitle": "Importa un archivo .bpmn de Bizagi, Camunda u otra herramienta compatible",
-      "dropzone": "Arrastra un archivo .bpmn aquí",
+      "subtitle": "Importa un archivo .bpmn o .bpm (Bizagi Modeler)",
+      "dropzone": "Arrastra un archivo .bpmn o .bpm aquí",
+      "importing": "Importando…",
       "or": "o",
       "browse": "Seleccionar archivo",
       "cancel": "Cancelar",
-      "invalidFile": "El archivo no es un XML BPMN válido",
-      "invalidExtension": "Solo se aceptan archivos .bpmn"
+      "invalidFile": "El archivo no es un BPMN/.bpm válido",
+      "invalidExtension": "Solo se aceptan archivos .bpmn o .bpm"
     },
     "shortcuts": {
       "title": "Atajos de teclado",
