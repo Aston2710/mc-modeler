@@ -167,11 +167,17 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
     const transitionsParent = wf.getElementsByTagNameNS(XPDL_NS, 'Transitions')[0]
     if (transitionsParent) {
       childrenByTag(transitionsParent, 'Transition').forEach((tr) => {
+        const from = tr.getAttribute('From')
+        const to = tr.getAttribute('To')
+        // Bizagi puede tener conexiones con un extremo sin conectar. Las
+        // omitimos: un sequenceFlow con sourceRef/targetRef roto invalida
+        // todo el BPMN y bpmn-js rechazaría la importación completa.
+        if (!from || !to) return
         const { coords } = readGraphics(tr)
         edges.push({
           id: id(tr.getAttribute('Id')),
-          source: id(tr.getAttribute('From')),
-          target: id(tr.getAttribute('To')),
+          source: id(from),
+          target: id(to),
           name: tr.getAttribute('Name') ?? '',
           waypoints: coords,
           tag: 'sequenceFlow',
@@ -181,7 +187,11 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
     return { procId, nodes, edges }
   }
 
-  const emitProcess = (procId: string, lanes: { id: string; name: string; bounds: Bounds }[], nodes: FlowNode[], edges: Edge[]) => {
+  const emitProcess = (procId: string, lanes: { id: string; name: string; bounds: Bounds }[], nodes: FlowNode[], rawEdges: Edge[]) => {
+    // Solo conservar flujos cuyos extremos sean nodos existentes (evita
+    // referencias rotas que invalidarían el BPMN).
+    const nodeIds = new Set(nodes.map((n) => n.id))
+    const edges = rawEdges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target))
     const laneSet =
       lanes.length > 0
         ? `<bpmn:laneSet id="LaneSet_${procId}">` +
@@ -310,24 +320,56 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
 </bpmn:definitions>`
 }
 
+/** Lee el Diagram.xml (XPDL) de un .diag (ZIP interior). */
+async function readDiagramXml(diagBytes: Uint8Array): Promise<string | null> {
+  try {
+    const inner = await JSZip.loadAsync(diagBytes)
+    const file = inner.file('Diagram.xml') ?? Object.values(inner.files).find((f) => /Diagram\.xml$/i.test(f.name))
+    return file ? await file.async('string') : null
+  } catch {
+    return null
+  }
+}
+
+function countActivities(xpdl: string): number {
+  return (xpdl.match(/<Activity\b/g) ?? []).length
+}
+
+function packageName(xpdl: string): string | null {
+  return /<Package\b[^>]*\bName="([^"]*)"/.exec(xpdl)?.[1] ?? null
+}
+
 /**
  * Descomprime un archivo .bpm de Bizagi y devuelve el BPMN 2.0 equivalente.
+ *
+ * Un .bpm es un proyecto que puede contener VARIOS .diag (procesos y
+ * subprocesos). Se elige el diagrama con más contenido (más actividades) como
+ * el principal — varios .diag suelen estar vacíos (subprocesos sin detallar).
+ *
  * @param buffer Contenido binario del .bpm (ArrayBuffer).
+ * @returns { xml, name } del diagrama principal.
  */
-export async function importBpm(buffer: ArrayBuffer, fallbackName = 'Diagrama'): Promise<string> {
+export async function importBpm(
+  buffer: ArrayBuffer,
+  fallbackName = 'Diagrama'
+): Promise<{ xml: string; name: string }> {
   const outer = await JSZip.loadAsync(buffer)
 
-  // 1) localizar el .diag (ZIP interior)
-  const diagEntry = Object.values(outer.files).find((f) => /\.diag$/i.test(f.name))
-  if (!diagEntry) throw new Error('Archivo .bpm inválido: no contiene un .diag')
+  const diagEntries = Object.values(outer.files).filter((f) => /\.diag$/i.test(f.name) && !f.dir)
+  if (diagEntries.length === 0) throw new Error('Archivo .bpm inválido: no contiene ningún .diag')
 
-  const diagBytes = await diagEntry.async('uint8array')
-  const inner = await JSZip.loadAsync(diagBytes)
+  // Leer todos los Diagram.xml y elegir el de más actividades.
+  let best: { xpdl: string; activities: number } | null = null
+  for (const entry of diagEntries) {
+    const bytes = await entry.async('uint8array')
+    const xpdl = await readDiagramXml(bytes)
+    if (!xpdl) continue
+    const activities = countActivities(xpdl)
+    if (!best || activities > best.activities) best = { xpdl, activities }
+  }
 
-  // 2) leer Diagram.xml (XPDL)
-  const diagramFile = inner.file('Diagram.xml') ?? Object.values(inner.files).find((f) => /Diagram\.xml$/i.test(f.name))
-  if (!diagramFile) throw new Error('Archivo .bpm inválido: falta Diagram.xml')
+  if (!best) throw new Error('Archivo .bpm inválido: ningún .diag contiene Diagram.xml')
 
-  const xpdl = await diagramFile.async('string')
-  return xpdlToBpmn(xpdl, fallbackName)
+  const name = packageName(best.xpdl) || fallbackName
+  return { xml: xpdlToBpmn(best.xpdl, name), name }
 }
