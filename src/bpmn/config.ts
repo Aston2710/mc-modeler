@@ -13,12 +13,39 @@ import GroupMoveModule from './elements/GroupMoveModule'
 import LassoIntersectionModule from './canvas/LassoIntersectionModule'
 import LaneDropModule from './elements/LaneDropModule'
 import ImageContextPadModule from './elements/ImageContextPadModule'
-import StrictOrthogonalLayouter from './connections/StrictOrthogonalLayouter'
+import DataObjectContextPadModule from './elements/DataObjectContextPadModule'
+import BizagiLayouter from './connections/BizagiLayouter'
+import BizagiConnectionDocking from './connections/BizagiConnectionDocking'
+import BizagiSegmentHandles from './connections/BizagiSegmentHandles'
 import ConnectionEndpointCirclesModule from './connections/ConnectionEndpointCirclesModule'
-import SmartBendpointsModule from './connections/SmartBendpointsModule'
+import SubProcessInterceptorModule from './elements/SubProcessInterceptorModule'
+
+// NOTA: BizagiDragRouter eliminado — bpmn-js llama al layouter registrado
+// automáticamente durante el drag a través del canal oficial 'layouter'.
+// No se necesita ningún módulo interceptor adicional.
 
 export const MODELER_CONFIG = {
-  additionalModules: [TranslateModule, ThemeAwareRendererModule, CanvasLassoModule, ScrollPanModule, PoolInteriorLassoModule, CustomResizeModule, CustomSelectionModule, CustomElementSizesModule, CanvasPageModule, BoundaryConstraintModule, GroupMoveModule, LassoIntersectionModule, LaneDropModule, ImageContextPadModule, StrictOrthogonalLayouter, ConnectionEndpointCirclesModule, SmartBendpointsModule],
-  // Arrow keys: 5px per press; Shift+arrow: 15px
+  additionalModules: [
+    TranslateModule,
+    ThemeAwareRendererModule,
+    CanvasLassoModule,
+    ScrollPanModule,
+    PoolInteriorLassoModule,
+    CustomResizeModule,
+    CustomSelectionModule,
+    CustomElementSizesModule,
+    CanvasPageModule,
+    BoundaryConstraintModule,
+    GroupMoveModule,
+    LassoIntersectionModule,
+    LaneDropModule,
+    ImageContextPadModule,
+    DataObjectContextPadModule,
+    ConnectionEndpointCirclesModule,
+    SubProcessInterceptorModule,
+    BizagiLayouter,
+    BizagiConnectionDocking,
+    BizagiSegmentHandles,
+  ],
   keyboardMoveSelection: { moveSpeed: 5, moveSpeedAccelerated: 15 },
 }

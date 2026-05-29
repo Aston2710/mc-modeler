@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { useDiagramStore } from '@/store/diagramStore'
 import { useUIStore } from '@/store/uiStore'
+import { buildThumbnail } from '@/utils/thumbnailUtils'
 
 export function useAutoSave(
   getXml: () => Promise<string>,
-  intervalSeconds = 30
+  getSvg: () => Promise<string>,
+  intervalSeconds = 20
 ) {
   const activeTabId = useDiagramStore((s) => s.activeTabId)
   const saveDiagram = useDiagramStore((s) => s.saveDiagram)
@@ -17,14 +19,16 @@ export function useAutoSave(
     const dirty = useUIStore.getState().unsavedChanges
     if (!id || !dirty) return
     try {
-      const xml = await getXml()
-      await saveDiagram(id, xml)
+      const [xml, thumbnail] = await Promise.all([
+        getXml(),
+        buildThumbnail(getSvg).catch(() => null),
+      ])
+      await saveDiagram(id, xml, undefined, thumbnail)
       setUnsavedChanges(false)
     } catch {
       // silently skip — next interval will retry
     }
   }
-
   useEffect(() => {
     if (!unsavedChanges || !activeTabId) return
 

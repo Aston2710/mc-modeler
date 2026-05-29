@@ -22,7 +22,7 @@ function getStrokeColor(): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ConnectionEndpointCirclesBehavior(eventBus: any, canvas: any) {
+function ConnectionEndpointCirclesBehavior(eventBus: any, canvas: any, bendpointMove: any) { // fixed (BUG-08)
   // One <g> inside the labels layer — we clear & repopulate on each selection change.
   // Using the labels layer ensures the circles render above shapes.
   let circlesGroup: SVGGElement | null = null
@@ -44,7 +44,7 @@ function ConnectionEndpointCirclesBehavior(eventBus: any, canvas: any) {
     while (g.firstChild) g.removeChild(g.firstChild)
   }
 
-  function addCircle(g: SVGGElement, x: number, y: number) {
+  function addCircle(g: SVGGElement, x: number, y: number, onMouseDown: (e: MouseEvent) => void) {
     const c = document.createElementNS(SVG_NS, 'circle') as SVGCircleElement
     c.setAttribute('cx', String(x))
     c.setAttribute('cy', String(y))
@@ -52,7 +52,9 @@ function ConnectionEndpointCirclesBehavior(eventBus: any, canvas: any) {
     c.setAttribute('fill', 'white')
     c.setAttribute('stroke', getStrokeColor())
     c.setAttribute('stroke-width', String(CIRCLE_STROKE_WIDTH))
-    c.setAttribute('pointer-events', 'none')
+    c.setAttribute('pointer-events', 'all') // permite que el círculo reciba eventos del mouse (fixed BUG-08)
+    c.style.cursor = 'grab'
+    c.addEventListener('mousedown', onMouseDown)
     g.appendChild(c)
   }
 
@@ -63,13 +65,21 @@ function ConnectionEndpointCirclesBehavior(eventBus: any, canvas: any) {
     const g = ensureGroup()
 
     for (const el of selectedElements) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const conn = el as any
       const wps: Array<{ x: number; y: number }> | undefined = conn.waypoints
       if (!wps || wps.length < 2) continue
 
-      addCircle(g, wps[0].x, wps[0].y)
-      addCircle(g, wps[wps.length - 1].x, wps[wps.length - 1].y)
+      // Círculo de inicio
+      addCircle(g, wps[0].x, wps[0].y, (e: MouseEvent) => {
+        e.stopPropagation()
+        bendpointMove.start(e, conn, 0)
+      })
+
+      // Círculo de fin
+      addCircle(g, wps[wps.length - 1].x, wps[wps.length - 1].y, (e: MouseEvent) => {
+        e.stopPropagation()
+        bendpointMove.start(e, conn, wps.length - 1)
+      })
     }
   }
 
@@ -97,7 +107,8 @@ function ConnectionEndpointCirclesBehavior(eventBus: any, canvas: any) {
   })
 }
 
-ConnectionEndpointCirclesBehavior.$inject = ['eventBus', 'canvas']
+//ConnectionEndpointCirclesBehavior.$inject = ['eventBus', 'canvas']
+ConnectionEndpointCirclesBehavior.$inject = ['eventBus', 'canvas', 'bendpointMove'] // fixed (BUG-08)
 
 export default {
   __init__: ['connectionEndpointCirclesBehavior'],

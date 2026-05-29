@@ -16,6 +16,8 @@ interface DiagramRow {
   element_count: number
   thumbnail_path: string | null
   schema_version: number
+  parent_diagram_id: string | null
+  sub_process_element_id: string | null
   created_at: string
   updated_at: string
 }
@@ -29,6 +31,8 @@ function rowToDiagram(r: DiagramRow): Diagram {
     folderId: r.folder_id,
     elementCount: r.element_count,
     schemaVersion: r.schema_version,
+    parentDiagramId: r.parent_diagram_id ?? null,
+    subProcessElementId: r.sub_process_element_id ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }
@@ -121,6 +125,8 @@ export class SupabaseRepository implements IDiagramRepository {
         current_xml: diagram.xml,
         element_count: diagram.elementCount,
         schema_version: diagram.schemaVersion,
+        parent_diagram_id: diagram.parentDiagramId ?? null,
+        sub_process_element_id: diagram.subProcessElementId ?? null,
         created_at: diagram.createdAt,
         updated_at: diagram.updatedAt,
       })
@@ -145,12 +151,60 @@ export class SupabaseRepository implements IDiagramRepository {
   }
 
   async saveThumbnail(id: string, dataUrl: string): Promise<void> {
+    // dataUrl vacío = limpiar thumbnail (diagramStore pasa '' para null).
+    if (!dataUrl || !dataUrl.startsWith('data:')) {
+      await this.sb.storage.from(THUMB_BUCKET).remove([thumbPath(id)])
+      await this.sb.from('diagrams').update({ thumbnail_path: null }).eq('id', id)
+      return
+    }
     const blob = dataUrlToBlob(dataUrl)
     const { error } = await this.sb.storage
       .from(THUMB_BUCKET)
       .upload(thumbPath(id), blob, { upsert: true, contentType: blob.type })
     if (error) throw error
     await this.sb.from('diagrams').update({ thumbnail_path: thumbPath(id) }).eq('id', id)
+  }
+
+  // ── Thumbnails de subprocesos (overlay) ──
+  // Path en Storage: '<parentId>/subproc/<elementId>' → 1er segmento = parentId (RLS).
+  private subProcPath(parentId: string, elementId: string): string {
+    return `${parentId}/subproc/${elementId}`
+  }
+
+  async getSubProcessThumbnail(parentId: string, elementId: string): Promise<string | null> {
+    const { data, error } = await this.sb.storage
+      .from(THUMB_BUCKET)
+      .download(this.subProcPath(parentId, elementId))
+    if (error || !data) return null
+    try {
+      return await blobToDataUrl(data)
+    } catch {
+      return null
+    }
+  }
+
+  async saveSubProcessThumbnail(parentId: string, elementId: string, dataUrl: string): Promise<void> {
+    if (!dataUrl || !dataUrl.startsWith('data:')) {
+      await this.sb.storage.from(THUMB_BUCKET).remove([this.subProcPath(parentId, elementId)])
+      return
+    }
+    const blob = dataUrlToBlob(dataUrl)
+    const { error } = await this.sb.storage
+      .from(THUMB_BUCKET)
+      .upload(this.subProcPath(parentId, elementId), blob, { upsert: true, contentType: blob.type })
+    if (error) throw error
+  }
+
+  async deleteSubProcessThumbnail(parentId: string, elementId: string): Promise<void> {
+    await this.sb.storage.from(THUMB_BUCKET).remove([this.subProcPath(parentId, elementId)])
+  }
+
+  async deleteWithChildren(id: string): Promise<void> {
+    // El FK parent_diagram_id es ON DELETE CASCADE: borrar el padre elimina
+    // recursivamente a los descendientes en la BD.
+    const { error } = await this.sb.from('diagrams').delete().eq('id', id)
+    if (error) throw error
+    await this.sb.storage.from(THUMB_BUCKET).remove([thumbPath(id)])
   }
 
   async getFolders(): Promise<Folder[]> {
