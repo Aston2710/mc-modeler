@@ -24,6 +24,7 @@ export interface ElementSnapshot {
   waypoints?: Waypoint[]
   // businessObject
   name?: string
+  text?: string // bpmn:TextAnnotation (incluye imágenes embebidas '[IMAGE:...]')
   eventDefinition?: string | null
 }
 
@@ -55,6 +56,7 @@ export function elementToSnapshot(el: AnyEl): ElementSnapshot {
     parent: el.parent?.id ?? null,
     name: bo.name ?? undefined,
   }
+  if (bo.text != null) snap.text = bo.text
   const eventDef = bo.eventDefinitions?.[0]?.$type
   if (eventDef) snap.eventDefinition = eventDef
 
@@ -77,6 +79,7 @@ export function snapshotsEqual(a: ElementSnapshot, b: ElementSnapshot): boolean 
     a.type === b.type &&
     a.parent === b.parent &&
     a.name === b.name &&
+    a.text === b.text &&
     a.eventDefinition === b.eventDefinition &&
     a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height &&
     a.source === b.source && a.target === b.target &&

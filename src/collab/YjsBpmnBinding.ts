@@ -141,6 +141,7 @@ export class YjsBpmnBinding {
       const bpmnFactory = m.get('bpmnFactory')
       const boAttrs: Any = {}
       if (snap.name != null) boAttrs.name = snap.name
+      if (snap.text != null) boAttrs.text = snap.text
       let businessObject: Any
       if (snap.eventDefinition) {
         const def = bpmnFactory.create(snap.eventDefinition)
@@ -204,6 +205,10 @@ export class YjsBpmnBinding {
       // nombre
       if (snap.name != null && el.businessObject?.name !== snap.name) {
         modeling.updateProperties(el, { name: snap.name })
+      }
+      // texto (TextAnnotation / imágenes embebidas)
+      if (snap.text != null && el.businessObject?.text !== snap.text) {
+        modeling.updateProperties(el, { text: snap.text })
       }
     } catch (e) {
       console.warn('[collab] updateElement falló', snap.id, e)
