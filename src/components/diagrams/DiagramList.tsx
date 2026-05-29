@@ -35,7 +35,15 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
   const rolesByDiagram = useCollabStore((s) => s.rolesByDiagram)
   const rolesByProject = useCollabStore((s) => s.rolesByProject)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
-  const [openProjectId, setOpenProjectId] = useState<string | null>(null)
+  // Persistir el proyecto abierto para que sobreviva ir al editor y volver.
+  const [openProjectId, setOpenProjectIdState] = useState<string | null>(
+    () => sessionStorage.getItem('flujo:openProject')
+  )
+  const setOpenProjectId = (id: string | null) => {
+    if (id) sessionStorage.setItem('flujo:openProject', id)
+    else sessionStorage.removeItem('flujo:openProject')
+    setOpenProjectIdState(id)
+  }
 
   const openProject = openProjectId ? projects.find((p) => p.id === openProjectId) ?? null : null
 
@@ -191,8 +199,11 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
         </div>
 
         <div className="diagrams-grid">
-          {/* Create card */}
-          <div className="create-card" onClick={onNew}>
+          {/* Create card — dentro de un proyecto crea ahí; si no, suelto */}
+          <div
+            className="create-card"
+            onClick={() => (openProject && onNewInProject ? onNewInProject(openProject.id) : onNew())}
+          >
             <div>
               <div className="create-icon">
                 <Plus size={20} />
