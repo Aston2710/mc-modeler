@@ -22,10 +22,11 @@ export function ImportModal({ onImport, onCancel }: ImportModalProps) {
     // .bpm de Bizagi → convertir XPDL a BPMN (binario)
     if (lower.endsWith('.bpm')) {
       setBusy(true)
+      const fallback = file.name.replace(/\.bpm$/i, '')
       file.arrayBuffer()
-        .then((buf) => importBpm(buf, file.name.replace(/\.bpm$/i, '')))
-        .then((xml) => {
-          onImport(xml, file.name.replace(/\.bpm$/i, ''))
+        .then((buf) => importBpm(buf, fallback))
+        .then(({ xml, name }) => {
+          onImport(xml, name || fallback)
         })
         .catch(() => setError(t('modals.import.invalidFile')))
         .finally(() => setBusy(false))
