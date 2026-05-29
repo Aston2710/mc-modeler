@@ -4,8 +4,9 @@ import { Search, Upload, Plus, FileText, Sun, Moon, X } from 'lucide-react'
 import { useDiagramStore } from '@/store/diagramStore'
 import { useUIStore } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
+import { useCollabStore } from '@/store/collabStore'
 import { formatRelativeTime } from '@/utils/dateFormatter'
-import type { Diagram } from '@/domain/types'
+import type { CollaboratorRole, Diagram } from '@/domain/types'
 
 interface DiagramListProps {
   onOpen: (id: string) => void
@@ -25,6 +26,7 @@ export function DiagramList({ onOpen, onNew, onImport }: DiagramListProps) {
   const theme = usePreferencesStore((s) => s.theme)
   const setTheme = usePreferencesStore((s) => s.setTheme)
   const setLanguage = usePreferencesStore((s) => s.setLanguage)
+  const rolesByDiagram = useCollabStore((s) => s.rolesByDiagram)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const filtered = diagrams
@@ -131,6 +133,7 @@ export function DiagramList({ onOpen, onNew, onImport }: DiagramListProps) {
             <DiagramCard
               key={d.id}
               diagram={d}
+              role={rolesByDiagram[d.id] ?? null}
               onOpen={() => onOpen(d.id)}
               onDelete={() => setConfirmDeleteId(d.id)}
               language={language}
@@ -169,16 +172,23 @@ export function DiagramList({ onOpen, onNew, onImport }: DiagramListProps) {
 
 interface DiagramCardProps {
   diagram: Diagram
+  role: CollaboratorRole | null
   onOpen: () => void
   onDelete: () => void
   language: string
 }
 
-function DiagramCard({ diagram, onOpen, onDelete, language }: DiagramCardProps) {
+function DiagramCard({ diagram, role, onOpen, onDelete, language }: DiagramCardProps) {
   const { t } = useTranslation()
+  const isShared = role === 'editor' || role === 'viewer'
 
   return (
     <div className="diagram-card" style={{ position: 'relative' }} onClick={onOpen}>
+      {isShared && (
+        <span className="shared-badge">
+          {role === 'viewer' ? t('share.roleViewer') : t('share.roleEditor')}
+        </span>
+      )}
       <div className="diagram-thumb">
         {diagram.thumbnail ? (
           <img src={diagram.thumbnail} alt={diagram.name} />
@@ -203,14 +213,16 @@ function DiagramCard({ diagram, onOpen, onDelete, language }: DiagramCardProps) 
           <span className="dm-tag">BPMN 2.0</span>
         </div>
       </div>
-      <button
-        className="icon-btn"
-        style={{ position: 'absolute', top: 8, right: 8, opacity: 0.7 }}
-        title={t('diagrams.actions.delete')}
-        onClick={(e) => { e.stopPropagation(); onDelete() }}
-      >
-        <X size={14} />
-      </button>
+      {!isShared && (
+        <button
+          className="icon-btn"
+          style={{ position: 'absolute', top: 8, right: 8, opacity: 0.7 }}
+          title={t('diagrams.actions.delete')}
+          onClick={(e) => { e.stopPropagation(); onDelete() }}
+        >
+          <X size={14} />
+        </button>
+      )}
     </div>
   )
 }

@@ -29,7 +29,7 @@ function isContainer(element: AnyObj): boolean {
 
 // ── BoundaryRules — prevent dropping pool elements on canvas root ─────────
 
-function BoundaryRules(eventBus: AnyObj) {
+function BoundaryRules(this: AnyObj, eventBus: AnyObj) {
   RuleProvider.call(this, eventBus)
 }
 

@@ -133,6 +133,8 @@ function getColorsFor(element: AnyElement): {
  */
 function ThemeAwareRenderer(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  this: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   config: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   eventBus: any,

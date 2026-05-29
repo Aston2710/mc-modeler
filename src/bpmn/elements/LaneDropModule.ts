@@ -11,7 +11,7 @@ type AnyObj = any
 /**
  * Permite que los Carriles (Lanes) particionen Pools en lugar de pegarse como etiquetas.
  */
-function LaneDropBehavior(eventBus: AnyObj, modeling: AnyObj, bpmnFactory: AnyObj, elementFactory: AnyObj) {
+function LaneDropBehavior(eventBus: AnyObj, modeling: AnyObj, _bpmnFactory: AnyObj, _elementFactory: AnyObj) {
   // Interceptamos el evento EXACTO cuando el usuario suelta el clic izquierdo
   eventBus.on('create.end', 1500, function(event: AnyObj) {
     const context = event.context

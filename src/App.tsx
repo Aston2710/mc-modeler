@@ -3,6 +3,12 @@ import { useTranslation } from 'react-i18next'
 import { useDiagramStore } from '@/store/diagramStore'
 import { useUIStore } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
+import { useAuthStore } from '@/store/authStore'
+import { useCollabStore } from '@/store/collabStore'
+import { isSupabaseConfigured } from '@/lib/supabase'
+import { redeemInvite } from '@/lib/sharing'
+import { LoginView } from '@/components/auth/LoginView'
+import { ShareModal } from '@/components/modals/ShareModal'
 import { useAutoSave } from '@/hooks/useAutoSave'
 import { useKeyboard } from '@/hooks/useKeyboard'
 import { useExport, type ExportFormat, type PngScale, type PdfOrientation, type ExportTheme } from '@/hooks/useExport'
@@ -41,6 +47,9 @@ export default function App() {
     addToast, isExporting,
   } = useUIStore()
   const { loaded: prefsLoaded, load: loadPrefs } = usePreferencesStore()
+  const authInitialized = useAuthStore((s) => s.initialized)
+  const session = useAuthStore((s) => s.session)
+  const canEditActive = useCollabStore((s) => s.canEdit(activeTabId))
 
   // Canvas ref
   const canvasRef = useRef<BpmnCanvasHandle>(null)
@@ -55,9 +64,54 @@ export default function App() {
 
   // ── Init ──────────────────────────────────────────────
   useEffect(() => {
+    useAuthStore.getState().init()
+  }, [])
+
+  // Preferencias: siempre (se resuelven localmente).
+  useEffect(() => {
     void loadPrefs()
-    void loadAll()
-  }, [loadPrefs, loadAll])
+  }, [loadPrefs])
+
+  // Lista de diagramas + roles: solo cuando hay acceso real —
+  // modo local, o modo nube con sesión iniciada. Nunca como anónimo.
+  useEffect(() => {
+    if (!isSupabaseConfigured || session) {
+      void loadAll()
+      void useCollabStore.getState().loadRoles()
+    }
+  }, [session, loadAll])
+
+  // Capturar token de invitación (?invite=) antes del posible redirect de login.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('invite')
+    if (token) {
+      localStorage.setItem('flujo:pendingInvite', token)
+      params.delete('invite')
+      const qs = params.toString()
+      window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''))
+    }
+  }, [])
+
+  // Canjear invitación pendiente una vez hay sesión.
+  useEffect(() => {
+    if (!isSupabaseConfigured || !session) return
+    const token = localStorage.getItem('flujo:pendingInvite')
+    if (!token) return
+    localStorage.removeItem('flujo:pendingInvite')
+    void (async () => {
+      try {
+        const diagramId = await redeemInvite(token)
+        await loadAll()
+        await useCollabStore.getState().loadRoles()
+        openDiagram(diagramId)
+        setView('editor')
+        addToast({ type: 'success', title: t('share.inviteAccepted') })
+      } catch {
+        addToast({ type: 'error', title: t('share.inviteError') })
+      }
+    })()
+  }, [session, loadAll, openDiagram, addToast, t])
 
   // When tabs become available, switch to editor
   useEffect(() => {
@@ -107,7 +161,7 @@ export default function App() {
   }, [setUnsavedChanges])
 
   const handleSave = useCallback(async () => {
-    if (!activeTabId) return
+    if (!activeTabId || !canEditActive) return
     try {
       const xml = await getXml()
       await saveDiagram(activeTabId, xml)
@@ -116,7 +170,7 @@ export default function App() {
     } catch {
       addToast({ type: 'error', title: t('errors.saveFailed') })
     }
-  }, [activeTabId, getXml, saveDiagram, setUnsavedChanges, addToast, t])
+  }, [activeTabId, canEditActive, getXml, saveDiagram, setUnsavedChanges, addToast, t])
 
   const handleGoHome = useCallback(() => {
     isCanvasReadyRef.current = false
@@ -130,6 +184,7 @@ export default function App() {
   const handleNewConfirm = useCallback(async (name: string) => {
     closeModal()
     await createDiagram(name)
+    if (isSupabaseConfigured) await useCollabStore.getState().loadRoles()
     setView('editor')
   }, [closeModal, createDiagram, setView])
 
@@ -142,6 +197,7 @@ export default function App() {
     closeModal()
     try {
       const id = await importDiagram(xml, name)
+      if (isSupabaseConfigured) await useCollabStore.getState().loadRoles()
       setView('editor')
       openDiagram(id)
     } catch {
@@ -176,7 +232,13 @@ export default function App() {
   }, [closeModal, activeDiagram, runExport, getXml, getSvg])
 
   const handleStartCreate = useCallback((bpmnType: string, event: MouseEvent) => {
+    if (!canEditActive) return
     canvasRef.current?.startCreate(bpmnType, event)
+  }, [canEditActive])
+
+  const handleSignOut = useCallback(async () => {
+    await useAuthStore.getState().signOut()
+    setView('home')
   }, [])
 
   // Auto-save
@@ -192,7 +254,10 @@ export default function App() {
     onValidate: handleValidate,
   })
 
-  if (!prefsLoaded) return null
+  if (!prefsLoaded || !authInitialized) return null
+
+  // Modo nube: exige sesión antes de entrar a la app.
+  if (isSupabaseConfigured && !session) return <LoginView />
 
   return (
     <>
@@ -218,6 +283,10 @@ export default function App() {
             onGoHome={handleGoHome}
             canUndo={canUndo}
             canRedo={canRedo}
+            cloudMode={isSupabaseConfigured}
+            canEdit={canEditActive}
+            onShare={() => openModal('share')}
+            onSignOut={handleSignOut}
           />
 
           <TabsBar onNew={handleNew} />
@@ -247,7 +316,10 @@ export default function App() {
               collapsed={!propertiesPanelOpen}
               onToggle={() => setPropertiesPanelOpen(!propertiesPanelOpen)}
               getSelectedElements={() => canvasRef.current?.getSelectedElements() ?? []}
-              onUpdateProperty={(id, prop, val) => canvasRef.current?.updateElementProperty(id, prop, val)}
+              onUpdateProperty={(id, prop, val) => {
+                if (!canEditActive) return
+                canvasRef.current?.updateElementProperty(id, prop, val)
+              }}
             />
           </div>
 
@@ -285,6 +357,13 @@ export default function App() {
       )}
       {activeModal === 'imageUpload' && (
         <ImageUploadModal />
+      )}
+      {activeModal === 'share' && activeDiagram() && (
+        <ShareModal
+          diagramId={activeDiagram()!.id}
+          diagramName={activeDiagram()!.name}
+          onClose={closeModal}
+        />
       )}
 
       <ToastContainer />

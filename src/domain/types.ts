@@ -51,7 +51,18 @@ export type ActiveModal =
   | 'validation'
   | 'newDiagram'
   | 'imageUpload'
+  | 'share'
   | null
+
+export type CollaboratorRole = 'owner' | 'editor' | 'viewer'
+
+export interface Collaborator {
+  userId: string
+  email: string | null
+  displayName: string | null
+  avatarUrl: string | null
+  role: CollaboratorRole
+}
 
 export interface UIState {
   propertiesPanelOpen: boolean
