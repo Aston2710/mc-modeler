@@ -32,7 +32,12 @@ import {
   laneColors,
   connectionColors,
   defaultColors,
+  cssVar,
 } from './ThemeColors'
+import { isPhase } from '../elements/phaseUtil'
+
+const SVG_NS = 'http://www.w3.org/2000/svg'
+const PHASE_HEADER = 28 // alto de la banda de encabezado superior
 
 // ──────────────────────────────────────────────────────────────
 // Utilidad: ¿es un elemento de este tipo?
@@ -179,6 +184,50 @@ ThemeAwareRenderer.prototype.drawShape = function (
   element: AnyElement,
 ): SVGElement {
   const colors = getColorsFor(element)
+
+  // Fase: columna vertical con banda de encabezado arriba (estilo Bizagi).
+  // Render propio (no delegamos al base, que dibujaría el Group punteado).
+  if (isPhase(element)) {
+    const w: number = element.width
+    const h: number = element.height
+    const stroke = cssVar('--pool-stroke') || '#888'
+    const headerFill = cssVar('--bg-2') || '#f4f5f8'
+    const labelColor = cssVar('--text-2') || '#475467'
+
+    const body = document.createElementNS(SVG_NS, 'rect')
+    body.setAttribute('width', String(w))
+    body.setAttribute('height', String(h))
+    body.setAttribute('fill', 'transparent')
+    body.setAttribute('stroke', stroke)
+    body.setAttribute('stroke-width', '1.5')
+    parentGfx.appendChild(body)
+
+    const header = document.createElementNS(SVG_NS, 'rect')
+    header.setAttribute('width', String(w))
+    header.setAttribute('height', String(PHASE_HEADER))
+    header.setAttribute('fill', headerFill)
+    header.setAttribute('stroke', stroke)
+    header.setAttribute('stroke-width', '1.5')
+    parentGfx.appendChild(header)
+
+    // bpmn-js guarda el label de un Group en categoryValueRef.value; al crear
+    // la fase usamos bo.name. Leemos ambos para reflejar el renombrado inline.
+    const bo = element.businessObject ?? {}
+    const name: string = bo.categoryValueRef?.value ?? bo.name ?? ''
+    if (name) {
+      const text = document.createElementNS(SVG_NS, 'text')
+      text.setAttribute('x', String(w / 2))
+      text.setAttribute('y', String(PHASE_HEADER / 2))
+      text.setAttribute('text-anchor', 'middle')
+      text.setAttribute('dominant-baseline', 'central')
+      text.setAttribute('font-size', '12')
+      text.setAttribute('font-weight', '600')
+      text.setAttribute('fill', labelColor)
+      text.textContent = name
+      parentGfx.appendChild(text)
+    }
+    return body
+  }
 
   // ExclusiveGateway: bypass base renderer to draw a clean diamond without
   // the X marker. Base renderer always draws the X cross path on top.

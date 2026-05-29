@@ -6,6 +6,8 @@ import BpmnModeler from 'bpmn-js/lib/Modeler'
 import { useUIStore } from '@/store/uiStore'
 import { MODELER_CONFIG } from '@/bpmn/config'
 import { BPMN_ELEMENTS } from '@/domain/bpmnElements'
+import { ELEMENT_SIZES } from '@/bpmn/ElementSizes'
+import { PHASE_ID_PREFIX } from '@/bpmn/elements/phaseUtil'
 
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -347,6 +349,21 @@ export function useBpmnModeler(
           text: '[IMAGE_PENDING]'
         })
         shape = m.get('elementFactory').createShape({ type: 'bpmn:TextAnnotation', businessObject: bo })
+        m.get('create').start(event, shape)
+      } else if (elementType === 'phase') {
+        // Fase: divisor vertical. Group con id marcado 'Phase_*' (ver phaseUtil).
+        const id = `${PHASE_ID_PREFIX}${Math.random().toString(36).slice(2, 10)}`
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const bo = m.get('bpmnFactory').create('bpmn:Group') as any
+        bo.id = id
+        bo.name = 'Fase'
+        shape = m.get('elementFactory').createShape({
+          id,
+          type: 'bpmn:Group',
+          businessObject: bo,
+          width: ELEMENT_SIZES.phase.width,
+          height: ELEMENT_SIZES.phase.height,
+        })
         m.get('create').start(event, shape)
       } else if (eventDefinitionType) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

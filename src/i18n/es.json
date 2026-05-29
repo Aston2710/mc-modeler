@@ -94,6 +94,7 @@
       "pool": "Pool",
       "lane": "Lane",
       "group": "Grupo",
+      "phase": "Fase",
       "textAnnotation": "Anotación",
       "dataObject": "Objeto de datos"
     }
