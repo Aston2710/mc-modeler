@@ -2,6 +2,39 @@
   "app": {
     "name": "Flujo"
   },
+  "auth": {
+    "title": "Iniciar sesión",
+    "subtitle": "Accede para guardar y colaborar en tus diagramas",
+    "emailLabel": "Correo electrónico",
+    "emailPlaceholder": "tu@correo.com",
+    "sendMagicLink": "Enviar enlace de acceso",
+    "sending": "Enviando…",
+    "magicLinkSent": "Te enviamos un enlace de acceso. Revisa tu correo.",
+    "orContinueWith": "o continúa con",
+    "google": "Continuar con Google",
+    "signOut": "Cerrar sesión",
+    "genericError": "No se pudo iniciar sesión. Inténtalo de nuevo.",
+    "invalidEmail": "Introduce un correo válido."
+  },
+  "share": {
+    "title": "Compartir diagrama",
+    "subtitle": "Invita a personas a ver o editar este diagrama",
+    "emailPlaceholder": "correo@ejemplo.com",
+    "roleEditor": "Puede editar",
+    "roleViewer": "Solo ver",
+    "invite": "Invitar",
+    "added": "Colaborador añadido.",
+    "notRegistered": "Ese usuario aún no tiene cuenta. Comparte un enlace de invitación.",
+    "copyLink": "Copiar enlace de invitación",
+    "linkCopied": "Enlace copiado al portapapeles.",
+    "collaborators": "Colaboradores",
+    "you": "(tú)",
+    "remove": "Quitar",
+    "roleOwner": "Propietario",
+    "onlyOwnerCanShare": "Solo el propietario puede gestionar el acceso.",
+    "inviteAccepted": "Te uniste al diagrama compartido.",
+    "inviteError": "No se pudo procesar la invitación."
+  },
   "toolbar": {
     "newDiagram": "Nuevo diagrama",
     "openDiagram": "Abrir diagrama",

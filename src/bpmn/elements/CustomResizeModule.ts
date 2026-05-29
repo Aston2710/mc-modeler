@@ -90,7 +90,7 @@ function getMinSize(element: AnyObj): { width: number; height: number } {
 }
 
 // ── CustomResizeRules — extiende RuleProvider (API oficial de diagram-js) ──
-function CustomResizeRules(eventBus: AnyObj) {
+function CustomResizeRules(this: AnyObj, eventBus: AnyObj) {
   RuleProvider.call(this, eventBus)
 }
 

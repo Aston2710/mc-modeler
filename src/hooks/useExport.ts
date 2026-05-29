@@ -41,7 +41,7 @@ export async function withTheme<T>(theme: ExportTheme, fn: () => Promise<T>): Pr
   if (current === target) return fn()
 
   root.setAttribute('data-theme', target)
-  await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+  await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
   try {
     return await fn()
   } finally {

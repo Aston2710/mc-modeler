@@ -1,0 +1,191 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase'
+import type { IDiagramRepository } from './IDiagramRepository'
+import type { Diagram, Folder, UserPreferences } from '@/domain/types'
+import { LocalRepository } from './LocalRepository'
+
+const THUMB_BUCKET = 'thumbnails'
+const thumbPath = (id: string) => `${id}/thumb`
+
+interface DiagramRow {
+  id: string
+  owner_id: string
+  folder_id: string | null
+  name: string
+  current_xml: string
+  element_count: number
+  thumbnail_path: string | null
+  schema_version: number
+  created_at: string
+  updated_at: string
+}
+
+function rowToDiagram(r: DiagramRow): Diagram {
+  return {
+    id: r.id,
+    name: r.name,
+    xml: r.current_xml,
+    thumbnail: null, // se obtiene aparte vía getThumbnail()
+    folderId: r.folder_id,
+    elementCount: r.element_count,
+    schemaVersion: r.schema_version,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }
+}
+
+function dataUrlToBlob(dataUrl: string): Blob {
+  const [header, base64] = dataUrl.split(',')
+  const mime = /:(.*?);/.exec(header)?.[1] ?? 'image/png'
+  const bin = atob(base64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return new Blob([bytes], { type: mime })
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+}
+
+/**
+ * Repositorio sobre Supabase (Postgres + Storage). Las preferencias se mantienen
+ * locales por dispositivo (se delega en LocalRepository), todo lo demás va a la nube.
+ */
+export class SupabaseRepository implements IDiagramRepository {
+  private local = new LocalRepository()
+
+  private get sb(): SupabaseClient {
+    if (!supabase) throw new Error('Supabase no configurado')
+    return supabase
+  }
+
+  private async uid(): Promise<string> {
+    const { data, error } = await this.sb.auth.getUser()
+    if (error || !data.user) throw new Error('No autenticado')
+    return data.user.id
+  }
+
+  async getAll(): Promise<Diagram[]> {
+    const { data, error } = await this.sb
+      .from('diagrams')
+      .select('*')
+      .order('updated_at', { ascending: false })
+    if (error) throw error
+    return (data as DiagramRow[]).map(rowToDiagram)
+  }
+
+  async getById(id: string): Promise<Diagram | null> {
+    const { data, error } = await this.sb
+      .from('diagrams')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle()
+    if (error) throw error
+    return data ? rowToDiagram(data as DiagramRow) : null
+  }
+
+  async save(diagram: Diagram): Promise<void> {
+    // No usamos upsert: en un UPDATE incluiría owner_id y un editor podría
+    // robar la propiedad. Distinguimos insert (con owner) de update (sin owner).
+    const { data: existing, error: selErr } = await this.sb
+      .from('diagrams')
+      .select('id')
+      .eq('id', diagram.id)
+      .maybeSingle()
+    if (selErr) throw selErr
+
+    if (existing) {
+      const { error } = await this.sb
+        .from('diagrams')
+        .update({
+          folder_id: diagram.folderId,
+          name: diagram.name,
+          current_xml: diagram.xml,
+          element_count: diagram.elementCount,
+          schema_version: diagram.schemaVersion,
+        })
+        .eq('id', diagram.id)
+      if (error) throw error
+    } else {
+      const ownerId = await this.uid()
+      const { error } = await this.sb.from('diagrams').insert({
+        id: diagram.id,
+        owner_id: ownerId,
+        folder_id: diagram.folderId,
+        name: diagram.name,
+        current_xml: diagram.xml,
+        element_count: diagram.elementCount,
+        schema_version: diagram.schemaVersion,
+        created_at: diagram.createdAt,
+        updated_at: diagram.updatedAt,
+      })
+      if (error) throw error
+    }
+  }
+
+  async delete(id: string): Promise<void> {
+    const { error } = await this.sb.from('diagrams').delete().eq('id', id)
+    if (error) throw error
+    await this.sb.storage.from(THUMB_BUCKET).remove([thumbPath(id)])
+  }
+
+  async getThumbnail(id: string): Promise<string | null> {
+    const { data, error } = await this.sb.storage.from(THUMB_BUCKET).download(thumbPath(id))
+    if (error || !data) return null
+    try {
+      return await blobToDataUrl(data)
+    } catch {
+      return null
+    }
+  }
+
+  async saveThumbnail(id: string, dataUrl: string): Promise<void> {
+    const blob = dataUrlToBlob(dataUrl)
+    const { error } = await this.sb.storage
+      .from(THUMB_BUCKET)
+      .upload(thumbPath(id), blob, { upsert: true, contentType: blob.type })
+    if (error) throw error
+    await this.sb.from('diagrams').update({ thumbnail_path: thumbPath(id) }).eq('id', id)
+  }
+
+  async getFolders(): Promise<Folder[]> {
+    const { data, error } = await this.sb
+      .from('folders')
+      .select('*')
+      .order('created_at', { ascending: true })
+    if (error) throw error
+    return (data as { id: string; name: string; created_at: string }[]).map((f) => ({
+      id: f.id,
+      name: f.name,
+      createdAt: f.created_at,
+    }))
+  }
+
+  async saveFolder(folder: Folder): Promise<void> {
+    const ownerId = await this.uid()
+    const { error } = await this.sb.from('folders').upsert(
+      { id: folder.id, owner_id: ownerId, name: folder.name, created_at: folder.createdAt },
+      { onConflict: 'id' }
+    )
+    if (error) throw error
+  }
+
+  async deleteFolder(id: string): Promise<void> {
+    const { error } = await this.sb.from('folders').delete().eq('id', id)
+    if (error) throw error
+  }
+
+  // Preferencias: locales por dispositivo.
+  getPreferences(): Promise<UserPreferences> {
+    return this.local.getPreferences()
+  }
+
+  savePreferences(prefs: UserPreferences): Promise<void> {
+    return this.local.savePreferences(prefs)
+  }
+}

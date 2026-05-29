@@ -2,6 +2,39 @@
   "app": {
     "name": "Flujo"
   },
+  "auth": {
+    "title": "Sign in",
+    "subtitle": "Sign in to save and collaborate on your diagrams",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@email.com",
+    "sendMagicLink": "Send magic link",
+    "sending": "Sending…",
+    "magicLinkSent": "We sent you a sign-in link. Check your inbox.",
+    "orContinueWith": "or continue with",
+    "google": "Continue with Google",
+    "signOut": "Sign out",
+    "genericError": "Could not sign in. Please try again.",
+    "invalidEmail": "Enter a valid email."
+  },
+  "share": {
+    "title": "Share diagram",
+    "subtitle": "Invite people to view or edit this diagram",
+    "emailPlaceholder": "email@example.com",
+    "roleEditor": "Can edit",
+    "roleViewer": "View only",
+    "invite": "Invite",
+    "added": "Collaborator added.",
+    "notRegistered": "That user has no account yet. Share an invite link.",
+    "copyLink": "Copy invite link",
+    "linkCopied": "Link copied to clipboard.",
+    "collaborators": "Collaborators",
+    "you": "(you)",
+    "remove": "Remove",
+    "roleOwner": "Owner",
+    "onlyOwnerCanShare": "Only the owner can manage access.",
+    "inviteAccepted": "You joined the shared diagram.",
+    "inviteError": "Could not process the invitation."
+  },
   "toolbar": {
     "newDiagram": "New diagram",
     "openDiagram": "Open diagram",

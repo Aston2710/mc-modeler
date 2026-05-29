@@ -3,11 +3,12 @@ import { useTranslation } from 'react-i18next'
 import {
   Plus, Upload, Download, CheckSquare,
   Undo2, Redo2, ZoomIn, ZoomOut, Maximize2,
-  Sun, Moon, Save, Home, GitBranch
+  Sun, Moon, Save, Home, GitBranch, Share2, LogOut
 } from 'lucide-react'
 import { useDiagramStore } from '@/store/diagramStore'
 import { useUIStore } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
+import { PresenceAvatars } from '@/components/collab/PresenceAvatars'
 
 interface ToolbarProps {
   onNew: () => void
@@ -23,6 +24,10 @@ interface ToolbarProps {
   onGoHome: () => void
   canUndo: boolean
   canRedo: boolean
+  cloudMode?: boolean
+  canEdit?: boolean
+  onShare?: () => void
+  onSignOut?: () => void
 }
 
 export function Toolbar({
@@ -30,6 +35,7 @@ export function Toolbar({
   onUndo, onRedo, onZoomIn, onZoomOut, onFitToScreen,
   onSave, onGoHome,
   canUndo, canRedo,
+  cloudMode = false, canEdit = true, onShare, onSignOut,
 }: ToolbarProps) {
   const { t } = useTranslation()
   const activeTabId = useDiagramStore((s) => s.activeTabId)
@@ -84,6 +90,7 @@ export function Toolbar({
             onChange={(e) => setLocalName(e.target.value)}
             onBlur={handleNameBlur}
             onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+            disabled={!canEdit}
           />
           {unsavedChanges && (
             <span style={{ color: 'var(--warning)', fontSize: 18, lineHeight: 1 }}>•</span>
@@ -169,11 +176,29 @@ export function Toolbar({
         {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
       </button>
 
+      {/* Presencia en tiempo real */}
+      {cloudMode && <PresenceAvatars />}
+
+      {/* Share (cloud) */}
+      {cloudMode && activeDiagram && (
+        <button className="icon-btn" onClick={onShare} title={t('share.title')}>
+          <Share2 size={16} />
+          <span className="label">{t('share.title')}</span>
+        </button>
+      )}
+
       {/* Save */}
-      <button className="btn-primary" onClick={onSave} disabled={!activeDiagram}>
+      <button className="btn-primary" onClick={onSave} disabled={!activeDiagram || !canEdit}>
         <Save size={14} />
         {t('toolbar.save')}
       </button>
+
+      {/* Sign out (cloud) */}
+      {cloudMode && onSignOut && (
+        <button className="icon-btn" onClick={onSignOut} title={t('auth.signOut')}>
+          <LogOut size={16} />
+        </button>
+      )}
     </div>
   )
 }

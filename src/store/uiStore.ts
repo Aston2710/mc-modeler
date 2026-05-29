@@ -15,6 +15,7 @@ interface UIState {
   unsavedChanges: boolean
   diagramListFilter: 'all' | 'recent'
   diagramListSearch: string
+  imageUploadContext: { onConfirm: (url: string) => void } | null
   // Actions
   setPropertiesPanelOpen: (open: boolean) => void
   setPalettePanelOpen: (open: boolean) => void

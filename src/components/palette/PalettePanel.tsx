@@ -57,7 +57,7 @@ export function PalettePanel({ collapsed, onToggle, onStartCreate }: PalettePane
     setSettingsOpen(true)
   }
 
-  const selectMode = (mode: 'grid' | 'dropdown') => {
+  const selectMode = (mode: 'grid' | 'dropdown' | 'bizagi') => {
     setPaletteMode(mode)
     setSettingsOpen(false)
   }
