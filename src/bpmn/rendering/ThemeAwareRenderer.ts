@@ -185,44 +185,46 @@ ThemeAwareRenderer.prototype.drawShape = function (
 ): SVGElement {
   const colors = getColorsFor(element)
 
-  // Fase: columna vertical con banda de encabezado arriba (estilo Bizagi).
+  // Fase: banda vertical anclada al pool, estilo moderno (encabezado con acento).
   // Render propio (no delegamos al base, que dibujaría el Group punteado).
   if (isPhase(element)) {
     const w: number = element.width
     const h: number = element.height
-    const stroke = cssVar('--pool-stroke') || '#888'
-    const headerFill = cssVar('--bg-2') || '#f4f5f8'
-    const labelColor = cssVar('--text-2') || '#475467'
+    const accent = cssVar('--accent') || '#8b5cf6'
+    const stroke = cssVar('--border-strong') || '#d0d5dd'
+    const bodyFill = cssVar('--bg-1') || '#fafbfc'
+    const R = 8
 
+    // Cuerpo con relleno muy sutil y esquinas suaves.
     const body = document.createElementNS(SVG_NS, 'rect')
     body.setAttribute('width', String(w))
     body.setAttribute('height', String(h))
-    body.setAttribute('fill', 'transparent')
+    body.setAttribute('rx', String(R))
+    body.setAttribute('fill', bodyFill)
+    body.setAttribute('fill-opacity', '0.4')
     body.setAttribute('stroke', stroke)
-    body.setAttribute('stroke-width', '1.5')
+    body.setAttribute('stroke-width', '1')
     parentGfx.appendChild(body)
 
-    const header = document.createElementNS(SVG_NS, 'rect')
-    header.setAttribute('width', String(w))
-    header.setAttribute('height', String(PHASE_HEADER))
-    header.setAttribute('fill', headerFill)
-    header.setAttribute('stroke', stroke)
-    header.setAttribute('stroke-width', '1.5')
-    parentGfx.appendChild(header)
+    // Encabezado superior con color de acento (gradiente sutil) y esquinas
+    // superiores redondeadas (path para redondear solo arriba).
+    const hh = PHASE_HEADER
+    const headerPath = document.createElementNS(SVG_NS, 'path')
+    headerPath.setAttribute('d',
+      `M0,${hh} L0,${R} Q0,0 ${R},0 L${w - R},0 Q${w},0 ${w},${R} L${w},${hh} Z`)
+    headerPath.setAttribute('fill', accent)
+    parentGfx.appendChild(headerPath)
 
-    // bpmn-js guarda el label de un Group en categoryValueRef.value; al crear
-    // la fase usamos bo.name. Leemos ambos para reflejar el renombrado inline.
-    const bo = element.businessObject ?? {}
-    const name: string = bo.categoryValueRef?.value ?? bo.name ?? ''
+    const name: string = element.businessObject?.name ?? ''
     if (name) {
       const text = document.createElementNS(SVG_NS, 'text')
       text.setAttribute('x', String(w / 2))
-      text.setAttribute('y', String(PHASE_HEADER / 2))
+      text.setAttribute('y', String(hh / 2))
       text.setAttribute('text-anchor', 'middle')
       text.setAttribute('dominant-baseline', 'central')
       text.setAttribute('font-size', '12')
       text.setAttribute('font-weight', '600')
-      text.setAttribute('fill', labelColor)
+      text.setAttribute('fill', '#ffffff')
       text.textContent = name
       parentGfx.appendChild(text)
     }

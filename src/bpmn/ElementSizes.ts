@@ -12,7 +12,7 @@ export const ELEMENT_SIZES = {
   gateway:             { width: 50,  height: 50  }, //? 50, 50
   event:               { width: 36,  height: 36  }, //? 36, 36
 
-  subProcessExpanded:  { width: 130, height: 90 }, // caja drilldown compacta (tamaño de actividad)
+  subProcessExpanded:  { width: 90, height: 60 }, // mismo tamaño que una tarea
   subProcessCollapsed: { width: 90, height: 60  }, //? 120, 60
 
   participantExpanded:           { width: 600, height: 250 },
