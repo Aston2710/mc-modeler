@@ -14,6 +14,17 @@
           "type": "String"
         }
       ]
+    },
+    {
+      "name": "ManualRoute",
+      "extends": ["bpmn:SequenceFlow", "bpmn:Association", "bpmn:MessageFlow"],
+      "properties": [
+        {
+          "name": "manualRoute",
+          "isAttr": true,
+          "type": "Boolean"
+        }
+      ]
     }
   ]
 }

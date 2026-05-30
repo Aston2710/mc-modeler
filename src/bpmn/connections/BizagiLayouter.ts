@@ -1,5 +1,6 @@
 import { BizagiDirectionalRouter } from './BizagiDirectionalRouter'
 import type { Point, RouterObstacle } from './BizagiDirectionalRouter'
+import { isManual } from './manualRoute'
 
 type Face = 'top' | 'bottom' | 'left' | 'right'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -293,6 +294,28 @@ BizagiLayouter.prototype.layoutConnection = function (connection: Connection, hi
     ]
   }
 
+  // Ruta manual: no recalcular. Mantener la forma; solo re-anclar los extremos
+  // al cardinal actual de src/tgt (p. ej. tras mover un shape) y corregir el
+  // waypoint adyacente para conservar la ortogonalidad.
+  if (isManual(connection) && connection.waypoints && connection.waypoints.length >= 2) {
+    const wps: Point[] = connection.waypoints.map((p: Point) => ({ x: p.x, y: p.y }))
+    const last = wps.length - 1
+    const sCard = isGateway(src) ? gatewayCardinal(src, nearestGatewayFace(src, wps[1] ?? wps[0]))
+                                 : faceCardinal(src, nearestFace(src, wps[1] ?? wps[0]))
+    const tCard = isGateway(tgt) ? gatewayCardinal(tgt, nearestGatewayFace(tgt, wps[last - 1] ?? wps[last]))
+                                 : faceCardinal(tgt, nearestFace(tgt, wps[last - 1] ?? wps[last]))
+    wps[0] = sCard
+    wps[last] = tCard
+    // mantener ortogonalidad del primer/último tramo
+    if (wps.length >= 2) {
+      if (Math.abs(sCard.y - cy(src)) < 0.5) wps[1] = { x: wps[1].x, y: sCard.y }
+      else wps[1] = { x: sCard.x, y: wps[1].y }
+      if (Math.abs(tCard.y - cy(tgt)) < 0.5) wps[last - 1] = { x: wps[last - 1].x, y: tCard.y }
+      else wps[last - 1] = { x: tCard.x, y: wps[last - 1].y }
+    }
+    return wps
+  }
+
   const hasMovedAnchor = (hints.connectionStart != null && typeof hints.connectionStart === 'object')
                       || (hints.connectionEnd   != null && typeof hints.connectionEnd   === 'object')
   const shapeMoveMode = hints.connectionStart === false
@@ -385,6 +408,7 @@ function ConnectionImportNormalizer(eventBus: any, elementRegistry: any, modelin
     connections.forEach((conn: any) => {
       if (!conn.source || !conn.target) return
       if (conn.source === conn.target && conn.waypoints?.length >= 2) return
+      if (isManual(conn)) return  // ruta manual: respetar los waypoints del XML
       const wp = layouter.layoutConnection(conn, { source: conn.source, target: conn.target })
       if (wp?.length >= 2) { modeling.updateWaypoints(conn, wp); fixed++ }
     })
@@ -407,6 +431,17 @@ function WaypointRounder(eventBus: any, modeling: any, layouter: any, elementReg
     const rounded = wps.map((p: any) => ({ x: Math.round(p.x), y: Math.round(p.y) }))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const hasFloats = wps.some((p: any, i: number) => p.x !== rounded[i].x || p.y !== rounded[i].y)
+
+    // Ruta manual: nunca re-rutear. Solo redondear floats si los hubiera.
+    if (isManual(conn)) {
+      if (hasFloats) {
+        rounding.add(conn.id)
+        modeling.updateWaypoints(conn, rounded)
+        rounding.delete(conn.id)
+      }
+      return
+    }
+
     let needsRelayout = false
     if (conn.source && conn.target && wps.length >= 2) {
       const srcCards = getCardinals(conn.source)

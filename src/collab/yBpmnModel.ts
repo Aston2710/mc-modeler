@@ -22,6 +22,7 @@ export interface ElementSnapshot {
   source?: string | null
   target?: string | null
   waypoints?: Waypoint[]
+  manualRoute?: boolean // conexión con ruta editada manualmente
   // businessObject
   name?: string
   text?: string // bpmn:TextAnnotation (incluye imágenes embebidas '[IMAGE:...]')
@@ -67,6 +68,7 @@ export function elementToSnapshot(el: AnyEl): ElementSnapshot {
     snap.source = el.source?.id ?? null
     snap.target = el.target?.id ?? null
     snap.waypoints = (el.waypoints ?? []).map((w: Waypoint) => ({ x: Math.round(w.x), y: Math.round(w.y) }))
+    if (bo.get?.('flujo:manualRoute') ?? bo.manualRoute) snap.manualRoute = true
   } else {
     snap.x = Math.round(el.x)
     snap.y = Math.round(el.y)
@@ -87,6 +89,7 @@ export function snapshotsEqual(a: ElementSnapshot, b: ElementSnapshot): boolean 
     a.eventDefinition === b.eventDefinition &&
     a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height &&
     a.source === b.source && a.target === b.target &&
+    !!a.manualRoute === !!b.manualRoute &&
     JSON.stringify(a.waypoints ?? null) === JSON.stringify(b.waypoints ?? null)
   )
 }

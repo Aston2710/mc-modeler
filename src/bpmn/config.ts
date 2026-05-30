@@ -18,6 +18,7 @@ import BizagiLayouter from './connections/BizagiLayouter'
 import BizagiConnectionDocking from './connections/BizagiConnectionDocking'
 import BizagiSegmentHandles from './connections/BizagiSegmentHandles'
 import ConnectionEndpointCirclesModule from './connections/ConnectionEndpointCirclesModule'
+import ConnectionContextPadModule from './connections/ConnectionContextPadModule'
 import SubProcessInterceptorModule from './elements/SubProcessInterceptorModule'
 import flujoModdle from './moddle/flujo.json'
 
@@ -43,6 +44,7 @@ export const MODELER_CONFIG = {
     ImageContextPadModule,
     DataObjectContextPadModule,
     ConnectionEndpointCirclesModule,
+    ConnectionContextPadModule,
     SubProcessInterceptorModule,
     BizagiLayouter,
     BizagiConnectionDocking,

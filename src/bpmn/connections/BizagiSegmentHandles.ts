@@ -28,6 +28,7 @@ import { isPrimaryButton } from 'diagram-js/lib/util/Mouse'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { append as svgAppend, attr as svgAttr, classes as svgClasses, create as svgCreate, remove as svgRemove } from 'tiny-svg'
+import { markManual } from './manualRoute'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function BizagiSegmentHandles(
     this: any, 
@@ -107,12 +108,11 @@ function BizagiSegmentHandles(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function createSegmentDraggers(gfx: any, connection: any) {
     const waypoints = connection.waypoints
-    const totalSegments = waypoints.length - 1
+    // Crear dragger para TODO segmento alineado (incl. el primero y el último,
+    // adyacentes a los shapes): da libertad para empujar la flecha por donde
+    // se quiera. El handler connectionSegment.move re-snapa el extremo al
+    // cardinal del shape, manteniendo el anclaje.
     for (let i = 1; i < waypoints.length; i++) {
-      // Solo crear dragger para segmentos intermedios (no el primero ni el último)
-      // Igual que Bizagi: el primer y último segmento están anclados al shape
-      // y no deben ser movibles independientemente
-      if (i === 1 || i === totalSegments) continue
       const segmentStart = waypoints[i - 1]
       const segmentEnd = waypoints[i]
       if (pointsAligned(segmentStart, segmentEnd)) {
@@ -172,6 +172,14 @@ function BizagiSegmentHandles(
   eventBus.on('connection.remove', function (event: any) {
     const gfx = getBendpointsContainer(event.element)
     if (gfx) svgRemove(gfx)
+  })
+
+  // Al terminar de arrastrar un segmento o un extremo, marcar la conexión como
+  // ruta manual: a partir de ahora el layouter respeta sus waypoints.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  eventBus.on(['connectionSegment.move.end', 'bendpoint.move.end'], function (event: any) {
+    const conn = event?.context?.connection
+    if (conn?.waypoints?.length >= 2) markManual(conn, true)
   })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

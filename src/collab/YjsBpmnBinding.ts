@@ -175,9 +175,12 @@ export class YjsBpmnBinding {
       if (!source || !target) return // sus nodos aún no existen; se reintentará en el próximo update
       const parent = (snap.parent && registry.get(snap.parent)) || source.parent
       m.get('modeling').createConnection(source, target, { id: snap.id, type: snap.type }, parent)
-      if (snap.waypoints && snap.waypoints.length >= 2) {
-        const conn = registry.get(snap.id)
-        if (conn) m.get('modeling').updateWaypoints(conn, snap.waypoints)
+      const conn = registry.get(snap.id)
+      if (conn && snap.manualRoute) {
+        conn.businessObject?.set?.('flujo:manualRoute', true)
+      }
+      if (snap.waypoints && snap.waypoints.length >= 2 && conn) {
+        m.get('modeling').updateWaypoints(conn, snap.waypoints)
       }
     } catch (e) {
       console.warn('[collab] createConnection falló', snap.id, e)
@@ -192,6 +195,10 @@ export class YjsBpmnBinding {
       const modeling = m.get('modeling')
 
       if (isConnectionSnap(snap)) {
+        const curManual = !!(el.businessObject?.get?.('flujo:manualRoute') ?? el.businessObject?.manualRoute)
+        if (!!snap.manualRoute !== curManual) {
+          el.businessObject?.set?.('flujo:manualRoute', snap.manualRoute ? true : undefined)
+        }
         if (snap.waypoints && snap.waypoints.length >= 2) {
           modeling.updateWaypoints(el, snap.waypoints.map((w) => ({ ...w })))
         }
