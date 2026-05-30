@@ -195,17 +195,22 @@ export const useDiagramStore = create<DiagramState>()(
       const diagram = get().diagrams.find((d) => d.id === id)
       if (!diagram) return
       const updated: Diagram = { ...diagram, xml, elementCount, updatedAt: now }
+      // El XML es lo crítico. El thumbnail es best-effort: si falla su subida
+      // (p. ej. Storage), NO debe hacer fallar el guardado del diagrama.
       await diagramRepository.save(updated)
-      if (thumbnail !== undefined) {
-        await diagramRepository.saveThumbnail(id, thumbnail ?? '')
-      }
-
-      if (diagram.parentDiagramId && diagram.subProcessElementId && thumbnail) {
-        await diagramRepository.saveSubProcessThumbnail(
-          diagram.parentDiagramId,
-          diagram.subProcessElementId,
-          thumbnail
-        )
+      try {
+        if (thumbnail !== undefined) {
+          await diagramRepository.saveThumbnail(id, thumbnail ?? '')
+        }
+        if (diagram.parentDiagramId && diagram.subProcessElementId && thumbnail) {
+          await diagramRepository.saveSubProcessThumbnail(
+            diagram.parentDiagramId,
+            diagram.subProcessElementId,
+            thumbnail
+          )
+        }
+      } catch (err) {
+        console.warn('[Flujo] thumbnail no se pudo guardar (no crítico):', err)
       }
 
       set((s) => {
