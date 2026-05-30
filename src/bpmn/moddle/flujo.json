@@ -1,0 +1,19 @@
+{
+  "name": "Flujo",
+  "uri": "http://flujo.app/schema/bpmn",
+  "prefix": "flujo",
+  "associations": [],
+  "types": [
+    {
+      "name": "LinkedDiagram",
+      "extends": ["bpmn:SubProcess"],
+      "properties": [
+        {
+          "name": "linkedDiagram",
+          "isAttr": true,
+          "type": "String"
+        }
+      ]
+    }
+  ]
+}

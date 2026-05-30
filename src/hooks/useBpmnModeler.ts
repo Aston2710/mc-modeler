@@ -8,6 +8,7 @@ import { MODELER_CONFIG } from '@/bpmn/config'
 import { BPMN_ELEMENTS } from '@/domain/bpmnElements'
 import { ELEMENT_SIZES } from '@/bpmn/ElementSizes'
 import { PHASE_ID_PREFIX } from '@/bpmn/elements/phaseUtil'
+import { getLinkedDiagram as readLink, setLinkedDiagram as writeLink, isSubProcessElement } from '@/bpmn/elements/subProcessLink'
 
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -101,15 +102,9 @@ export function useBpmnModeler(
       }
     })
 
-    // Sub-process events from SubProcessInterceptorModule
-    eventBus.on('subProcess.openEditor', (event: AnyObj) => {
+    // Sub-process: clic en el marcador ⊞ → App decide abrir/enlazar.
+    eventBus.on('subProcess.open', (event: AnyObj) => {
       onSubProcessOpenRef.current?.(event.elementId)
-    })
-    eventBus.on('subProcess.toggleExpand', (event: AnyObj) => {
-      onSubProcessOpenRef.current?.(`__expand__${event.elementId}`)
-    })
-    eventBus.on('subProcess.delete', (event: AnyObj) => {
-      onSubProcessOpenRef.current?.(`__delete__${event.elementId}`)
     })
 
     // Signal that the modeler is ready — callers can now safely call importXml
@@ -382,18 +377,42 @@ export function useBpmnModeler(
     }
   }, [])
 
-  const setSubProcessThumbnail = useCallback((elementId: string, thumbnail: string | null) => {
+  // ── Enlace de subprocesos a otros diagramas ──
+  const getLinkedDiagram = useCallback((elementId: string): string | null => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = modelerRef.current as any
+    const el = m?.get('elementRegistry').get(elementId)
+    return el ? readLink(el) : null
+  }, [])
+
+  const setLinkedDiagram = useCallback((elementId: string, diagramId: string | null) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = modelerRef.current as any
+    const el = m?.get('elementRegistry').get(elementId)
+    if (el) writeLink(m.get('modeling'), el, diagramId)
+  }, [])
+
+  /** Subprocesos del diagrama actual con su enlace. */
+  const listSubProcesses = useCallback((): { id: string; linkedDiagram: string | null }[] => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = modelerRef.current as any
+    if (!m) return []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return m.get('elementRegistry').filter((el: any) => isSubProcessElement(el))
+      .map((el: { id: string }) => ({ id: el.id, linkedDiagram: readLink(el) }))
+  }, [])
+
+  /** Cambia el nombre visible de un elemento sin marcar el diagrama como modificado. */
+  const setElementLabelSilent = useCallback((elementId: string, name: string) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const m = modelerRef.current as any
     if (!m) return
     try {
-      const eventBus = m.get('eventBus')
-      if (thumbnail) {
-        eventBus.fire('subProcess.thumbnailUpdated', { elementId, thumbnail })
-      } else {
-        eventBus.fire('subProcess.thumbnailCleared', { elementId })
-      }
-    } catch { /* modeler not ready */ }
+      const el = m.get('elementRegistry').get(elementId)
+      if (!el || el.businessObject?.name === name) return
+      el.businessObject.name = name
+      m.get('eventBus').fire('element.changed', { element: el })
+    } catch { /* noop */ }
   }, [])
 
   return {
@@ -412,6 +431,9 @@ export function useBpmnModeler(
     scrollToElement,
     updateElementProperty,
     startCreate,
-    setSubProcessThumbnail,
+    getLinkedDiagram,
+    setLinkedDiagram,
+    listSubProcesses,
+    setElementLabelSilent,
   }
 }

@@ -1671,3 +1671,18 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
    Usamos nuestro propio marcador ⊞ navegable (SubProcessNavMarker), así que la
    flecha azul nativa de la esquina inferior sobra. */
 .bjs-drilldown { display: none !important; }
+
+/* ── Fila de selección de diagrama a enlazar (LinkDiagramModal) ───────────────── */
+.link-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg-1); cursor: pointer; transition: border-color .15s, background .15s;
+}
+.link-row:hover { border-color: var(--accent); background: var(--bg-2); }
+.link-row-thumb {
+  width: 44px; height: 32px; border-radius: 4px; overflow: hidden; flex-shrink: 0;
+  background: var(--bg-3); display: grid; place-items: center; color: var(--text-3);
+}
+.link-row-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.link-row-name { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-row-date { font-size: 11px; color: var(--text-3); }

@@ -142,6 +142,7 @@ export class YjsBpmnBinding {
       const boAttrs: Any = {}
       if (snap.name != null) boAttrs.name = snap.name
       if (snap.text != null) boAttrs.text = snap.text
+      if (snap.linkedDiagram != null) boAttrs['flujo:linkedDiagram'] = snap.linkedDiagram
       let businessObject: Any
       if (snap.eventDefinition) {
         const def = bpmnFactory.create(snap.eventDefinition)
@@ -212,6 +213,11 @@ export class YjsBpmnBinding {
       // texto (TextAnnotation / imágenes embebidas)
       if (snap.text != null && el.businessObject?.text !== snap.text) {
         modeling.updateProperties(el, { text: snap.text })
+      }
+      // enlace de subproceso
+      const curLink = el.businessObject?.get?.('flujo:linkedDiagram') ?? el.businessObject?.linkedDiagram
+      if ((snap.linkedDiagram ?? null) !== (curLink ?? null)) {
+        modeling.updateProperties(el, { 'flujo:linkedDiagram': snap.linkedDiagram ?? undefined })
       }
     } catch (e) {
       console.warn('[collab] updateElement falló', snap.id, e)

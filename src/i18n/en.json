@@ -58,6 +58,17 @@
     "moveToProject": "Move to project",
     "noProject": "No project"
   },
+  "link": {
+    "title": "Link diagram",
+    "subtitle": "Pick a diagram from the project or create a new one",
+    "createNew": "Create new diagram and link",
+    "createAndLink": "Create and link",
+    "newName": "New diagram name",
+    "newNamePlaceholder": "Diagram name",
+    "search": "Search diagram...",
+    "empty": "No diagrams in this project to link.",
+    "unlinked": "Unlinked"
+  },
   "toolbar": {
     "newDiagram": "New diagram",
     "openDiagram": "Open diagram",

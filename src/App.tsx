@@ -10,6 +10,7 @@ import { redeemInvite, redeemProjectInvite } from '@/lib/sharing'
 import { LoginView } from '@/components/auth/LoginView'
 import { ShareModal } from '@/components/modals/ShareModal'
 import { NewProjectModal } from '@/components/modals/NewProjectModal'
+import { LinkDiagramModal } from '@/components/modals/LinkDiagramModal'
 import { useAutoSave } from '@/hooks/useAutoSave'
 import { useKeyboard } from '@/hooks/useKeyboard'
 //import { useExport, type ExportFormat, type PngScale, type PdfOrientation, type ExportTheme } from '@/hooks/useExport'
@@ -40,9 +41,8 @@ export default function App() {
   // Stores
   const {
     activeTabId, tabs, loadAll,
-    createDiagram, createSubDiagram, openDiagram, importDiagram,
+    createDiagram, openDiagram, importDiagram,
     saveDiagram, activeDiagram,
-    deleteWithChildren, getChildByElement,
     loadProjects, createProject,
   } = useDiagramStore()
   const {
@@ -72,6 +72,8 @@ export default function App() {
   // Pestaña cuyo contenido está actualmente en el canvas (para guardarla antes
   // de cargar otra — el canvas es único para todas las pestañas).
   const currentCanvasTabRef = useRef<string | null>(null)
+  // Ref a syncSubProcessLabels (declarada más abajo) para usarla en effects previos.
+  const syncSubProcessLabelsRef = useRef<(() => void) | null>(null)
 
   // ── Init ──────────────────────────────────────────────
   useEffect(() => {
@@ -161,7 +163,7 @@ export default function App() {
           // de forma asíncrona al terminar de procesar el XML.
           useUIStore.getState().setUnsavedChanges(false)
           currentCanvasTabRef.current = id ?? null
-          if (id) void pushSubProcessThumbnails(id)
+          syncSubProcessLabelsRef.current?.()
         })
         .catch((err: unknown) => {
           console.error('[Flujo] importXml failed:', err)
@@ -338,51 +340,60 @@ export default function App() {
   
   // Carga los thumbnails de sub procesos del diagrama activo en el canvas,
   // para que los overlays se vean al volver a la pestaña del padre.
-  const pushSubProcessThumbnails = useCallback(async (parentId: string) => {
-    // La miniatura de un subproceso es la del diagrama hijo, que ya está
-    // hidratada en el store. Usarla directamente evita llamadas a Storage
-    // (que daban 400 para los subprocesos aún sin guardar, sobre todo anidados).
+  // Sincroniza el label de cada subproceso = nombre del diagrama enlazado
+  // (o "Sin enlazar"). No marca cambios en el diagrama.
+  const syncSubProcessLabels = useCallback(() => {
+    const subs = canvasRef.current?.listSubProcesses() ?? []
+    if (subs.length === 0) return
     const { diagrams } = useDiagramStore.getState()
-    const children = diagrams.filter((d) => d.parentDiagramId === parentId)
-    for (const child of children) {
-      if (child.subProcessElementId && child.thumbnail) {
-        canvasRef.current?.setSubProcessThumbnail(child.subProcessElementId, child.thumbnail)
+    for (const sp of subs) {
+      const target = sp.linkedDiagram ? diagrams.find((d) => d.id === sp.linkedDiagram) : null
+      const label = target ? target.name : t('link.unlinked')
+      canvasRef.current?.setElementLabelSilent(sp.id, label)
+    }
+  }, [t])
+  syncSubProcessLabelsRef.current = syncSubProcessLabels
+
+  // Estado para el modal de enlazar: qué subproceso lo abrió.
+  const [linkingElementId, setLinkingElementId] = useState<string | null>(null)
+
+  const handleSubProcessOpen = useCallback((elementId: string) => {
+    if (!canEditActive && !canvasRef.current?.getLinkedDiagram(elementId)) return
+    const linked = canvasRef.current?.getLinkedDiagram(elementId)
+    if (linked) {
+      const exists = useDiagramStore.getState().diagrams.some((d) => d.id === linked)
+      if (exists) {
+        openDiagram(linked)
+        setView('editor')
+        return
       }
     }
-  }, [])
+    // No enlazado (o destino borrado) → abrir selector
+    setLinkingElementId(elementId)
+    openModal('linkDiagram')
+  }, [canEditActive, openDiagram, openModal])
 
-  const handleSubProcessOpen = useCallback(async (rawElementId: string) => {
-    const isExpand = rawElementId.startsWith('__expand__')
-    const isDelete = rawElementId.startsWith('__delete__')
-    const elementId = rawElementId
-      .replace('__expand__', '')
-      .replace('__delete__', '')
-    const currentId = useDiagramStore.getState().activeTabId
-    if (!currentId) return
-    const existing = getChildByElement(currentId, elementId)
-
-    if (isDelete) {
-      if (existing) {
-        await deleteWithChildren(existing.id)
-        canvasRef.current?.setSubProcessThumbnail(elementId, null)
-      }
-      return
+  const finishLink = useCallback(async (diagramId: string) => {
+    if (linkingElementId) {
+      canvasRef.current?.setLinkedDiagram(linkingElementId, diagramId)
+      syncSubProcessLabels()
+      // Persistir el padre (el enlace vive en su XML) antes de abrir el destino.
+      await persistCanvasTab()
     }
+    closeModal()
+    setLinkingElementId(null)
+    openDiagram(diagramId)
+    setView('editor')
+  }, [linkingElementId, syncSubProcessLabels, persistCanvasTab, closeModal, openDiagram])
 
-    if (isExpand) {
-      if (existing?.thumbnail) {
-        canvasRef.current?.setSubProcessThumbnail(elementId, existing.thumbnail)
-      }
-      return
-    }
+  const handleLinkPick = useCallback((diagramId: string) => { void finishLink(diagramId) }, [finishLink])
 
-    if (existing) {
-      openDiagram(existing.id)
-    } else {
-      await createSubDiagram('Sub proceso', currentId, elementId)
-      addToast({ type: 'success', title: 'Subproceso creado', duration: 2000 })
-    }
-  }, [createSubDiagram, deleteWithChildren, getChildByElement, openDiagram, addToast])
+  const handleLinkCreate = useCallback(async (name: string) => {
+    const projectId = activeDiagram()?.projectId ?? null
+    const newId = await createDiagram(name, projectId)
+    if (isSupabaseConfigured) await useCollabStore.getState().loadRoles()
+    await finishLink(newId)
+  }, [activeDiagram, createDiagram, finishLink])
 
 
 
@@ -516,6 +527,15 @@ export default function App() {
       )}
       {activeModal === 'newProject' && (
         <NewProjectModal onConfirm={handleNewProjectConfirm} onCancel={closeModal} />
+      )}
+      {activeModal === 'linkDiagram' && (
+        <LinkDiagramModal
+          projectId={activeDiagram()?.projectId ?? null}
+          currentDiagramId={activeTabId}
+          onPick={handleLinkPick}
+          onCreateAndLink={handleLinkCreate}
+          onCancel={() => { setLinkingElementId(null); closeModal() }}
+        />
       )}
       {activeModal === 'shareProject' && shareProjectInfo && (
         <ShareModal

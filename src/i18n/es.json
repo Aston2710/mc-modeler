@@ -58,6 +58,17 @@
     "moveToProject": "Mover a proyecto",
     "noProject": "Sin proyecto"
   },
+  "link": {
+    "title": "Enlazar diagrama",
+    "subtitle": "Elige un diagrama del proyecto o crea uno nuevo",
+    "createNew": "Crear nuevo diagrama y enlazar",
+    "createAndLink": "Crear y enlazar",
+    "newName": "Nombre del nuevo diagrama",
+    "newNamePlaceholder": "Nombre del diagrama",
+    "search": "Buscar diagrama...",
+    "empty": "No hay diagramas en este proyecto para enlazar.",
+    "unlinked": "Sin enlazar"
+  },
   "toolbar": {
     "newDiagram": "Nuevo diagrama",
     "openDiagram": "Abrir diagrama",

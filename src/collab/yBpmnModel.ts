@@ -26,6 +26,7 @@ export interface ElementSnapshot {
   name?: string
   text?: string // bpmn:TextAnnotation (incluye imágenes embebidas '[IMAGE:...]')
   eventDefinition?: string | null
+  linkedDiagram?: string | null // bpmn:SubProcess → id del diagrama enlazado
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,6 +58,8 @@ export function elementToSnapshot(el: AnyEl): ElementSnapshot {
     name: bo.name ?? undefined,
   }
   if (bo.text != null) snap.text = bo.text
+  const linked = bo.get?.('flujo:linkedDiagram') ?? bo.linkedDiagram
+  if (linked) snap.linkedDiagram = String(linked)
   const eventDef = bo.eventDefinitions?.[0]?.$type
   if (eventDef) snap.eventDefinition = eventDef
 
@@ -80,6 +83,7 @@ export function snapshotsEqual(a: ElementSnapshot, b: ElementSnapshot): boolean 
     a.parent === b.parent &&
     a.name === b.name &&
     a.text === b.text &&
+    a.linkedDiagram === b.linkedDiagram &&
     a.eventDefinition === b.eventDefinition &&
     a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height &&
     a.source === b.source && a.target === b.target &&

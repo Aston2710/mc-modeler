@@ -65,6 +65,7 @@ export type ActiveModal =
   | 'share'
   | 'newProject'
   | 'shareProject'
+  | 'linkDiagram'
   | null
 
 export type CollaboratorRole = 'owner' | 'editor' | 'viewer'
