@@ -1666,3 +1666,8 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   cursor: pointer; transition: transform 0.1s, box-shadow 0.1s;
 }
 .pv-fab:hover { transform: scale(1.06); box-shadow: var(--shadow-lg); }
+
+/* ── Ocultar la flecha de drill-down nativa de bpmn-js en subprocesos ──────────
+   Usamos nuestro propio marcador ⊞ navegable (SubProcessNavMarker), así que la
+   flecha azul nativa de la esquina inferior sobra. */
+.bjs-drilldown { display: none !important; }
