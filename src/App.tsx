@@ -69,6 +69,9 @@ export default function App() {
 
   // Track whether the bpmn-js modeler has finished initializing
   const isCanvasReadyRef = useRef(false)
+  // Pestaña cuyo contenido está actualmente en el canvas (para guardarla antes
+  // de cargar otra — el canvas es único para todas las pestañas).
+  const currentCanvasTabRef = useRef<string | null>(null)
 
   // ── Init ──────────────────────────────────────────────
   useEffect(() => {
@@ -157,7 +160,7 @@ export default function App() {
           // Resetear después también: bpmn-js puede disparar commandStack.changed
           // de forma asíncrona al terminar de procesar el XML.
           useUIStore.getState().setUnsavedChanges(false)
-
+          currentCanvasTabRef.current = id ?? null
           if (id) void pushSubProcessThumbnails(id)
         })
         .catch((err: unknown) => {
@@ -173,10 +176,16 @@ export default function App() {
     importActiveDiagram()
   }, [importActiveDiagram])
 
-  // Load diagram XML when user switches tabs (canvas already ready)
+  // Load diagram XML when user switches tabs (canvas already ready).
+  // Antes de cargar la nueva pestaña, persistir la que estaba en el canvas.
   useEffect(() => {
     if (!activeTabId || view !== 'editor' || !isCanvasReadyRef.current) return
-    importActiveDiagram()
+    const leaving = currentCanvasTabRef.current
+    if (leaving && leaving !== activeTabId) {
+      void persistCanvasTab().then(() => importActiveDiagram())
+    } else {
+      importActiveDiagram()
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTabId])
 
@@ -190,6 +199,23 @@ export default function App() {
     if (!canvasRef.current) throw new Error('Canvas not ready')
     return canvasRef.current.exportSvg()
   }, [])
+
+  // Persiste la pestaña que está actualmente en el canvas (antes de cargar otra).
+  // El canvas es único; sin esto, cambiar de pestaña descarta los cambios no guardados.
+  const persistCanvasTab = useCallback(async () => {
+    const tabId = currentCanvasTabRef.current
+    if (!tabId || !canvasRef.current) return
+    if (!useUIStore.getState().unsavedChanges) return
+    if (!useCollabStore.getState().canEdit(tabId)) return
+    try {
+      const xml = await canvasRef.current.exportXml()
+      const thumbnail = await buildThumbnail(getSvg).catch(() => undefined)
+      await saveDiagram(tabId, xml, undefined, thumbnail)
+      setUnsavedChanges(false)
+    } catch {
+      // no bloquear el cambio de pestaña si falla el guardado
+    }
+  }, [getSvg, saveDiagram, setUnsavedChanges])
 
   const handleChanged = useCallback(() => {
     setUnsavedChanges(true)
@@ -215,10 +241,12 @@ export default function App() {
     }
   }, [activeTabId, canEditActive, getXml, getSvg, saveDiagram, setUnsavedChanges, addToast, t])
 
-  const handleGoHome = useCallback(() => {
+  const handleGoHome = useCallback(async () => {
+    await persistCanvasTab() // guardar lo que esté en el canvas antes de salir
     isCanvasReadyRef.current = false
+    currentCanvasTabRef.current = null
     setView('home')
-  }, [])
+  }, [persistCanvasTab])
 
   // Proyecto destino para el próximo diagrama nuevo (null = suelto).
   const [newDiagramProjectId, setNewDiagramProjectId] = useState<string | null>(null)
