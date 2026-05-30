@@ -64,6 +64,9 @@ function blobToDataUrl(blob: Blob): Promise<string> {
  */
 export class SupabaseRepository implements IDiagramRepository {
   private local = new LocalRepository()
+  // Cache de thumbnail_path por diagrama: evita pedir a Storage (GET 400)
+  // los thumbnails de diagramas que aún no tienen ninguno.
+  private thumbPaths = new Map<string, string | null>()
 
   private get sb(): SupabaseClient {
     if (!supabase) throw new Error('Supabase no configurado')
@@ -82,7 +85,9 @@ export class SupabaseRepository implements IDiagramRepository {
       .select('*')
       .order('updated_at', { ascending: false })
     if (error) throw error
-    return (data as DiagramRow[]).map(rowToDiagram)
+    const rows = data as DiagramRow[]
+    rows.forEach((r) => this.thumbPaths.set(r.id, r.thumbnail_path ?? null))
+    return rows.map(rowToDiagram)
   }
 
   async getById(id: string): Promise<Diagram | null> {
@@ -92,6 +97,7 @@ export class SupabaseRepository implements IDiagramRepository {
       .eq('id', id)
       .maybeSingle()
     if (error) throw error
+    if (data) this.thumbPaths.set((data as DiagramRow).id, (data as DiagramRow).thumbnail_path ?? null)
     return data ? rowToDiagram(data as DiagramRow) : null
   }
 
@@ -194,6 +200,9 @@ export class SupabaseRepository implements IDiagramRepository {
   }
 
   async getThumbnail(id: string): Promise<string | null> {
+    // Si sabemos que este diagrama no tiene thumbnail, no llamamos a Storage
+    // (evita el GET 400 "Object not found" y su ruido en consola).
+    if (this.thumbPaths.has(id) && !this.thumbPaths.get(id)) return null
     const { data, error } = await this.sb.storage.from(THUMB_BUCKET).download(thumbPath(id))
     if (error || !data) return null
     try {
@@ -208,6 +217,7 @@ export class SupabaseRepository implements IDiagramRepository {
     if (!dataUrl || !dataUrl.startsWith('data:')) {
       await this.sb.storage.from(THUMB_BUCKET).remove([thumbPath(id)])
       await this.sb.from('diagrams').update({ thumbnail_path: null }).eq('id', id)
+      this.thumbPaths.set(id, null)
       return
     }
     const blob = dataUrlToBlob(dataUrl)
@@ -216,6 +226,7 @@ export class SupabaseRepository implements IDiagramRepository {
       .upload(thumbPath(id), blob, { upsert: true, contentType: blob.type })
     if (error) throw error
     await this.sb.from('diagrams').update({ thumbnail_path: thumbPath(id) }).eq('id', id)
+    this.thumbPaths.set(id, thumbPath(id))
   }
 
   // ── Thumbnails de subprocesos (overlay) ──
