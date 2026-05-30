@@ -33,7 +33,6 @@ import { ShortcutsModal } from '@/components/modals/ShortcutsModal'
 import { ImageUploadModal } from '@/components/modals/ImageUploadModal'
 import { ToastContainer } from '@/components/ui/ToastContainer'
 import { ProjectView } from '@/components/diagrams/ProjectView'
-import { diagramRepository } from '@/persistence'
 
 export default function App() {
   const { t } = useTranslation()
@@ -312,17 +311,14 @@ export default function App() {
   // Carga los thumbnails de sub procesos del diagrama activo en el canvas,
   // para que los overlays se vean al volver a la pestaña del padre.
   const pushSubProcessThumbnails = useCallback(async (parentId: string) => {
+    // La miniatura de un subproceso es la del diagrama hijo, que ya está
+    // hidratada en el store. Usarla directamente evita llamadas a Storage
+    // (que daban 400 para los subprocesos aún sin guardar, sobre todo anidados).
     const { diagrams } = useDiagramStore.getState()
     const children = diagrams.filter((d) => d.parentDiagramId === parentId)
     for (const child of children) {
-      if (child.subProcessElementId) {
-        const thumb = await diagramRepository.getSubProcessThumbnail(
-          parentId,
-          child.subProcessElementId
-        )
-        if (thumb) {
-          canvasRef.current?.setSubProcessThumbnail(child.subProcessElementId, thumb)
-        }
+      if (child.subProcessElementId && child.thumbnail) {
+        canvasRef.current?.setSubProcessThumbnail(child.subProcessElementId, child.thumbnail)
       }
     }
   }, [])

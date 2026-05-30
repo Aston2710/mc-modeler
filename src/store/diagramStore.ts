@@ -204,13 +204,8 @@ export const useDiagramStore = create<DiagramState>()(
         if (thumbnail !== undefined) {
           await diagramRepository.saveThumbnail(id, thumbnail ?? '')
         }
-        if (diagram.parentDiagramId && diagram.subProcessElementId && thumbnail) {
-          await diagramRepository.saveSubProcessThumbnail(
-            diagram.parentDiagramId,
-            diagram.subProcessElementId,
-            thumbnail
-          )
-        }
+        // El thumbnail del subproceso ya es el del diagrama hijo (saveThumbnail
+        // de arriba); no se guarda por separado para evitar objetos/errores extra.
       } catch (err) {
         console.warn('[Flujo] thumbnail no se pudo guardar (no crítico):', err)
       }
