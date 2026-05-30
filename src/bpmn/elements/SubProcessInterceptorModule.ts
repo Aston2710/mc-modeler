@@ -17,9 +17,11 @@ function svgToImg(svgDataUrl: string): HTMLElement {
 function SubProcessOverlayManager(this: AnyObj, overlays: AnyObj, eventBus: AnyObj) {
   this._overlays = overlays
   this._expanded = new Map<string, string>()
+  this._lastThumb = new Map<string, string>()
   const self = this
 
   eventBus.on('subProcess.thumbnailUpdated', (event: AnyObj) => {
+    self._lastThumb.set(event.elementId, event.thumbnail)
     if (self._expanded.has(event.elementId)) {
       self.updateOverlay(event.elementId, event.thumbnail)
     }
@@ -27,6 +29,15 @@ function SubProcessOverlayManager(this: AnyObj, overlays: AnyObj, eventBus: AnyO
 
   eventBus.on('shape.remove', (event: AnyObj) => {
     if (isSubProcess(event.element)) self.removeOverlay(event.element.id)
+  })
+
+  // Tras redimensionar, re-crear el overlay de miniatura con el nuevo tamaño.
+  eventBus.on('shape.changed', (event: AnyObj) => {
+    const el = event.element
+    if (isSubProcess(el) && self._expanded.has(el.id)) {
+      const thumb = self._lastThumb?.get(el.id)
+      if (thumb) self.expand(el, thumb)
+    }
   })
 }
 SubProcessOverlayManager.$inject = ['overlays', 'eventBus']
@@ -36,6 +47,7 @@ SubProcessOverlayManager.prototype.isExpanded = function(elementId: string): boo
 }
 
 SubProcessOverlayManager.prototype.expand = function(element: AnyObj, thumbnail: string): void {
+  this._lastThumb.set(element.id, thumbnail)
   this.removeOverlay(element.id)
   const container = document.createElement('div')
   container.style.cssText = `position:absolute;inset:0;width:${element.width}px;height:${element.height}px;overflow:hidden;pointer-events:none;background:white;border-radius:4px;`
@@ -135,6 +147,60 @@ SubProcessContextPadProvider.prototype.getContextPadEntries = function(element: 
   return entries
 }
 
+// ── Marcador ⊞ navegable ────────────────────────────────────────────────────
+// Dibuja un botón ⊞ abajo-centro de cada SubProcess. Al hacer clic, navega al
+// diagrama hijo (dispara el mismo evento que el botón "Editar subproceso").
+
+const NAV_MARKER_SVG =
+  "<svg width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>" +
+  "<rect x='3' y='3' width='18' height='18' rx='2'/><line x1='12' y1='3' x2='12' y2='21'/><line x1='3' y1='12' x2='21' y2='12'/></svg>"
+
+function SubProcessNavMarker(this: AnyObj, overlays: AnyObj, eventBus: AnyObj, elementRegistry: AnyObj) {
+  this._overlays = overlays
+  this._eventBus = eventBus
+  this._markers = new Map<string, string>()
+  const self = this
+
+  const add = (element: AnyObj) => {
+    if (!isSubProcess(element)) return
+    self.remove(element.id)
+    const btn = document.createElement('div')
+    btn.title = 'Abrir subproceso'
+    btn.style.cssText =
+      'width:24px;height:24px;display:grid;place-items:center;border-radius:6px;' +
+      'background:var(--accent,#8b5cf6);color:#fff;cursor:pointer;pointer-events:auto;' +
+      'box-shadow:0 1px 3px rgba(0,0,0,.3);'
+    btn.innerHTML = NAV_MARKER_SVG
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      eventBus.fire('subProcess.openEditor', { elementId: element.id })
+    })
+    const id: string = overlays.add(element, 'subproc-nav', {
+      position: { bottom: -2, left: element.width / 2 - 12 },
+      html: btn,
+      show: { minZoom: 0.2 },
+    })
+    self._markers.set(element.id, id)
+  }
+
+  eventBus.on(['shape.added', 'import.done'], () => {
+    try {
+      elementRegistry.filter((el: AnyObj) => isSubProcess(el)).forEach(add)
+    } catch { /* registro no listo */ }
+  })
+  eventBus.on('shape.changed', (event: AnyObj) => { if (isSubProcess(event.element)) add(event.element) })
+  eventBus.on('shape.remove', (event: AnyObj) => { if (isSubProcess(event.element)) self.remove(event.element.id) })
+}
+SubProcessNavMarker.$inject = ['overlays', 'eventBus', 'elementRegistry']
+
+SubProcessNavMarker.prototype.remove = function (elementId: string): void {
+  const id = this._markers.get(elementId)
+  if (id) {
+    try { this._overlays.remove(id) } catch { /* ya removido */ }
+    this._markers.delete(elementId)
+  }
+}
+
 // ── Native drilldown blocker ──────────────────────────────────────────────────
 
 function SubProcessNativeDrilldownBlocker(this: AnyObj, eventBus: AnyObj) {
@@ -164,9 +230,10 @@ SubProcessDeleteNotifier.$inject = ['eventBus']
 // ── Module export ─────────────────────────────────────────────────────────────
 
 export default {
-  __init__: ['subProcessContextPadProvider', 'subProcessNativeDrilldownBlocker', 'subProcessOverlayManager', 'subProcessDeleteNotifier'],
+  __init__: ['subProcessContextPadProvider', 'subProcessNativeDrilldownBlocker', 'subProcessOverlayManager', 'subProcessDeleteNotifier', 'subProcessNavMarker'],
   subProcessOverlayManager: ['type', SubProcessOverlayManager],
   subProcessContextPadProvider: ['type', SubProcessContextPadProvider],
   subProcessNativeDrilldownBlocker: ['type', SubProcessNativeDrilldownBlocker],
   subProcessDeleteNotifier: ['type', SubProcessDeleteNotifier],
+  subProcessNavMarker: ['type', SubProcessNavMarker],
 }

@@ -141,13 +141,15 @@ export const useDiagramStore = create<DiagramState>()(
     createSubDiagram: async (name, parentDiagramId, subProcessElementId) => {
       const id = generateDiagramId()
       const now = new Date().toISOString()
+      // El subproceso hereda el proyecto del diagrama padre.
+      const parent = get().diagrams.find((d) => d.id === parentDiagramId)
       const diagram: Diagram = {
         id,
         name,
         xml: EMPTY_SUBPROCESS_BPMN,
         thumbnail: null,
         folderId: null,
-        projectId: null,
+        projectId: parent?.projectId ?? null,
         elementCount: 0,
         schemaVersion: 1,
         createdAt: now,

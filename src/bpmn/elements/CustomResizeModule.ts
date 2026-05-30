@@ -33,9 +33,10 @@ const OUTLINE_OFFSET = 5   // mismo valor que OutlineProvider de bpmn-js
 const END_EVENT_EXTRA = 1  // bpmn-js añade 1px extra para el stroke del EndEvent
 
 const MIN_SIZE: Array<{ type: string; width: number; height: number }> = [
-  { type: 'bpmn:Task',    width: 50, height: 30 },
-  { type: 'bpmn:Gateway', width: 30, height: 30 },
-  { type: 'bpmn:Event',   width: 28, height: 28 },
+  { type: 'bpmn:SubProcess', width: 120, height: 80 },
+  { type: 'bpmn:Task',       width: 50, height: 30 },
+  { type: 'bpmn:Gateway',    width: 30, height: 30 },
+  { type: 'bpmn:Event',      width: 28, height: 28 },
 ]
 
 // ── Helpers de tipo ─────────────────────────────────────────────────────────
@@ -62,14 +63,15 @@ function shouldOverride(element: AnyObj): boolean {
   if (!element || element.waypoints || element.labelTarget) return false
   const bo = element?.businessObject
   if (!bo?.$instanceOf) return false
+  // Participant/Lane los gestiona bpmn-js; Process/Collaboration no se redimensionan.
   if (
-    bo.$instanceOf('bpmn:SubProcess') ||
     bo.$instanceOf('bpmn:Participant') ||
     bo.$instanceOf('bpmn:Lane') ||
     bo.$instanceOf('bpmn:Process') ||
     bo.$instanceOf('bpmn:Collaboration')
   ) return false
   return (
+    bo.$instanceOf('bpmn:SubProcess')   ||  // resize libre del subproceso (caja drilldown)
     bo.$instanceOf('bpmn:Task')         ||
     bo.$instanceOf('bpmn:Event')        ||
     bo.$instanceOf('bpmn:Gateway')      ||
