@@ -41,12 +41,22 @@ function rowToDiagram(r: DiagramRow): Diagram {
 }
 
 function dataUrlToBlob(dataUrl: string): Blob {
-  const [header, base64] = dataUrl.split(',')
-  const mime = /:(.*?);/.exec(header)?.[1] ?? 'image/png'
-  const bin = atob(base64)
-  const bytes = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-  return new Blob([bytes], { type: mime })
+  const commaIdx = dataUrl.indexOf(',')
+  const header = dataUrl.slice(0, commaIdx)
+  const payload = dataUrl.slice(commaIdx + 1)
+  const mime = /:(.*?)[;,]/.exec(header)?.[1] ?? 'image/png'
+
+  // Los thumbnails de bpmn-js son SVG URL-encoded (data:image/svg+xml;...,%3Csvg)
+  // — NO base64. Otros (PNG/WebP) sí son base64. Detectar por el header.
+  if (header.includes(';base64')) {
+    const bin = atob(payload)
+    const bytes = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+    return new Blob([bytes], { type: mime })
+  }
+  // URL-encoded (texto, p. ej. SVG)
+  const text = decodeURIComponent(payload)
+  return new Blob([text], { type: mime })
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
