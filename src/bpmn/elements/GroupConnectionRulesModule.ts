@@ -57,8 +57,15 @@ GroupConnectionRules.prototype.init = function () {
   })
 
   // Reconexión de extremos cuando hay un Group involucrado.
+  // Permite arrastrar el punto de la flecha y soltarlo en cualquier borde del
+  // grupo (o re-anclar el otro extremo) sin que la regla base lo convierta en
+  // sequenceFlow. El docking (BizagiConnectionDocking) calcula el punto
+  // cardinal exacto según hacia dónde se arrastre.
   const reconnect = (context: AnyObj) => {
-    const { source, target } = context
+    // El extremo que NO se mueve viene en la conexión; el que se mueve, en source/target.
+    const conn = context.connection
+    const source = context.source || conn?.source
+    const target = context.target || conn?.target
     if (isConnectableGroup(source) || isConnectableGroup(target)) {
       if (isShape(source) && isShape(target) && source !== target) {
         return { type: 'bpmn:Association', associationDirection: 'One' }
@@ -67,6 +74,9 @@ GroupConnectionRules.prototype.init = function () {
     }
     return undefined
   }
+  // diagram-js v14+/bpmn-js v18 usa el evento unificado 'connection.reconnect'.
+  this.addRule('connection.reconnect', HIGH_PRIORITY, reconnect)
+  // Compatibilidad con nombres antiguos por si el entorno los emite.
   this.addRule('connection.reconnectStart', HIGH_PRIORITY, reconnect)
   this.addRule('connection.reconnectEnd', HIGH_PRIORITY, reconnect)
 }
@@ -74,9 +84,9 @@ GroupConnectionRules.prototype.init = function () {
 // ──────────────────────────────────────────────────────────────
 // Context pad: añadir el botón "conectar" (flecha) a los grupos.
 // bpmn-js solo lo ofrece a FlowNode/InteractionNode; los Group quedan fuera.
+// Usamos el MISMO icono que el resto de elementos (bpmn-icon-connection-multi)
+// para no romper la experiencia de usuario.
 // ──────────────────────────────────────────────────────────────
-const CONNECT_ICON =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='7' y1='17' x2='17' y2='7'/%3E%3Cpolyline points='7 7 17 7 17 17'/%3E%3C/svg%3E"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function GroupContextPadProvider(this: any, contextPad: any, connect: any, translate: any) {
@@ -94,8 +104,8 @@ GroupContextPadProvider.prototype.getContextPadEntries = function (element: AnyO
   return {
     'connect': {
       group: 'connect',
+      className: 'bpmn-icon-connection-multi',
       title: t('Conectar con otro elemento'),
-      imageUrl: CONNECT_ICON,
       action: { click: startConnect, dragstart: startConnect },
     },
   }
