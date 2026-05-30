@@ -1,6 +1,8 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObj = any
 
+import { isPhase } from '../elements/phaseUtil'
+
 const MARKER_SELECTED = 'selected'
 
 function elementBBox(element: AnyObj) {
@@ -26,6 +28,7 @@ function isContainer(element: AnyObj): boolean {
 
 function shouldSelect(element: AnyObj, bbox: AnyObj): boolean {
   if (element.waypoints) return false  // connections follow their shapes; no need to select
+  if (isPhase(element)) return false   // la fase es un fondo: no se selecciona por lasso
 
   const eb = elementBBox(element)
   if (!eb) return false

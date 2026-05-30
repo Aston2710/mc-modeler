@@ -195,16 +195,17 @@ ThemeAwareRenderer.prototype.drawShape = function (
     const bodyFill = cssVar('--bg-1') || '#fafbfc'
     const R = 8
 
-    // Cuerpo con relleno muy sutil y esquinas suaves.
+    // Cuerpo SIN relleno (transparente) para no opacar el contenido del pool;
+    // solo el borde delimita la fase.
     const body = document.createElementNS(SVG_NS, 'rect')
     body.setAttribute('width', String(w))
     body.setAttribute('height', String(h))
     body.setAttribute('rx', String(R))
-    body.setAttribute('fill', bodyFill)
-    body.setAttribute('fill-opacity', '0.4')
+    body.setAttribute('fill', 'none')
     body.setAttribute('stroke', stroke)
     body.setAttribute('stroke-width', '1')
     parentGfx.appendChild(body)
+    void bodyFill
 
     // Encabezado superior con color de acento (gradiente sutil) y esquinas
     // superiores redondeadas (path para redondear solo arriba).
