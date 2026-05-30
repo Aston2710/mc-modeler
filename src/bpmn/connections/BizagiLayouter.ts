@@ -1,6 +1,7 @@
 import { BizagiDirectionalRouter } from './BizagiDirectionalRouter'
 import type { Point, RouterObstacle } from './BizagiDirectionalRouter'
 import { isManual } from './manualRoute'
+import { isGroupShape, freeEdgeDock } from './groupDocking'
 
 type Face = 'top' | 'bottom' | 'left' | 'right'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -300,16 +301,32 @@ BizagiLayouter.prototype.layoutConnection = function (connection: Connection, hi
   if (isManual(connection) && connection.waypoints && connection.waypoints.length >= 2) {
     const wps: Point[] = connection.waypoints.map((p: Point) => ({ x: p.x, y: p.y }))
     const last = wps.length - 1
-    const sCard = isGateway(src) ? gatewayCardinal(src, nearestGatewayFace(src, wps[1] ?? wps[0]))
-                                 : faceCardinal(src, nearestFace(src, wps[1] ?? wps[0]))
-    const tCard = isGateway(tgt) ? gatewayCardinal(tgt, nearestGatewayFace(tgt, wps[last - 1] ?? wps[last]))
-                                 : faceCardinal(tgt, nearestFace(tgt, wps[last - 1] ?? wps[last]))
-    wps[0] = sCard
-    wps[last] = tCard
-    // mantener ortogonalidad del primer/último tramo
-    if (wps.length >= 2) {
+
+    // Grupos: anclaje LIBRE a lo largo de la arista (preserva la posición que el
+    // usuario eligió, no la fuerza al centro). El resto de shapes mantienen el
+    // anclaje cardinal (centro de arista) como hasta ahora.
+    if (isGroupShape(src)) {
+      const d = freeEdgeDock(src, wps[1] ?? wps[0])
+      wps[0] = { x: d.x, y: d.y }
+      if (d.face === 'left' || d.face === 'right') wps[1] = { x: wps[1].x, y: d.y }
+      else wps[1] = { x: d.x, y: wps[1].y }
+    } else {
+      const sCard = isGateway(src) ? gatewayCardinal(src, nearestGatewayFace(src, wps[1] ?? wps[0]))
+                                   : faceCardinal(src, nearestFace(src, wps[1] ?? wps[0]))
+      wps[0] = sCard
       if (Math.abs(sCard.y - cy(src)) < 0.5) wps[1] = { x: wps[1].x, y: sCard.y }
       else wps[1] = { x: sCard.x, y: wps[1].y }
+    }
+
+    if (isGroupShape(tgt)) {
+      const d = freeEdgeDock(tgt, wps[last - 1] ?? wps[last])
+      wps[last] = { x: d.x, y: d.y }
+      if (d.face === 'left' || d.face === 'right') wps[last - 1] = { x: wps[last - 1].x, y: d.y }
+      else wps[last - 1] = { x: d.x, y: wps[last - 1].y }
+    } else {
+      const tCard = isGateway(tgt) ? gatewayCardinal(tgt, nearestGatewayFace(tgt, wps[last - 1] ?? wps[last]))
+                                   : faceCardinal(tgt, nearestFace(tgt, wps[last - 1] ?? wps[last]))
+      wps[last] = tCard
       if (Math.abs(tCard.y - cy(tgt)) < 0.5) wps[last - 1] = { x: wps[last - 1].x, y: tCard.y }
       else wps[last - 1] = { x: tCard.x, y: wps[last - 1].y }
     }

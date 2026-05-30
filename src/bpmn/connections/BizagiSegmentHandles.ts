@@ -29,6 +29,7 @@ import { isPrimaryButton } from 'diagram-js/lib/util/Mouse'
 // @ts-ignore
 import { append as svgAppend, attr as svgAttr, classes as svgClasses, create as svgCreate, remove as svgRemove } from 'tiny-svg'
 import { markManual } from './manualRoute'
+import { isGroupShape, freeEdgeDock } from './groupDocking'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function BizagiSegmentHandles(
     this: any, 
@@ -250,7 +251,11 @@ function BizagiSegmentHandles(
     const idx = isStart ? 0 : newWaypoints.length - 1
     const cursorPoint = newWaypoints[idx]
 
-    const snapped = snapToCardinal(hoverShape, cursorPoint)
+    // Grupo: anclaje LIBRE sobre la arista, siguiendo el cursor (no se fuerza al
+    // centro). Resto de shapes: snap al cardinal como hasta ahora.
+    const snapped = isGroupShape(hoverShape)
+      ? freeEdgeDock(hoverShape, cursorPoint)
+      : snapToCardinal(hoverShape, cursorPoint)
     newWaypoints[idx] = { x: snapped.x, y: snapped.y, original: cursorPoint }
   })
 
@@ -290,44 +295,59 @@ function BizagiSegmentHandles(
     if (isLastSeg && connection.target?.width) {
       const tgt = connection.target
       const prevToEnd = wps[last - 1]
-      const newCardinal = nearestCardinalWithThreshold(tgt, prevToEnd, SEGMENT_CARDINAL_SWITCH_THRESHOLD)
 
-      // Sólo actualizar si el cardinal cambió para evitar redibujados innecesarios
-      if (newCardinal.x !== wps[last].x || newCardinal.y !== wps[last].y) {
-        wps[last] = { x: newCardinal.x, y: newCardinal.y }
-
-        // Corregir el waypoint adyacente para mantener ortogonalidad:
-        // Cardinal izquierdo/derecho (y == tgt.cy) → último segmento debe ser horizontal
-        // Cardinal superior/inferior (x == tgt.cx) → último segmento debe ser vertical
-        const tgtCy = tgt.y + tgt.height / 2
-        const tgtCx = tgt.x + tgt.width  / 2
-        if (Math.abs(newCardinal.y - tgtCy) < 0.5) {
-          wps[last - 1] = { x: wps[last - 1].x, y: newCardinal.y }
-        } else if (Math.abs(newCardinal.x - tgtCx) < 0.5) {
-          wps[last - 1] = { x: newCardinal.x, y: wps[last - 1].y }
+      // Grupo: anclaje LIBRE deslizando a lo largo de la arista. Resto: cardinal.
+      if (isGroupShape(tgt)) {
+        const d = freeEdgeDock(tgt, prevToEnd)
+        if (d.x !== wps[last].x || d.y !== wps[last].y) {
+          wps[last] = { x: d.x, y: d.y }
+          if (d.face === 'left' || d.face === 'right') wps[last - 1] = { x: wps[last - 1].x, y: d.y }
+          else wps[last - 1] = { x: d.x, y: wps[last - 1].y }
+          modified = true
         }
-
-        modified = true
+      } else {
+        const newCardinal = nearestCardinalWithThreshold(tgt, prevToEnd, SEGMENT_CARDINAL_SWITCH_THRESHOLD)
+        // Sólo actualizar si el cardinal cambió para evitar redibujados innecesarios
+        if (newCardinal.x !== wps[last].x || newCardinal.y !== wps[last].y) {
+          wps[last] = { x: newCardinal.x, y: newCardinal.y }
+          // Corregir el waypoint adyacente para mantener ortogonalidad.
+          const tgtCy = tgt.y + tgt.height / 2
+          const tgtCx = tgt.x + tgt.width  / 2
+          if (Math.abs(newCardinal.y - tgtCy) < 0.5) {
+            wps[last - 1] = { x: wps[last - 1].x, y: newCardinal.y }
+          } else if (Math.abs(newCardinal.x - tgtCx) < 0.5) {
+            wps[last - 1] = { x: newCardinal.x, y: wps[last - 1].y }
+          }
+          modified = true
+        }
       }
     }
 
     if (isFirstSeg && connection.source?.width) {
       const src = connection.source
       const nextToStart = wps[1]
-      const newCardinal = nearestCardinalWithThreshold(src, nextToStart, SEGMENT_CARDINAL_SWITCH_THRESHOLD)
 
-      if (newCardinal.x !== wps[0].x || newCardinal.y !== wps[0].y) {
-        wps[0] = { x: newCardinal.x, y: newCardinal.y }
-
-        const srcCy = src.y + src.height / 2
-        const srcCx = src.x + src.width  / 2
-        if (Math.abs(newCardinal.y - srcCy) < 0.5) {
-          wps[1] = { x: wps[1].x, y: newCardinal.y }
-        } else if (Math.abs(newCardinal.x - srcCx) < 0.5) {
-          wps[1] = { x: newCardinal.x, y: wps[1].y }
+      if (isGroupShape(src)) {
+        const d = freeEdgeDock(src, nextToStart)
+        if (d.x !== wps[0].x || d.y !== wps[0].y) {
+          wps[0] = { x: d.x, y: d.y }
+          if (d.face === 'left' || d.face === 'right') wps[1] = { x: wps[1].x, y: d.y }
+          else wps[1] = { x: d.x, y: wps[1].y }
+          modified = true
         }
-
-        modified = true
+      } else {
+        const newCardinal = nearestCardinalWithThreshold(src, nextToStart, SEGMENT_CARDINAL_SWITCH_THRESHOLD)
+        if (newCardinal.x !== wps[0].x || newCardinal.y !== wps[0].y) {
+          wps[0] = { x: newCardinal.x, y: newCardinal.y }
+          const srcCy = src.y + src.height / 2
+          const srcCx = src.x + src.width  / 2
+          if (Math.abs(newCardinal.y - srcCy) < 0.5) {
+            wps[1] = { x: wps[1].x, y: newCardinal.y }
+          } else if (Math.abs(newCardinal.x - srcCx) < 0.5) {
+            wps[1] = { x: newCardinal.x, y: wps[1].y }
+          }
+          modified = true
+        }
       }
     }
 
