@@ -12,7 +12,7 @@ import type { CollaboratorRole, Diagram } from '@/domain/types'
 interface DiagramListProps {
   onOpen: (id: string) => void
   onNew: () => void
-  onImport: () => void
+  onImport: (projectId?: string | null) => void
   onNewProject?: () => void
   onShareProject?: (projectId: string, projectName: string) => void
   onNewInProject?: (projectId: string) => void
@@ -136,12 +136,13 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
                 {t('projects.share')}
               </button>
             )}
-            {!openProject && (
-              <button className="btn-ghost" onClick={onImport}>
-                <Upload size={14} />
-                {t('toolbar.import')}
-              </button>
-            )}
+            <button
+              className="btn-ghost"
+              onClick={() => onImport(openProject ? openProject.id : null)}
+            >
+              <Upload size={14} />
+              {t('toolbar.import')}
+            </button>
             {!openProject && isSupabaseConfigured && onNewProject && (
               <button className="btn-ghost" onClick={onNewProject}>
                 <FolderPlus size={14} />

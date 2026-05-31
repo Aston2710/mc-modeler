@@ -252,6 +252,7 @@ export default function App() {
 
   // Proyecto destino para el próximo diagrama nuevo (null = suelto).
   const [newDiagramProjectId, setNewDiagramProjectId] = useState<string | null>(null)
+  const [importProjectId, setImportProjectId] = useState<string | null>(null)
 
   const handleNew = useCallback(() => {
     setNewDiagramProjectId(null)
@@ -290,17 +291,22 @@ export default function App() {
     setView('editor')
   }, [openDiagram])
 
+  const handleImport = useCallback((projectId?: string | null) => {
+    setImportProjectId(projectId ?? null)
+    openModal('import')
+  }, [openModal])
+
   const handleImportFile = useCallback(async (xml: string, name: string) => {
     closeModal()
     try {
-      const id = await importDiagram(xml, name)
+      const id = await importDiagram(xml, name, importProjectId)
       if (isSupabaseConfigured) await useCollabStore.getState().loadRoles()
       setView('editor')
       openDiagram(id)
     } catch {
       addToast({ type: 'error', title: t('errors.importFailed') })
     }
-  }, [closeModal, importDiagram, setView, openDiagram, addToast, t])
+  }, [closeModal, importDiagram, importProjectId, setView, openDiagram, addToast, t])
 
   const handleValidate = useCallback(async () => {
     const registry = canvasRef.current?.getElementRegistry()
@@ -421,7 +427,7 @@ export default function App() {
         <DiagramList
           onOpen={handleOpenDiagram}
           onNew={handleNew}
-          onImport={() => openModal('import')}
+          onImport={handleImport}
           onNewProject={handleNewProject}
           onShareProject={handleShareProject}
           onNewInProject={handleNewInProject}
@@ -430,7 +436,7 @@ export default function App() {
         <div className="app">
           <Toolbar
             onNew={handleNew}
-            onImport={() => openModal('import')}
+            onImport={() => handleImport(activeDiagram()?.projectId ?? null)}
             onExport={() => openModal('export')}
             onValidate={handleValidate}
             onUndo={() => canvasRef.current?.undo()}
