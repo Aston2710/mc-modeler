@@ -20,3 +20,25 @@ export function isPhase(element: AnyEl): boolean {
   const type: string = element.type ?? element.businessObject?.$type ?? ''
   return type === 'bpmn:Group' && id.startsWith(PHASE_ID_PREFIX)
 }
+
+/**
+ * Nombre de la Fase. Se persiste en `flujo:phaseName` (extensión moddle) porque
+ * `bpmn:Group` NO tiene atributo `name` en el esquema BPMN y por tanto `bo.name`
+ * no se serializa al XML (el nombre se perdía al guardar/sincronizar). Se lee con
+ * fallback a `bo.name` para diagramas en memoria aún no migrados.
+ */
+export function getPhaseName(element: AnyEl): string {
+  const bo = element?.businessObject ?? element
+  if (!bo) return ''
+  return (bo.get?.('flujo:phaseName') ?? bo.phaseName ?? bo.name ?? '') as string
+}
+
+/** Escribe el nombre de la Fase en `flujo:phaseName` (persistente) y en `bo.name`. */
+export function setPhaseName(element: AnyEl, name: string): void {
+  const bo = element?.businessObject ?? element
+  if (!bo) return
+  if (typeof bo.set === 'function') bo.set('flujo:phaseName', name || undefined)
+  else bo.phaseName = name
+  // mantener bo.name en memoria para compatibilidad con el snapshot CRDT actual
+  bo.name = name
+}

@@ -25,6 +25,17 @@
           "type": "Boolean"
         }
       ]
+    },
+    {
+      "name": "PhaseName",
+      "extends": ["bpmn:Group"],
+      "properties": [
+        {
+          "name": "phaseName",
+          "isAttr": true,
+          "type": "String"
+        }
+      ]
     }
   ]
 }

@@ -34,7 +34,7 @@ import {
   defaultColors,
   cssVar,
 } from './ThemeColors'
-import { isPhase } from '../elements/phaseUtil'
+import { isPhase, getPhaseName } from '../elements/phaseUtil'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const PHASE_HEADER = 28 // alto de la banda de encabezado superior
@@ -216,7 +216,7 @@ ThemeAwareRenderer.prototype.drawShape = function (
     headerPath.setAttribute('fill', accent)
     parentGfx.appendChild(headerPath)
 
-    const name: string = element.businessObject?.name ?? ''
+    const name: string = getPhaseName(element)
     if (name) {
       const text = document.createElementNS(SVG_NS, 'text')
       text.setAttribute('x', String(w / 2))

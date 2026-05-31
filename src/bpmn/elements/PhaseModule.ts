@@ -13,7 +13,7 @@ import CommandInterceptor from 'diagram-js/lib/command/CommandInterceptor'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import inherits from 'inherits-browser'
-import { isPhase } from './phaseUtil'
+import { isPhase, setPhaseName } from './phaseUtil'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObj = any
@@ -61,7 +61,8 @@ function PhaseModule(this: any, eventBus: any, modeling: any, elementRegistry: a
     const ctx = event.context
     const el = ctx.element
     if (!isPhase(el)) return
-    el.businessObject.name = ctx.newLabel || ''
+    // Persistir en flujo:phaseName (bpmn:Group no serializa `name`).
+    setPhaseName(el, ctx.newLabel || '')
     ctx.newLabel = ''
     eventBus.fire('element.changed', { element: el })
   })
