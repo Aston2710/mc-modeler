@@ -142,3 +142,4 @@ dist
 
 referencias_csharp/
 *.zip
+.syntesis/

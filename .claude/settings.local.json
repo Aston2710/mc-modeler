@@ -3,7 +3,9 @@
     "allow": [
       "Bash(npx tsc *)",
       "mcp__supabase__apply_migration",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "PowerShell(ilspycmd *)",                                                 
+      "PowerShell(& ilspycmd *)"
     ]
   },
   "enabledMcpjsonServers": [
