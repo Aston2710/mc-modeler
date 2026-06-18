@@ -41,6 +41,24 @@ function esc(s: string): string {
     .replace(/>/g, '&gt;')
 }
 
+/** Color de Bizagi (entero ARGB con signo, p.ej. "-986896") → "#RRGGBB". */
+function bizagiColorToHex(v: string | null): string | null {
+  if (!v) return null
+  const n = parseInt(v, 10)
+  if (!Number.isFinite(n)) return null
+  const argb = n < 0 ? n >>> 0 : n // a unsigned 32-bit
+  const r = (argb >> 16) & 0xff
+  const g = (argb >> 8) & 0xff
+  const b = argb & 0xff
+  return '#' + [r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('')
+}
+
+/** Genera un id de fase único (bpmn:group con prefijo Phase_*). */
+function newPhaseId(): string {
+  const rnd = (globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2))
+  return `Phase_${rnd.replace(/-/g, '').slice(0, 8)}`
+}
+
 function childrenByTag(parent: Element, tag: string): Element[] {
   return Array.from(parent.getElementsByTagNameNS(XPDL_NS, tag))
 }
@@ -86,6 +104,7 @@ interface FlowNode {
   tag: string // bpmn tag, p.ej. 'task', 'startEvent'
   name: string
   bounds: Bounds
+  eventDef?: string // eventDefinition BPMN (timer/message/…) si aplica
 }
 
 interface Edge {
@@ -112,8 +131,43 @@ function classifyActivity(act: Element): string {
     if (split === 'OR') return 'inclusiveGateway'
     return 'exclusiveGateway'
   }
-  // Implementation/Task u otros → tarea
+  // Tarea: detectar subtipo XPDL (<Implementation><Task><TaskXxx/></Task>).
+  const task = act.getElementsByTagNameNS(XPDL_NS, 'Task')[0]
+  if (task) {
+    if (task.getElementsByTagNameNS(XPDL_NS, 'TaskUser')[0]) return 'userTask'
+    if (task.getElementsByTagNameNS(XPDL_NS, 'TaskService')[0]) return 'serviceTask'
+    if (task.getElementsByTagNameNS(XPDL_NS, 'TaskScript')[0]) return 'scriptTask'
+    if (task.getElementsByTagNameNS(XPDL_NS, 'TaskManual')[0]) return 'manualTask'
+    if (task.getElementsByTagNameNS(XPDL_NS, 'TaskSend')[0]) return 'sendTask'
+    if (task.getElementsByTagNameNS(XPDL_NS, 'TaskReceive')[0]) return 'receiveTask'
+    if (task.getElementsByTagNameNS(XPDL_NS, 'TaskBusinessRule')[0]) return 'businessRuleTask'
+  }
   return 'task'
+}
+
+// Trigger/Result XPDL → eventDefinition BPMN (inverso de EVENT_DEFS del export).
+const TRIGGER_TO_DEF: Record<string, string> = {
+  Timer: 'timerEventDefinition',
+  Message: 'messageEventDefinition',
+  Signal: 'signalEventDefinition',
+  Error: 'errorEventDefinition',
+  Escalation: 'escalationEventDefinition',
+  Conditional: 'conditionalEventDefinition',
+  Terminate: 'terminateEventDefinition',
+  Link: 'linkEventDefinition',
+  Compensation: 'compensateEventDefinition',
+}
+
+/** Lee el trigger/result del <Event> y devuelve el eventDefinition BPMN (o ''). */
+function readEventDef(act: Element): string {
+  const ev = act.getElementsByTagNameNS(XPDL_NS, 'Event')[0]
+  if (!ev) return ''
+  const se = ev.getElementsByTagNameNS(XPDL_NS, 'StartEvent')[0]
+  const ie = ev.getElementsByTagNameNS(XPDL_NS, 'IntermediateEvent')[0]
+  const ee = ev.getElementsByTagNameNS(XPDL_NS, 'EndEvent')[0]
+  const kind = se?.getAttribute('Trigger') ?? ie?.getAttribute('Trigger') ?? ee?.getAttribute('Result') ?? 'None'
+  const def = TRIGGER_TO_DEF[kind]
+  return def ? `<bpmn:${def} id="${def}_${Math.random().toString(36).slice(2, 8)}" />` : ''
 }
 
 const EVENT_TAGS = new Set(['startEvent', 'endEvent', 'intermediateCatchEvent'])
@@ -142,6 +196,8 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
   const edgesXml: string[] = []
   const participantsXml: string[] = []
   const processesXml: string[] = []
+  const phaseGroupsXml: string[] = [] // Milestones → fases (bpmn:group Phase_*)
+  const knownIds = new Set<string>() // ids ya emitidos (nodos/lanes/artefactos) → validar asociaciones
 
   const buildProcess = (procBizId: string, wf: Element | undefined): { procId: string; nodes: FlowNode[]; edges: Edge[] } => {
     const procId = id(procBizId || `proc_${Math.random().toString(36).slice(2, 8)}`)
@@ -160,6 +216,7 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
           tag,
           name: act.getAttribute('Name') ?? '',
           bounds: bounds ?? { x: 100, y: 100, ...size },
+          eventDef: EVENT_TAGS.has(tag) ? readEventDef(act) : '',
         })
       })
     }
@@ -188,6 +245,8 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
   }
 
   const emitProcess = (procId: string, lanes: { id: string; name: string; bounds: Bounds }[], nodes: FlowNode[], rawEdges: Edge[]) => {
+    nodes.forEach((n) => knownIds.add(n.id))
+    lanes.forEach((l) => knownIds.add(l.id))
     // Solo conservar flujos cuyos extremos sean nodos existentes (evita
     // referencias rotas que invalidarían el BPMN).
     const nodeIds = new Set(nodes.map((n) => n.id))
@@ -226,7 +285,7 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
                     : `<bpmn:incoming>${e.id}</bpmn:incoming>`
                 )
                 .join('')
-        return `<bpmn:${n.tag} id="${n.id}" name="${esc(n.name)}">${refs}</bpmn:${n.tag}>`
+        return `<bpmn:${n.tag} id="${n.id}" name="${esc(n.name)}">${refs}${n.eventDef ?? ''}</bpmn:${n.tag}>`
       })
       .join('')
 
@@ -256,6 +315,7 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
   if (pools.length > 0) {
     pools.forEach((pool) => {
       const poolId = id(pool.getAttribute('Id'))
+      knownIds.add(poolId)
       const poolName = pool.getAttribute('Name') ?? ''
       const procBizId = pool.getAttribute('Process') ?? ''
       const wf = wfByProcess.get(procBizId)
@@ -270,20 +330,55 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
         )
       }
 
-      // lanes
+      // lanes — en XPDL el lane es RELATIVO al pool. Lo posicionamos con la
+      // convención de bpmn-js: x = pool.x + 30 (banda del nombre del pool),
+      // width = pool.width - 30, y = pool.y + Y_relativo (apilado vertical).
+      // Así el lane y su contenido alinean con las fases (que arrancan en pool.x+60).
+      const LANE_BAND = 30
+      const lpx = poolBounds?.x ?? 0
+      const lpy = poolBounds?.y ?? 0
+      const pw = poolBounds?.width ?? 600
       const lanes: { id: string; name: string; bounds: Bounds }[] = []
       const lanesParent = pool.getElementsByTagNameNS(XPDL_NS, 'Lanes')[0]
       if (lanesParent) {
         childrenByTag(lanesParent, 'Lane').forEach((lane) => {
           const lid = id(lane.getAttribute('Id'))
           const { bounds } = readGraphics(lane)
-          const lb = bounds ?? poolBounds ?? { x: 0, y: 0, width: 600, height: 200 }
+          const lb = bounds
+            ? { x: lpx + LANE_BAND, y: lpy + bounds.y, width: pw - LANE_BAND, height: bounds.height }
+            : (poolBounds ?? { x: 0, y: 0, width: 600, height: 200 })
           lanes.push({ id: lid, name: lane.getAttribute('Name') ?? '', bounds: lb })
           shapesXml.push(
             `<bpmndi:BPMNShape id="${lid}_di" bpmnElement="${lid}" isHorizontal="true"><dc:Bounds x="${lb.x}" y="${lb.y}" width="${lb.width}" height="${lb.height}" /></bpmndi:BPMNShape>`
           )
         })
       }
+
+      // Milestones (Fases) → bpmn:group con id Phase_* + flujo:phaseName.
+      // En XPDL las coords del milestone son RELATIVAS al pool → absolutas aquí.
+      const msParent = directChild(pool, 'Milestones')
+      if (msParent) {
+        const px = poolBounds?.x ?? 0
+        const py = poolBounds?.y ?? 0
+        childrenByTag(msParent, 'Milestone').forEach((ms) => {
+          const phaseId = newPhaseId()
+          const name = ms.getAttribute('Name') ?? 'Fase'
+          const { bounds } = readGraphics(ms)
+          const rel = bounds ?? { x: 0, y: 0, width: 300, height: 300 }
+          const ax = px + rel.x
+          const ay = py + rel.y
+          // Color de la fase: FillColor del NodeGraphicsInfo del milestone → hex.
+          const giParent = directChild(ms, 'NodeGraphicsInfos')
+          const gi = giParent ? directChild(giParent, 'NodeGraphicsInfo') : null
+          const hex = gi ? bizagiColorToHex(gi.getAttribute('FillColor')) : null
+          const colorAttr = hex ? ` flujo:phaseColor="${hex}"` : ''
+          phaseGroupsXml.push(`<bpmn:group id="${phaseId}" flujo:phaseName="${esc(name)}"${colorAttr} />`)
+          shapesXml.push(
+            `<bpmndi:BPMNShape id="${phaseId}_di" bpmnElement="${phaseId}"><dc:Bounds x="${ax}" y="${ay}" width="${rel.width}" height="${rel.height}" /></bpmndi:BPMNShape>`
+          )
+        })
+      }
+
       emitProcess(procId, lanes, nodes, edges)
     })
   } else if (workflows.length > 0) {
@@ -293,11 +388,81 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
     emitProcess(procId, [], nodes, edges)
   }
 
+  // ── Artefactos package-level (Anotaciones, Data Objects, Grupos) ──────────────
+  // Se exportan/almacenan a nivel de paquete; los traemos como elementos BPMN y
+  // se inyectan en un proceso (bpmn-js los necesita dentro de un <process>).
+  const artifactEls: string[] = []
+  const artifactsParent = childrenByTag(pkg, 'Artifacts')[0]
+  if (artifactsParent) {
+    childrenByTag(artifactsParent, 'Artifact').forEach((art) => {
+      const type = art.getAttribute('ArtifactType')
+      const aid = id(art.getAttribute('Id'))
+      const { bounds } = readGraphics(art)
+      const b = bounds ?? { x: 0, y: 0, width: 100, height: 60 }
+      const di = `<bpmndi:BPMNShape id="${aid}_di" bpmnElement="${aid}"><dc:Bounds x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" /></bpmndi:BPMNShape>`
+      if (type === 'Annotation') {
+        const text = art.getAttribute('TextAnnotation') ?? ''
+        artifactEls.push(`<bpmn:textAnnotation id="${aid}"><bpmn:text>${esc(text)}</bpmn:text></bpmn:textAnnotation>`)
+        shapesXml.push(di); knownIds.add(aid)
+      } else if (type === 'DataObject') {
+        const name = art.getAttribute('Name') ?? ''
+        artifactEls.push(`<bpmn:dataObjectReference id="${aid}" name="${esc(name)}" />`)
+        shapesXml.push(di); knownIds.add(aid)
+      } else if (type === 'Group') {
+        // Grupo decorativo (las Fases vienen por Milestones, no por aquí).
+        artifactEls.push(`<bpmn:group id="${aid}" />`)
+        shapesXml.push(di); knownIds.add(aid)
+      }
+    })
+  }
+
+  // ── Asociaciones (texto/datos ↔ flujo) ────────────────────────────────────────
+  const assocParent = childrenByTag(pkg, 'Associations')[0]
+  if (assocParent) {
+    childrenByTag(assocParent, 'Association').forEach((assoc) => {
+      const aid = id(assoc.getAttribute('Id'))
+      const src = id(assoc.getAttribute('Source'))
+      const tgt = id(assoc.getAttribute('Target'))
+      // Ambos extremos deben existir o bpmn-js rechaza todo el import.
+      if (!knownIds.has(src) || !knownIds.has(tgt)) return
+      artifactEls.push(`<bpmn:association id="${aid}" sourceRef="${src}" targetRef="${tgt}" />`)
+      const { coords } = readGraphics(assoc)
+      const wps = coords.length >= 2 ? coords.map((p) => `<di:waypoint x="${p.x}" y="${p.y}" />`).join('') : ''
+      edgesXml.push(`<bpmndi:BPMNEdge id="${aid}_di" bpmnElement="${aid}">${wps}</bpmndi:BPMNEdge>`)
+    })
+  }
+
+  // Inyectar los artefactos en un proceso (el primero; si no hay, crear uno).
+  if (artifactEls.length > 0) {
+    if (processesXml.length === 0) {
+      processesXml.push(`<bpmn:process id="Process_artifacts" isExecutable="false">${artifactEls.join('')}</bpmn:process>`)
+    } else {
+      processesXml[0] = processesXml[0].replace('</bpmn:process>', `${artifactEls.join('')}</bpmn:process>`)
+    }
+  }
+
+  // ── Message flows (entre pools) → bpmn:messageFlow en la collaboration ─────────
+  const messageFlowsXml: string[] = []
+  const mfParent = childrenByTag(pkg, 'MessageFlows')[0]
+  if (mfParent) {
+    childrenByTag(mfParent, 'MessageFlow').forEach((mf) => {
+      const mid = id(mf.getAttribute('Id'))
+      const src = id(mf.getAttribute('Source'))
+      const tgt = id(mf.getAttribute('Target'))
+      const name = mf.getAttribute('Name') ?? ''
+      if (!knownIds.has(src) || !knownIds.has(tgt)) return
+      messageFlowsXml.push(`<bpmn:messageFlow id="${mid}" name="${esc(name)}" sourceRef="${src}" targetRef="${tgt}" />`)
+      const { coords } = readGraphics(mf)
+      const wps = coords.length >= 2 ? coords.map((p) => `<di:waypoint x="${p.x}" y="${p.y}" />`).join('') : ''
+      edgesXml.push(`<bpmndi:BPMNEdge id="${mid}_di" bpmnElement="${mid}">${wps}</bpmndi:BPMNEdge>`)
+    })
+  }
+
   const planeElement = pools.length > 0 ? 'Collaboration_1' : (processesXml.length ? /process id="([^"]+)"/.exec(processesXml[0])?.[1] ?? 'Process_1' : 'Process_1')
 
   const collaboration =
     participantsXml.length > 0
-      ? `<bpmn:collaboration id="Collaboration_1">${participantsXml.join('')}</bpmn:collaboration>`
+      ? `<bpmn:collaboration id="Collaboration_1">${participantsXml.join('')}${phaseGroupsXml.join('')}${messageFlowsXml.join('')}</bpmn:collaboration>`
       : ''
 
   void fallbackName
@@ -307,6 +472,7 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
   xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
   xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
   xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+  xmlns:flujo="http://flujo.app/schema/bpmn"
   id="Definitions_imported"
   targetNamespace="http://bpmn.io/schema/bpmn">
   ${collaboration}

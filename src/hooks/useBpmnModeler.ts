@@ -7,7 +7,7 @@ import { useUIStore } from '@/store/uiStore'
 import { MODELER_CONFIG } from '@/bpmn/config'
 import { BPMN_ELEMENTS } from '@/domain/bpmnElements'
 import { ELEMENT_SIZES } from '@/bpmn/ElementSizes'
-import { PHASE_ID_PREFIX } from '@/bpmn/elements/phaseUtil'
+import { PHASE_ID_PREFIX, isPhase, setPhaseName, setPhaseColor } from '@/bpmn/elements/phaseUtil'
 import { getLinkedDiagram as readLink, setLinkedDiagram as writeLink, isSubProcessElement } from '@/bpmn/elements/subProcessLink'
 
 
@@ -312,6 +312,21 @@ export function useBpmnModeler(
     const registry = modeler.get('elementRegistry')
     const el = registry.get(elementId)
     if (!el) return
+    // Fase: nombre y color se guardan en extensiones moddle (flujo:phaseName /
+    // flujo:phaseColor), no en bo.name. Persistir vía updateProperties para que
+    // entre en el stack (undo + autosave + CRDT) y re-renderice.
+    if (isPhase(el)) {
+      if (property === 'name') {
+        setPhaseName(el, value)
+        modeler.get('modeling').updateProperties(el, { phaseName: value, name: value })
+        return
+      }
+      if (property === 'phaseColor') {
+        setPhaseColor(el, value)
+        modeler.get('modeling').updateProperties(el, { phaseColor: value })
+        return
+      }
+    }
     modeler.get('modeling').updateProperties(el, { [property]: value })
   }, [])
 
@@ -351,7 +366,8 @@ export function useBpmnModeler(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const bo = m.get('bpmnFactory').create('bpmn:Group') as any
         bo.id = id
-        bo.name = 'Fase'
+        // El nombre ("Fase N") y el color los asigna PhaseModule al anclar la fase
+        // (necesita conocer el pool y cuántas fases ya existen).
         shape = m.get('elementFactory').createShape({
           id,
           type: 'bpmn:Group',

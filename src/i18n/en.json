@@ -158,7 +158,9 @@
       "scriptFormat": "Script format",
       "script": "Script",
       "messageRef": "Message reference",
-      "calledElement": "Called element"
+      "calledElement": "Called element",
+      "phaseColor": "Phase color",
+      "phaseName": "Phase name"
     },
     "elementTypes": {
       "task": "Task",

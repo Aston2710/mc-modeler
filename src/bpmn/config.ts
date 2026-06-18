@@ -21,6 +21,7 @@ import ConnectionEndpointCirclesModule from './connections/ConnectionEndpointCir
 import ConnectionContextPadModule from './connections/ConnectionContextPadModule'
 import SubProcessInterceptorModule from './elements/SubProcessInterceptorModule'
 import PhaseModule from './elements/PhaseModule'
+import PhaseLabelEditingModule from './elements/PhaseLabelEditingModule'
 import GroupConnectionRulesModule from './elements/GroupConnectionRulesModule'
 import flujoModdle from './moddle/flujo.json'
 
@@ -49,6 +50,7 @@ export const MODELER_CONFIG = {
     ConnectionContextPadModule,
     SubProcessInterceptorModule,
     PhaseModule,
+    PhaseLabelEditingModule,
     GroupConnectionRulesModule,
     BizagiLayouter,
     BizagiConnectionDocking,

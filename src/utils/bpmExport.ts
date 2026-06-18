@@ -53,6 +53,11 @@ const C = {
   white:             16777215,
 }
 
+// Namespace de nuestras extensiones (phaseName / phaseColor) en el BPMN de origen.
+const FLUJO_NS = 'http://flujo.app/schema/bpmn'
+// Borde de milestone en Bizagi: RGB(80,80,80) = #505050 → ARGB signed.
+const MILESTONE_BORDER = -11579824
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Bounds { x: number; y: number; width: number; height: number }
@@ -69,6 +74,7 @@ interface ParsedBpmn {
   associations:  Element[]
   groups:        Element[]
   dataObjects:   Element[]
+  messageFlows:  Element[]
   idMap:         Map<string, string>   // bpmn-js ID → Bizagi UUID
 }
 
@@ -76,7 +82,7 @@ interface ParsedBpmn {
 
 const FLOW_NODE_TAGS = [
   'startEvent', 'endEvent', 'intermediateCatchEvent', 'intermediateThrowEvent',
-  'task', 'userTask', 'serviceTask', 'scriptTask', 'sendTask', 'receiveTask',
+  'task', 'userTask', 'serviceTask', 'scriptTask', 'manualTask', 'sendTask', 'receiveTask',
   'businessRuleTask', 'callActivity', 'subProcess',
   'exclusiveGateway', 'parallelGateway', 'inclusiveGateway',
   'eventBasedGateway', 'complexGateway',
@@ -93,8 +99,15 @@ function parseBpmnXml(xml: string): ParsedBpmn {
     di:     'http://www.omg.org/spec/DD/20100524/DI',
   }
 
-  const all = (parent: Element | Document, tag: string, nsUri: string) =>
-    Array.from(parent.getElementsByTagNameNS(nsUri, tag))
+  // Case-INSENSITIVE: bpmn-js/moddle serializa los tipos con extensión moddle
+  // (SequenceFlow, Group, Association, MessageFlow, SubProcess) en PascalCase,
+  // mientras que tareas/eventos van en camelCase. getElementsByTagNameNS distingue
+  // mayúsculas, así que comparamos el localName en minúsculas para capturar ambos.
+  const all = (parent: Element | Document, tag: string, nsUri: string): Element[] => {
+    const lower = tag.toLowerCase()
+    return Array.from(parent.getElementsByTagNameNS(nsUri, '*'))
+      .filter((el) => el.localName.toLowerCase() === lower)
+  }
 
   const root = doc.documentElement
 
@@ -147,6 +160,7 @@ function parseBpmnXml(xml: string): ParsedBpmn {
   const associations  = all(root, 'association', ns.bpmn)
   const groups        = all(root, 'group', ns.bpmn)
   const dataObjects   = all(root, 'dataObjectReference', ns.bpmn)
+  const messageFlows  = all(root, 'messageFlow', ns.bpmn)
 
   // ─── Build ID → UUID map (Bizagi requires valid GUIDs for all Id attributes) ──
   const idMap = new Map<string, string>()
@@ -167,9 +181,9 @@ function parseBpmnXml(xml: string): ParsedBpmn {
     )
   })
 
-  ;[...annotations, ...associations, ...groups, ...dataObjects].forEach(el => reg(el.getAttribute('id')))
+  ;[...annotations, ...associations, ...groups, ...dataObjects, ...messageFlows].forEach(el => reg(el.getAttribute('id')))
 
-  return { ns, shapes, labelBounds, edges, participants, processes, annotations, associations, groups, dataObjects, idMap }
+  return { ns, shapes, labelBounds, edges, participants, processes, annotations, associations, groups, dataObjects, messageFlows, idMap }
 }
 
 // ─── ID helper: original bpmn-js ID → Bizagi UUID ────────────────────────────
@@ -217,6 +231,35 @@ function externalLabel(b: Bounds, _lb?: Bounds, kind: 'event' | 'gateway' = 'eve
 
 // ─── Activity builders ────────────────────────────────────────────────────────
 
+const BPMN_MODEL_NS = 'http://www.omg.org/spec/BPMN/20100524/MODEL'
+
+// BPMN eventDefinition → (valor Trigger/Result XPDL, elemento hijo XPDL 2.2).
+const EVENT_DEFS: Array<[string, string, string]> = [
+  ['timerEventDefinition',       'Timer',        '<TriggerTimer />'],
+  ['messageEventDefinition',     'Message',      '<TriggerResultMessage />'],
+  ['signalEventDefinition',      'Signal',       '<TriggerResultSignal />'],
+  ['errorEventDefinition',       'Error',        '<ResultError />'],
+  ['escalationEventDefinition',  'Escalation',   '<ResultEscalation />'],
+  ['conditionalEventDefinition', 'Conditional',  '<TriggerConditional />'],
+  ['terminateEventDefinition',   'Terminate',    '<ResultTerminate />'],
+  ['linkEventDefinition',        'Link',         '<TriggerResultLink />'],
+  ['compensateEventDefinition',  'Compensation', '<ResultCompensation />'],
+]
+
+function eventKind(el: Element): { kind: string; child: string } {
+  for (const [bpmn, kind, child] of EVENT_DEFS) {
+    if (el.getElementsByTagNameNS(BPMN_MODEL_NS, bpmn).length) return { kind, child }
+  }
+  return { kind: 'None', child: '' }
+}
+
+/** `<Event>` XPDL con su trigger/result según el eventDefinition del BPMN. */
+function eventXml(el: Element, tag: 'StartEvent' | 'EndEvent' | 'IntermediateEvent', attr: 'Trigger' | 'Result'): string {
+  const ev = eventKind(el)
+  if (ev.kind === 'None') return `<Event><${tag} ${attr}="None" /></Event>`
+  return `<Event><${tag} ${attr}="${ev.kind}">${ev.child}</${tag}></Event>`
+}
+
 function buildStartEvent(
   el: Element,
   shapes: Map<string, Bounds>,
@@ -230,7 +273,7 @@ function buildStartEvent(
   const lp     = externalLabel(b, labelBounds.get(origId))
   return `<Activity Id="${id}" Name="${esc(name)}">
         <Description />
-        <Event><StartEvent Trigger="None" /></Event>
+        ${eventXml(el, 'StartEvent', 'Trigger')}
         <Documentation />
         <NodeGraphicsInfos>
           <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${C.startEvent.border}" FillColor="${C.startEvent.fill}" BorderVisible="false" TextX="${lp.tx}" TextY="${lp.ty}" TextWidth="${lp.tw}" TextHeight="${lp.th}">
@@ -256,7 +299,7 @@ function buildEndEvent(
   const lp     = externalLabel(b, labelBounds.get(origId))
   return `<Activity Id="${id}" Name="${esc(name)}">
         <Description />
-        <Event><EndEvent Result="None" /></Event>
+        ${eventXml(el, 'EndEvent', 'Result')}
         <Documentation />
         <NodeGraphicsInfos>
           <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${C.endEvent.border}" FillColor="${C.endEvent.fill}" BorderVisible="false" TextX="${lp.tx}" TextY="${lp.ty}" TextWidth="${lp.tw}" TextHeight="${lp.th}">
@@ -282,7 +325,7 @@ function buildIntermediateEvent(
   const lp     = externalLabel(b, labelBounds.get(origId))
   return `<Activity Id="${id}" Name="${esc(name)}">
         <Description />
-        <Event><IntermediateEvent Trigger="None" /></Event>
+        ${eventXml(el, 'IntermediateEvent', 'Trigger')}
         <Documentation />
         <NodeGraphicsInfos>
           <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${C.intermediateEvent.border}" FillColor="${C.intermediateEvent.fill}" BorderVisible="false" TextX="${lp.tx}" TextY="${lp.ty}" TextWidth="${lp.tw}" TextHeight="${lp.th}">
@@ -293,6 +336,21 @@ function buildIntermediateEvent(
         </NodeGraphicsInfos>
         <ExtendedAttributes />
       </Activity>`
+}
+
+/** Subtipo de tarea BPMN → <Implementation> XPDL (tipos estándar XPDL 2.2). */
+function taskImplementation(localName: string): string {
+  const sub: Record<string, string> = {
+    userTask:         '<TaskUser />',
+    serviceTask:      '<TaskService />',
+    scriptTask:       '<TaskScript />',
+    manualTask:       '<TaskManual />',
+    sendTask:         '<TaskSend />',
+    receiveTask:      '<TaskReceive />',
+    businessRuleTask: '<TaskBusinessRule />',
+  }
+  const child = sub[localName]
+  return child ? `<Implementation><Task>${child}</Task></Implementation>` : '<Implementation><Task /></Implementation>'
 }
 
 function buildTask(
@@ -306,7 +364,7 @@ function buildTask(
   const b      = shapes.get(origId) ?? { x: 0, y: 0, width: 120, height: 60 }
   return `<Activity Id="${id}" Name="${esc(name)}">
         <Description />
-        <Implementation><Task /></Implementation>
+        ${taskImplementation(el.localName)}
         <Performers />
         <Documentation />
         <Loop LoopType="None" />
@@ -405,11 +463,17 @@ function buildTransition(
 
 // ─── Process content builder ──────────────────────────────────────────────────
 
-const TASK_TYPES = ['task', 'userTask', 'serviceTask', 'scriptTask', 'sendTask', 'receiveTask', 'businessRuleTask', 'callActivity', 'subProcess']
+const TASK_TYPES = ['task', 'userTask', 'serviceTask', 'scriptTask', 'manualTask', 'sendTask', 'receiveTask', 'businessRuleTask', 'callActivity', 'subProcess']
 
 function buildProcessContent(process: Element, parsed: ParsedBpmn): { activities: string[]; transitions: string[] } {
   const { ns, shapes, labelBounds, edges, idMap } = parsed
-  const get = (tag: string) => Array.from(process.getElementsByTagNameNS(ns.bpmn, tag))
+  // Case-insensitive (ver nota en parseBpmnXml): captura `sequenceFlow` y
+  // `SequenceFlow` (PascalCase por la extensión moddle ManualRoute).
+  const get = (tag: string) => {
+    const lower = tag.toLowerCase()
+    return Array.from(process.getElementsByTagNameNS(ns.bpmn, '*'))
+      .filter((el) => el.localName.toLowerCase() === lower)
+  }
 
   const activities:  string[] = []
   const transitions: string[] = []
@@ -436,10 +500,11 @@ function buildProcessContent(process: Element, parsed: ParsedBpmn): { activities
 
 function defaultLaneXml(laneId: string, poolId: string, poolBounds: Bounds): string {
   const b = { x: poolBounds.x, y: poolBounds.y, width: poolBounds.width, height: poolBounds.height }
+  // Coordinates RELATIVAS al pool (Bizagi guarda los lanes relativos); TextX/Y absolutas.
   return `<Lane Id="${laneId}" Name="Proceso principal" ParentPool="${poolId}">
           <NodeGraphicsInfos>
             <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${C.lane.border}" FillColor="${C.lane.fill}" BorderVisible="false" TextX="${b.x}" TextY="${b.y}" TextWidth="${b.width}" TextHeight="${b.height}">
-              <Coordinates XCoordinate="${b.x}" YCoordinate="${b.y}" />
+              <Coordinates XCoordinate="0" YCoordinate="0" />
               ${formatting(8, true)}
               <TextBackgroundColor>${C.white}</TextBackgroundColor>
             </NodeGraphicsInfo>
@@ -470,10 +535,11 @@ function buildLanes(
     const id     = uid(idMap, origId)
     const name   = lane.getAttribute('name') ?? ''
     const b      = shapes.get(origId) ?? { x: 60, y: 40, width: 870, height: 150 }
+    // Coordinates RELATIVAS al pool (Bizagi guarda los lanes relativos); TextX/Y absolutas.
     return `<Lane Id="${id}" Name="${esc(name)}" ParentPool="${poolId}">
           <NodeGraphicsInfos>
             <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${C.lane.border}" FillColor="${C.lane.fill}" BorderVisible="false" TextX="${b.x}" TextY="${b.y}" TextWidth="${b.width}" TextHeight="${b.height}">
-              <Coordinates XCoordinate="${b.x}" YCoordinate="${b.y}" />
+              <Coordinates XCoordinate="${b.x - poolBounds.x}" YCoordinate="${b.y - poolBounds.y}" />
               ${formatting(8, true)}
               <TextBackgroundColor>${C.white}</TextBackgroundColor>
             </NodeGraphicsInfo>
@@ -486,9 +552,82 @@ function buildLanes(
   return `<Lanes>\n        ${laneXmls.join('\n        ')}\n      </Lanes>`
 }
 
+// ─── Fases → Milestones (estilo Bizagi) ────────────────────────────────────────
+
+/** ¿Es un Group que en realidad es una Fase? (id `Phase_*`). */
+function isPhaseGroup(el: Element): boolean {
+  return (el.getAttribute('id') ?? '').startsWith('Phase_')
+}
+
+/** Nombre de la fase desde el BPMN de origen (flujo:phaseName → name). */
+function phaseNameOf(el: Element): string {
+  return el.getAttributeNS(FLUJO_NS, 'phaseName')
+    || el.getAttribute('flujo:phaseName')
+    || el.getAttribute('name')
+    || 'Fase'
+}
+
+/** Color de la fase (flujo:phaseColor hex) → entero ARGB de Bizagi. */
+function phaseColorOf(el: Element): number {
+  const hex = el.getAttributeNS(FLUJO_NS, 'phaseColor') || el.getAttribute('flujo:phaseColor')
+  return hex ? hexToBizagiColor(hex) : C.group.fill
+}
+
+/** "#RRGGBB" → entero ARGB con signo (formato de color de Bizagi). */
+function hexToBizagiColor(hex: string): number {
+  let h = (hex || '').replace('#', '').trim()
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('')
+  if (h.length !== 6) return C.group.fill
+  const r = parseInt(h.slice(0, 2), 16)
+  const g = parseInt(h.slice(2, 4), 16)
+  const b = parseInt(h.slice(4, 6), 16)
+  return ((0xff << 24) | (r << 16) | (g << 8) | b) | 0 // ARGB con signo
+}
+
+/** Emite `<Milestones>` con las fases cuyo centro cae dentro del pool. Coords
+ *  RELATIVAS al pool (X -= pool.X), como hace Bizagi. */
+function buildMilestones(
+  phaseGroups: Element[],
+  poolId: string,
+  poolBounds: Bounds,
+  shapes: Map<string, Bounds>,
+  idMap: Map<string, string>,
+): string {
+  const inside = phaseGroups.filter((el) => {
+    const b = shapes.get(el.getAttribute('id') ?? '')
+    if (!b) return false
+    const cx = b.x + b.width / 2
+    const cy = b.y + b.height / 2
+    return cx >= poolBounds.x && cx <= poolBounds.x + poolBounds.width
+      && cy >= poolBounds.y && cy <= poolBounds.y + poolBounds.height
+  })
+  if (inside.length === 0) return ''
+  const items = inside.map((el) => {
+    const origId = el.getAttribute('id') ?? ''
+    const id     = uid(idMap, origId)
+    const name   = phaseNameOf(el)
+    const b      = shapes.get(origId) ?? { x: poolBounds.x, y: poolBounds.y, width: 300, height: 300 }
+    const relX   = Math.round(b.x - poolBounds.x)
+    const relY   = Math.round(b.y - poolBounds.y)
+    return `<Milestone Id="${id}" Name="${esc(name)}" ParentPool="${poolId}">
+        <NodeGraphicsInfos>
+          <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${MILESTONE_BORDER}" FillColor="${phaseColorOf(el)}" BorderVisible="false" TextX="${b.x}" TextY="${b.y}" TextWidth="${b.width}" TextHeight="${b.height}">
+            <Coordinates XCoordinate="${relX}" YCoordinate="${relY}" />
+            ${formatting(9, true)}
+          </NodeGraphicsInfo>
+        </NodeGraphicsInfos>
+        <Documentation />
+        <ExtendedAttributes>
+          <ExtendedAttribute Name="RuntimeProperties" Value="{&quot;milestoneType&quot;:&quot;Process&quot;}" />
+        </ExtendedAttributes>
+      </Milestone>`
+  })
+  return `\n    <Milestones>\n        ${items.join('\n        ')}\n      </Milestones>`
+}
+
 // ─── Pool builder ─────────────────────────────────────────────────────────────
 
-function buildPool(participant: Element, process: Element | null, parsed: ParsedBpmn): string {
+function buildPool(participant: Element, process: Element | null, parsed: ParsedBpmn, phaseGroups: Element[] = []): string {
   const { ns, shapes, idMap } = parsed
   const origId         = participant.getAttribute('id') ?? ''
   const origProcessRef = participant.getAttribute('processRef') ?? origId
@@ -498,6 +637,7 @@ function buildPool(participant: Element, process: Element | null, parsed: Parsed
   const b              = shapes.get(origId) ?? { x: 30, y: 40, width: 900, height: 300 }
   const laneSet  = process?.getElementsByTagNameNS(ns.bpmn, 'laneSet')[0]
   const lanesXml = buildLanes(laneSet, id, b, shapes, idMap)
+  const milestonesXml = buildMilestones(phaseGroups, id, b, shapes, idMap)
 
   return `<Pool Id="${id}" Name="${esc(name)}" Process="${processRef}" BoundaryVisible="true">
     ${lanesXml}
@@ -506,14 +646,15 @@ function buildPool(participant: Element, process: Element | null, parsed: Parsed
         <Coordinates XCoordinate="${b.x}" YCoordinate="${b.y}" />
         ${formatting(10, true)}
       </NodeGraphicsInfo>
-    </NodeGraphicsInfos>
+    </NodeGraphicsInfos>${milestonesXml}
   </Pool>`
 }
 
-function buildSyntheticPool(poolId: string, processRef: string, diagramName: string, shapes: Map<string, Bounds>): string {
+function buildSyntheticPool(poolId: string, processRef: string, diagramName: string, shapes: Map<string, Bounds>, phaseGroups: Element[] = []): string {
   const b        = shapes.get(processRef) ?? { x: 30, y: 40, width: 1500, height: 800 }
   const laneId   = crypto.randomUUID()
   const lanesXml = `<Lanes>\n        ${defaultLaneXml(laneId, poolId, b)}\n      </Lanes>`
+  const milestonesXml = buildMilestones(phaseGroups, poolId, b, shapes, new Map())
   return `<Pool Id="${poolId}" Name="${esc(diagramName)}" Process="${processRef}" BoundaryVisible="true">
     ${lanesXml}
     <NodeGraphicsInfos>
@@ -521,7 +662,7 @@ function buildSyntheticPool(poolId: string, processRef: string, diagramName: str
         <Coordinates XCoordinate="${b.x}" YCoordinate="${b.y}" />
         ${formatting(10, true)}
       </NodeGraphicsInfo>
-    </NodeGraphicsInfos>
+    </NodeGraphicsInfos>${milestonesXml}
   </Pool>`
 }
 
@@ -635,6 +776,36 @@ function buildAssociations(
   }).join('\n  ')
 }
 
+function buildMessageFlows(
+  messageFlows: Element[],
+  edges: Map<string, Point[]>,
+  idMap: Map<string, string>,
+): string {
+  return messageFlows.map(el => {
+    const origId     = el.getAttribute('id')        ?? ''
+    const origSource = el.getAttribute('sourceRef') ?? ''
+    const origTarget = el.getAttribute('targetRef') ?? ''
+    const name       = el.getAttribute('name')      ?? ''
+    const id         = uid(idMap, origId)
+    const source     = uid(idMap, origSource)
+    const target     = uid(idMap, origTarget)
+    const wps        = edges.get(origId) ?? []
+    const midX       = wps.length >= 2 ? Math.round((wps[0].x + wps[wps.length - 1].x) / 2) : 0
+    const midY       = wps.length >= 2 ? Math.round((wps[0].y + wps[wps.length - 1].y) / 2) : 0
+    const coords     = wps.map(p => `<Coordinates XCoordinate="${p.x}" YCoordinate="${p.y}" />`).join('\n            ')
+    return `<MessageFlow Id="${id}" Name="${esc(name)}" Source="${source}" Target="${target}">
+      <ConnectorGraphicsInfos>
+        <ConnectorGraphicsInfo ToolId="BizAgi_Process_Modeler" BorderColor="${C.black}" TextX="${midX}" TextY="${midY}">
+          ${formatting()}
+          <TextBackgroundColor>${C.white}</TextBackgroundColor>
+          ${coords}
+        </ConnectorGraphicsInfo>
+      </ConnectorGraphicsInfos>
+      <ExtendedAttributes />
+    </MessageFlow>`
+  }).join('\n  ')
+}
+
 // ─── RuntimeProperties JSON ───────────────────────────────────────────────────
 
 function buildRuntimeProperties(processName: string, now: string): string {
@@ -726,12 +897,17 @@ function buildDiagramXml(diagUuid: string, diagramName: string, author: string, 
   const poolParts: string[] = []
   const wfParts:   string[] = []
 
+  // Las fases (Group id `Phase_*`) se exportan como <Milestone> dentro del Pool,
+  // NO como <Artifact/Group>. El resto de grupos siguen siendo artefactos.
+  const phaseGroups = groups.filter(isPhaseGroup)
+  const pureGroups  = groups.filter(g => !isPhaseGroup(g))
+
   if (participants.length > 0) {
     participants.forEach(participant => {
       const origProcessRef = participant.getAttribute('processRef')
       // Find process element using ORIGINAL id, then use mapped UUID as procId
       const process  = processes.find(p => p.getAttribute('id') === origProcessRef) ?? null
-      poolParts.push(buildPool(participant, process, parsed))
+      poolParts.push(buildPool(participant, process, parsed, phaseGroups))
       if (process) {
         const procId   = uid(idMap, process.getAttribute('id') ?? '')
         const procName = participant.getAttribute('name') ?? diagramName
@@ -744,12 +920,17 @@ function buildDiagramXml(diagUuid: string, diagramName: string, author: string, 
     const origProcId = process.getAttribute('id') ?? ''
     const procId     = uid(idMap, origProcId)
     const synPoolId  = crypto.randomUUID()
-    poolParts.push(buildSyntheticPool(synPoolId, procId, diagramName, shapes))
+    poolParts.push(buildSyntheticPool(synPoolId, procId, diagramName, shapes, phaseGroups))
     wfParts.push(buildWorkflowProcess(procId, diagramName, process, author, now, parsed))
   }
 
-  const artifactsXml    = buildArtifacts(annotations, groups, dataObjects, shapes, idMap)
+  const artifactsXml    = buildArtifacts(annotations, pureGroups, dataObjects, shapes, idMap)
   const associationsXml = buildAssociations(associations, parsed.edges, idMap)
+  const messageFlowsXml = buildMessageFlows(parsed.messageFlows, parsed.edges, idMap)
+  // Solo emitir la sección si hay message flows (evita secciones vacías).
+  const messageFlowsSection = parsed.messageFlows.length > 0
+    ? `\n  <MessageFlows>\n    ${messageFlowsXml}\n  </MessageFlows>`
+    : ''
 
   return `<?xml version="1.0" encoding="utf-8"?>
 <Package xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" OnlyOneProcess="false" Id="${diagUuid}" Name="${esc(diagramName)}" xmlns="http://www.wfmc.org/2009/XPDL2.2">
@@ -774,7 +955,7 @@ function buildDiagramXml(diagUuid: string, diagramName: string, author: string, 
   <ExternalPackages />
   <Pools>
     ${poolParts.join('\n    ')}
-  </Pools>
+  </Pools>${messageFlowsSection}
   <Associations>
     ${associationsXml}
   </Associations>

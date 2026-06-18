@@ -158,7 +158,9 @@
       "scriptFormat": "Formato de script",
       "script": "Script",
       "messageRef": "Referencia de mensaje",
-      "calledElement": "Elemento llamado"
+      "calledElement": "Elemento llamado",
+      "phaseColor": "Color de la fase",
+      "phaseName": "Nombre de la fase"
     },
     "elementTypes": {
       "task": "Tarea",

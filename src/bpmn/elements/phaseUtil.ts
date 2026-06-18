@@ -42,3 +42,24 @@ export function setPhaseName(element: AnyEl, name: string): void {
   // mantener bo.name en memoria para compatibilidad con el snapshot CRDT actual
   bo.name = name
 }
+
+/** Color por defecto de una Fase recién creada (gris neutro estilo Bizagi). */
+export const DEFAULT_PHASE_COLOR = '#C6C6C6'
+
+/**
+ * Color de la Fase. Se persiste en `flujo:phaseColor` (extensión moddle) — igual
+ * que `phaseName`, porque `bpmn:Group` no tiene atributo de color en el esquema.
+ */
+export function getPhaseColor(element: AnyEl): string {
+  const bo = element?.businessObject ?? element
+  if (!bo) return DEFAULT_PHASE_COLOR
+  return (bo.get?.('flujo:phaseColor') ?? bo.phaseColor ?? DEFAULT_PHASE_COLOR) as string
+}
+
+/** Escribe el color de la Fase en `flujo:phaseColor` (persistente). */
+export function setPhaseColor(element: AnyEl, color: string): void {
+  const bo = element?.businessObject ?? element
+  if (!bo) return
+  if (typeof bo.set === 'function') bo.set('flujo:phaseColor', color || undefined)
+  else bo.phaseColor = color
+}

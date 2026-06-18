@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { MousePointerClick, ChevronRight } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'
 import { BpmnElementIcon } from '@/components/palette/BpmnElementIcon'
+import { isPhase, getPhaseName, getPhaseColor, DEFAULT_PHASE_COLOR } from '@/bpmn/elements/phaseUtil'
 
 interface Element {
   id: string
@@ -122,7 +123,7 @@ export function PropertiesPanel({
         </div>
         <div className="selected-info">
           <div className="selected-type">{typeLabel}</div>
-          <div className="selected-title">{bo.name || `(${typeLabel})`}</div>
+          <div className="selected-title">{(isPhase(el) ? getPhaseName(el) : bo.name) || `(${typeLabel})`}</div>
           <div className="selected-id mono">{el.id}</div>
         </div>
         <button className="sb-collapse-btn" onClick={onToggle} style={{ flexShrink: 0 }}>
@@ -158,14 +159,29 @@ export function PropertiesPanel({
                 <input className="f-input mono" value={el.id} readOnly />
               </div>
               <div className="field">
-                <label className="field-label">{t('properties.fields.name')}</label>
+                <label className="field-label">
+                  {isPhase(el) ? t('properties.fields.phaseName', 'Nombre de la fase') : t('properties.fields.name')}
+                </label>
                 <input
                   className="f-input"
-                  value={bo.name ?? ''}
+                  value={isPhase(el) ? getPhaseName(el) : (bo.name ?? '')}
                   onChange={(e) => update('name', e.target.value)}
                   placeholder={`(${typeLabel})`}
                 />
               </div>
+              {isPhase(el) && (
+                <div className="field">
+                  <label className="field-label">
+                    {t('properties.fields.phaseColor', 'Color de la fase')}
+                  </label>
+                  <input
+                    type="color"
+                    className="f-input f-color"
+                    value={getPhaseColor(el) || DEFAULT_PHASE_COLOR}
+                    onChange={(e) => update('phaseColor', e.target.value)}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Task-specific fields */}

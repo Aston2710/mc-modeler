@@ -34,10 +34,47 @@ import {
   defaultColors,
   cssVar,
 } from './ThemeColors'
-import { isPhase, getPhaseName } from '../elements/phaseUtil'
+import { isPhase, getPhaseName, getPhaseColor } from '../elements/phaseUtil'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
-const PHASE_HEADER = 28 // alto de la banda de encabezado superior
+const PHASE_HEADER = 30 // alto de la banda de nombre (const int TextHeight = 30 en Bizagi)
+
+/** ¿Es la primera fase (más a la izquierda) de su pool? Su borde izquierdo es el
+ *  inicio del tren de fases (no hay vecina que dibuje esa frontera). */
+function isLeftmostPhase(element: AnyElement): boolean {
+  const siblings: AnyElement[] = element.parent?.children ?? []
+  for (const s of siblings) {
+    if (s === element || !isPhase(s)) continue
+    if (Math.abs((s.y ?? 0) - (element.y ?? 0)) > 2) continue
+    if ((s.x ?? 0) < (element.x ?? 0) - 1) return false        // hay una fase a la izquierda
+  }
+  return true
+}
+
+/** ¿Es la última fase (más a la derecha)? Su frontera derecha es el borde del
+ *  pool → NO dibuja chevron propio: lo dibuja el pool (Opción A). */
+function isRightmostPhase(element: AnyElement): boolean {
+  const siblings: AnyElement[] = element.parent?.children ?? []
+  for (const s of siblings) {
+    if (s === element || !isPhase(s)) continue
+    if (Math.abs((s.y ?? 0) - (element.y ?? 0)) > 2) continue
+    if ((s.x ?? 0) > (element.x ?? 0) + 1) return false        // hay una fase a la derecha
+  }
+  return true
+}
+
+/** ¿El pool (Participant) contiene fases? (fases = hermanos cuyo centro cae
+ *  dentro del pool). Si las tiene, su borde derecho se dibuja con chevron. */
+function poolHasPhases(pool: AnyElement): boolean {
+  const siblings: AnyElement[] = pool.parent?.children ?? []
+  const px = pool.x ?? 0, py = pool.y ?? 0, pw = pool.width ?? 0, ph = pool.height ?? 0
+  return siblings.some((s: AnyElement) => {
+    if (!isPhase(s)) return false
+    const cx = (s.x ?? 0) + (s.width ?? 0) / 2
+    const cy = (s.y ?? 0) + (s.height ?? 0) / 2
+    return cx >= px && cx <= px + pw && cy >= py && cy <= py + ph
+  })
+}
 
 // ──────────────────────────────────────────────────────────────
 // Utilidad: ¿es un elemento de este tipo?
@@ -185,47 +222,63 @@ ThemeAwareRenderer.prototype.drawShape = function (
 ): SVGElement {
   const colors = getColorsFor(element)
 
-  // Fase: banda vertical anclada al pool, estilo moderno (encabezado con acento).
-  // Render propio (no delegamos al base, que dibujaría el Group punteado).
+  // Fase / Milestone — estilo Bizagi. Cada fase es una banda con chevron derecho:
+  //   - El RELLENO incluye el chevron (su interior es parte de la fase) y, salvo
+  //     la primera, una muesca izquierda para encajar con el chevron de la previa.
+  //   - Frontera derecha: chevron PUNTEADO entre fases; SÓLIDO en la última (es la
+  //     frontera/borde del pool).
   if (isPhase(element)) {
-    const w: number = element.width
-    const h: number = element.height
-    const accent = cssVar('--accent') || '#8b5cf6'
-    const stroke = cssVar('--border-strong') || '#d0d5dd'
-    const bodyFill = cssVar('--bg-1') || '#fafbfc'
-    const R = 8
+    // Guarda anti-NaN: si el elemento llega con dimensiones inválidas, no emitir
+    // atributos NaN al SVG (rompen el render de toda la página).
+    const w: number = Number.isFinite(element.width) ? element.width : 0
+    const h: number = Number.isFinite(element.height) ? element.height : 0
+    const color = getPhaseColor(element)
+    const LABEL = PHASE_HEADER // 30 px (const int TextHeight = 30 en Bizagi)
+    const ARROW = 15           // protrusión de la flecha (num = 15f en Render())
+    const first = isLeftmostPhase(element)
+    const last = isRightmostPhase(element)
 
-    // Cuerpo SIN relleno (transparente) para no opacar el contenido del pool;
-    // solo el borde delimita la fase.
-    const body = document.createElementNS(SVG_NS, 'rect')
-    body.setAttribute('width', String(w))
-    body.setAttribute('height', String(h))
-    body.setAttribute('rx', String(R))
-    body.setAttribute('fill', 'none')
-    body.setAttribute('stroke', stroke)
-    body.setAttribute('stroke-width', '1')
+    // Cuerpo: relleno del color de la fase INCLUYENDO el chevron derecho. La
+    // primera fase tiene borde izquierdo recto; las demás, muesca izquierda que
+    // recibe el chevron de la fase anterior (encaje sin solape).
+    const fillD = first
+      ? `M0,0 L${w},0 L${w + ARROW},${ARROW} L${w},${LABEL} L${w},${h} L0,${h} Z`
+      : `M0,0 L${w},0 L${w + ARROW},${ARROW} L${w},${LABEL} L${w},${h} L0,${h} L0,${LABEL} L${ARROW},${ARROW} Z`
+    const body = document.createElementNS(SVG_NS, 'path')
+    body.setAttribute('d', fillD)
+    body.setAttribute('fill', color)
+    body.setAttribute('fill-opacity', '0.10')
+    body.setAttribute('stroke', 'none')
     parentGfx.appendChild(body)
-    void bodyFill
 
-    // Encabezado superior con color de acento (gradiente sutil) y esquinas
-    // superiores redondeadas (path para redondear solo arriba).
-    const hh = PHASE_HEADER
-    const headerPath = document.createElementNS(SVG_NS, 'path')
-    headerPath.setAttribute('d',
-      `M0,${hh} L0,${R} Q0,0 ${R},0 L${w - R},0 Q${w},0 ${w},${R} L${w},${hh} Z`)
-    headerPath.setAttribute('fill', accent)
-    parentGfx.appendChild(headerPath)
+    // Fronteras: trazo del color de borde del tema (no del color de la fase).
+    const stroke = cssVar('--border-strong') || '#505050'
+    const frontier = (d: string, dashed: boolean) => {
+      const p = document.createElementNS(SVG_NS, 'path')
+      p.setAttribute('d', d)
+      p.setAttribute('fill', 'none')
+      p.setAttribute('stroke', stroke)
+      p.setAttribute('stroke-width', '1.5') // un poco más marcado, sin exagerar
+      if (dashed) p.setAttribute('stroke-dasharray', '7 4') // DashPattern {7,4}
+      parentGfx.appendChild(p)
+    }
+    // Inicio (izquierda) de la PRIMERA fase: línea recta punteada.
+    if (first) frontier(`M0,0 L0,${h}`, true)
+    // Fin (derecha) = chevron PUNTEADO solo si es divisor interno. La última fase
+    // NO lo dibuja: su chevron lo dibuja el pool (sólido, borde del pool).
+    if (!last) frontier(`M${w},0 L${w + ARROW},${ARROW} L${w},${LABEL} L${w},${h}`, true)
 
     const name: string = getPhaseName(element)
     if (name) {
       const text = document.createElementNS(SVG_NS, 'text')
+      text.setAttribute('class', 'djs-phase-name') // para ocultarlo al editar inline
       text.setAttribute('x', String(w / 2))
-      text.setAttribute('y', String(hh / 2))
+      text.setAttribute('y', String(LABEL / 2))
       text.setAttribute('text-anchor', 'middle')
       text.setAttribute('dominant-baseline', 'central')
       text.setAttribute('font-size', '12')
-      text.setAttribute('font-weight', '600')
-      text.setAttribute('fill', '#ffffff')
+      text.setAttribute('font-weight', '700') // Bizagi: Formatting.Bold = true
+      text.setAttribute('fill', '#1f2937')     // texto oscuro sobre fondo claro
       text.textContent = name
       parentGfx.appendChild(text)
     }
@@ -273,6 +326,35 @@ ThemeAwareRenderer.prototype.drawShape = function (
     parentGfx.appendChild(image)
     parentGfx.appendChild(rect)
     return rect // Retornar el rect para que diagram-js pueda hacer hit-testing (selección)
+  }
+
+  // Pool con fases → su borde derecho termina en chevron (Opción A, estilo Bizagi):
+  // se deja que el base dibuje el pool normal y luego se "convierte" el borde
+  // derecho superior en chevron (tapando el tramo recto + saliente relleno + borde).
+  if (isType(element, 'bpmn:Participant') && poolHasPhases(element)) {
+    const gfx = BpmnRenderer.prototype.drawShape.call(this, parentGfx, element, {
+      fill: colors.fill,
+      stroke: colors.stroke,
+      defaultLabelColor: colors.labelColor,
+    })
+    const w = Number.isFinite(element.width) ? element.width : 0
+    const ARROW = 15
+    const LABEL = PHASE_HEADER
+    // Máscara: tapa el tramo recto del borde derecho (y 0..LABEL) y rellena el
+    // saliente del chevron con el color del pool (lo hace parte del pool).
+    const mask = document.createElementNS(SVG_NS, 'path')
+    mask.setAttribute('d', `M${w - 1},0 L${w + ARROW},${ARROW} L${w - 1},${LABEL} Z`)
+    mask.setAttribute('fill', colors.fill || '#ffffff')
+    mask.setAttribute('stroke', 'none')
+    parentGfx.appendChild(mask)
+    // Borde del chevron (sólido, color de borde del pool).
+    const chev = document.createElementNS(SVG_NS, 'path')
+    chev.setAttribute('d', `M${w},0 L${w + ARROW},${ARROW} L${w},${LABEL}`)
+    chev.setAttribute('fill', 'none')
+    chev.setAttribute('stroke', colors.stroke || '#94a3b8')
+    chev.setAttribute('stroke-width', '2')
+    parentGfx.appendChild(chev)
+    return gfx
   }
 
   // Pasamos los colores como attrs — bpmn-js los aplica a través de
