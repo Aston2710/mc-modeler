@@ -75,6 +75,7 @@ interface ParsedBpmn {
   groups:        Element[]
   dataObjects:   Element[]
   messageFlows:  Element[]
+  categoryValues: Map<string, string>  // categoryValue id → value (nombre de grupos)
   idMap:         Map<string, string>   // bpmn-js ID → Bizagi UUID
 }
 
@@ -162,6 +163,14 @@ function parseBpmnXml(xml: string): ParsedBpmn {
   const dataObjects   = all(root, 'dataObjectReference', ns.bpmn)
   const messageFlows  = all(root, 'messageFlow', ns.bpmn)
 
+  // Nombre de los grupos: bpmn-js lo guarda en categoryValue (referenciado por
+  // group.categoryValueRef), no en un atributo `name`.
+  const categoryValues = new Map<string, string>()
+  all(root, 'categoryValue', ns.bpmn).forEach(cv => {
+    const cid = cv.getAttribute('id')
+    if (cid) categoryValues.set(cid, cv.getAttribute('value') ?? '')
+  })
+
   // ─── Build ID → UUID map (Bizagi requires valid GUIDs for all Id attributes) ──
   const idMap = new Map<string, string>()
   const reg   = (id: string | null) => { if (id && !idMap.has(id)) idMap.set(id, crypto.randomUUID()) }
@@ -183,7 +192,7 @@ function parseBpmnXml(xml: string): ParsedBpmn {
 
   ;[...annotations, ...associations, ...groups, ...dataObjects, ...messageFlows].forEach(el => reg(el.getAttribute('id')))
 
-  return { ns, shapes, labelBounds, edges, participants, processes, annotations, associations, groups, dataObjects, messageFlows, idMap }
+  return { ns, shapes, labelBounds, edges, participants, processes, annotations, associations, groups, dataObjects, messageFlows, categoryValues, idMap }
 }
 
 // ─── ID helper: original bpmn-js ID → Bizagi UUID ────────────────────────────
@@ -233,6 +242,12 @@ function externalLabel(b: Bounds, _lb?: Bounds, kind: 'event' | 'gateway' = 'eve
 
 const BPMN_MODEL_NS = 'http://www.omg.org/spec/BPMN/20100524/MODEL'
 
+/** bpmn:documentation del elemento → <Documentation> XPDL (o vacío). */
+function docXml(el: Element): string {
+  const d = el.getElementsByTagNameNS(BPMN_MODEL_NS, 'documentation')[0]?.textContent?.trim()
+  return d ? `<Documentation>${esc(d)}</Documentation>` : '<Documentation />'
+}
+
 // BPMN eventDefinition → (valor Trigger/Result XPDL, elemento hijo XPDL 2.2).
 const EVENT_DEFS: Array<[string, string, string]> = [
   ['timerEventDefinition',       'Timer',        '<TriggerTimer />'],
@@ -274,7 +289,7 @@ function buildStartEvent(
   return `<Activity Id="${id}" Name="${esc(name)}">
         <Description />
         ${eventXml(el, 'StartEvent', 'Trigger')}
-        <Documentation />
+        ${docXml(el)}
         <NodeGraphicsInfos>
           <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${C.startEvent.border}" FillColor="${C.startEvent.fill}" BorderVisible="false" TextX="${lp.tx}" TextY="${lp.ty}" TextWidth="${lp.tw}" TextHeight="${lp.th}">
             <Coordinates XCoordinate="${b.x}" YCoordinate="${b.y}" />
@@ -300,7 +315,7 @@ function buildEndEvent(
   return `<Activity Id="${id}" Name="${esc(name)}">
         <Description />
         ${eventXml(el, 'EndEvent', 'Result')}
-        <Documentation />
+        ${docXml(el)}
         <NodeGraphicsInfos>
           <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${C.endEvent.border}" FillColor="${C.endEvent.fill}" BorderVisible="false" TextX="${lp.tx}" TextY="${lp.ty}" TextWidth="${lp.tw}" TextHeight="${lp.th}">
             <Coordinates XCoordinate="${b.x}" YCoordinate="${b.y}" />
@@ -326,7 +341,7 @@ function buildIntermediateEvent(
   return `<Activity Id="${id}" Name="${esc(name)}">
         <Description />
         ${eventXml(el, 'IntermediateEvent', 'Trigger')}
-        <Documentation />
+        ${docXml(el)}
         <NodeGraphicsInfos>
           <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${C.intermediateEvent.border}" FillColor="${C.intermediateEvent.fill}" BorderVisible="false" TextX="${lp.tx}" TextY="${lp.ty}" TextWidth="${lp.tw}" TextHeight="${lp.th}">
             <Coordinates XCoordinate="${b.x}" YCoordinate="${b.y}" />
@@ -366,7 +381,7 @@ function buildTask(
         <Description />
         ${taskImplementation(el.localName)}
         <Performers />
-        <Documentation />
+        ${docXml(el)}
         <Loop LoopType="None" />
         <NodeGraphicsInfos>
           <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${C.task.border}" FillColor="${C.task.fill}" BorderVisible="false" TextWidth="${b.width}" TextHeight="${b.height}">
@@ -383,7 +398,7 @@ function buildGateway(
   el: Element,
   shapes: Map<string, Bounds>,
   labelBounds: Map<string, Bounds>,
-  splitType: string,
+  gatewayType: string,
   idMap: Map<string, string>,
 ): string {
   const origId = el.getAttribute('id') ?? ''
@@ -391,10 +406,12 @@ function buildGateway(
   const name   = el.getAttribute('name') ?? ''
   const b      = shapes.get(origId) ?? { x: 0, y: 0, width: 40, height: 40 }
   const lp     = externalLabel(b, labelBounds.get(origId), 'gateway')
+  // Bizagi usa GatewayType en palabras (+ GatewayDirection).
+  const dir    = el.getAttribute('gatewayDirection') || 'Unspecified'
   return `<Activity Id="${id}" Name="${esc(name)}">
         <Description />
-        <Route SplitTypeCode="${splitType}" />
-        <Documentation />
+        <Route GatewayType="${gatewayType}" GatewayDirection="${dir}" />
+        ${docXml(el)}
         <NodeGraphicsInfos>
           <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${C.gateway.border}" FillColor="${C.gateway.fill}" BorderVisible="false" TextX="${lp.tx}" TextY="${lp.ty}" TextWidth="${lp.tw}" TextHeight="${lp.th}">
             <Coordinates XCoordinate="${b.x}" YCoordinate="${b.y}" />
@@ -406,6 +423,9 @@ function buildGateway(
       </Activity>`
 }
 
+/** Objeto de datos en formato NATIVO de Bizagi: <DataObject> dentro de
+ *  <DataObjects> del WorkflowProcess (NO como <Artifact ArtifactType="DataObject">,
+ *  que Bizagi no reconoce como objeto de datos). */
 function buildDataObject(
   el: Element,
   shapes: Map<string, Bounds>,
@@ -414,17 +434,32 @@ function buildDataObject(
   const origId = el.getAttribute('id') ?? ''
   const id     = uid(idMap, origId)
   const name   = el.getAttribute('name') ?? ''
-  const b      = shapes.get(origId) ?? { x: 0, y: 0, width: 36, height: 50 }
-  return `<Artifact BizAgiArtifactTypeSpecified="false" Id="${id}" Name="${esc(name)}" ArtifactType="DataObject">
-      <NodeGraphicsInfos>
-        <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${C.dataObject.border}" FillColor="${C.dataObject.fill}" BorderVisible="false" TextX="${b.x - 27}" TextY="${b.y + b.height}" TextWidth="90" TextHeight="30">
-          <Coordinates XCoordinate="${b.x}" YCoordinate="${b.y}" />
-          ${formatting()}
-          <TextBackgroundColor>${C.white}</TextBackgroundColor>
-        </NodeGraphicsInfo>
-      </NodeGraphicsInfos>
-      <Documentation />
-    </Artifact>`
+  const b      = shapes.get(origId) ?? { x: 0, y: 0, width: 40, height: 50 }
+  const doc    = el.getElementsByTagNameNS(BPMN_MODEL_NS, 'documentation')[0]?.textContent?.trim() ?? ''
+  return `<DataObject Id="${id}" Name="${esc(name)}">
+          <Object>
+            ${doc ? `<Documentation>${esc(doc)}</Documentation>` : '<Documentation />'}
+          </Object>
+          <NodeGraphicsInfos>
+            <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${C.dataObject.border}" FillColor="${C.dataObject.fill}" BorderVisible="false" TextX="${b.x - 27}" TextY="${b.y + b.height}" TextWidth="90" TextHeight="30">
+              <Coordinates XCoordinate="${b.x}" YCoordinate="${b.y}" />
+              ${formatting()}
+              <TextBackgroundColor>${C.white}</TextBackgroundColor>
+            </NodeGraphicsInfo>
+          </NodeGraphicsInfos>
+          <DataField />
+          <ExtendedAttributes />
+        </DataObject>`
+}
+
+/** Sección <DataObjects> del WorkflowProcess con los objetos de datos del proceso. */
+function buildDataObjects(process: Element, parsed: ParsedBpmn): string {
+  const { ns, shapes, idMap } = parsed
+  const dos = Array.from(process.getElementsByTagNameNS(ns.bpmn, '*'))
+    .filter((el) => el.localName.toLowerCase() === 'dataobjectreference')
+  if (dos.length === 0) return ''
+  const items = dos.map((el) => buildDataObject(el, shapes, idMap)).join('\n        ')
+  return `\n    <DataObjects>\n        ${items}\n      </DataObjects>`
 }
 
 function buildTransition(
@@ -485,11 +520,11 @@ function buildProcessContent(process: Element, parsed: ParsedBpmn): { activities
 
   TASK_TYPES.forEach(type => get(type).forEach(el => activities.push(buildTask(el, shapes, idMap))))
 
-  get('exclusiveGateway').forEach(el => activities.push(buildGateway(el, shapes, labelBounds, 'XOR', idMap)))
-  get('parallelGateway').forEach(el => activities.push(buildGateway(el, shapes, labelBounds, 'AND', idMap)))
-  get('inclusiveGateway').forEach(el => activities.push(buildGateway(el, shapes, labelBounds, 'OR', idMap)))
-  get('eventBasedGateway').forEach(el => activities.push(buildGateway(el, shapes, labelBounds, 'XOR', idMap)))
-  get('complexGateway').forEach(el => activities.push(buildGateway(el, shapes, labelBounds, 'XOR', idMap)))
+  get('exclusiveGateway').forEach(el => activities.push(buildGateway(el, shapes, labelBounds, 'Exclusive', idMap)))
+  get('parallelGateway').forEach(el => activities.push(buildGateway(el, shapes, labelBounds, 'Parallel', idMap)))
+  get('inclusiveGateway').forEach(el => activities.push(buildGateway(el, shapes, labelBounds, 'Inclusive', idMap)))
+  get('eventBasedGateway').forEach(el => activities.push(buildGateway(el, shapes, labelBounds, 'ExclusiveEventBased', idMap)))
+  get('complexGateway').forEach(el => activities.push(buildGateway(el, shapes, labelBounds, 'Complex', idMap)))
 
   get('sequenceFlow').forEach(el => transitions.push(buildTransition(el, edges, idMap)))
 
@@ -671,6 +706,7 @@ function buildSyntheticPool(poolId: string, processRef: string, diagramName: str
 function buildWorkflowProcess(procId: string, procName: string, process: Element, author: string, now: string, parsed: ParsedBpmn): string {
   const { activities, transitions } = buildProcessContent(process, parsed)
   const rtProps = buildRuntimeProperties(procName, now)
+  const dataObjectsXml = buildDataObjects(process, parsed)
   return `<WorkflowProcess Id="${procId}" Name="${esc(procName)}">
     <ProcessHeader>
       <Created>${now}</Created>
@@ -685,7 +721,7 @@ function buildWorkflowProcess(procId: string, procName: string, process: Element
     <DataInputOutputs />
     <Activities>
       ${activities.join('\n      ')}
-    </Activities>
+    </Activities>${dataObjectsXml}
     <Transitions>
       ${transitions.join('\n      ')}
     </Transitions>
@@ -700,14 +736,13 @@ function buildWorkflowProcess(procId: string, procName: string, process: Element
 function buildArtifacts(
   annotations: Element[],
   groups: Element[],
-  dataObjects: Element[],
   shapes: Map<string, Bounds>,
   idMap: Map<string, string>,
+  categoryValues: Map<string, string>,
 ): string {
   const parts: string[] = []
 
-  dataObjects.forEach(el => parts.push(buildDataObject(el, shapes, idMap)))
-
+  // Los objetos de datos se emiten en el WorkflowProcess (<DataObjects>), no aquí.
   annotations.forEach(el => {
     const origId = el.getAttribute('id') ?? ''
     const id     = uid(idMap, origId)
@@ -728,7 +763,11 @@ function buildArtifacts(
   groups.forEach(el => {
     const origId = el.getAttribute('id') ?? ''
     const id     = uid(idMap, origId)
-    const name   = el.getAttribute('name') ?? ''
+    // Nombre: atributo `name` o el del categoryValue referenciado (bpmn-js).
+    const name   = el.getAttribute('name')
+      || categoryValues.get(el.getAttribute('categoryValueRef') ?? '')
+      || ''
+    const doc    = el.getElementsByTagNameNS(BPMN_MODEL_NS, 'documentation')[0]?.textContent?.trim() ?? ''
     const b      = shapes.get(origId) ?? { x: 0, y: 0, width: 300, height: 300 }
     const lp     = externalLabel(b, undefined)
     parts.push(`<Artifact BizAgiArtifactTypeSpecified="false" Id="${id}" Name="${esc(name)}" ArtifactType="Group">
@@ -740,7 +779,7 @@ function buildArtifacts(
           <TextBackgroundColor>${C.white}</TextBackgroundColor>
         </NodeGraphicsInfo>
       </NodeGraphicsInfos>
-      <Documentation />
+      ${doc ? `<Documentation>${esc(doc)}</Documentation>` : '<Documentation />'}
     </Artifact>`)
   })
 
@@ -892,7 +931,7 @@ ${items}
 // ─── Diagram.xml builder (XPDL 2.2) ──────────────────────────────────────────
 
 function buildDiagramXml(diagUuid: string, diagramName: string, author: string, now: string, parsed: ParsedBpmn): string {
-  const { participants, processes, annotations, associations, groups, dataObjects, shapes, idMap } = parsed
+  const { participants, processes, annotations, associations, groups, shapes, idMap } = parsed
 
   const poolParts: string[] = []
   const wfParts:   string[] = []
@@ -924,7 +963,7 @@ function buildDiagramXml(diagUuid: string, diagramName: string, author: string, 
     wfParts.push(buildWorkflowProcess(procId, diagramName, process, author, now, parsed))
   }
 
-  const artifactsXml    = buildArtifacts(annotations, pureGroups, dataObjects, shapes, idMap)
+  const artifactsXml    = buildArtifacts(annotations, pureGroups, shapes, idMap, parsed.categoryValues)
   const associationsXml = buildAssociations(associations, parsed.edges, idMap)
   const messageFlowsXml = buildMessageFlows(parsed.messageFlows, parsed.edges, idMap)
   // Solo emitir la sección si hay message flows (evita secciones vacías).
