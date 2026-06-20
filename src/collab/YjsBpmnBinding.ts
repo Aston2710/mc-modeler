@@ -252,6 +252,12 @@ export class YjsBpmnBinding {
   }
 
   private reconcileCanvasToDoc() {
+    // El Y.Doc transporta solo CAMBIOS (diffs), NO el diagrama completo. Por eso
+    // al reconciliar SOLO se añaden/actualizan elementos: un elemento ausente del
+    // doc puede significar "nunca se editó" (la mayoría) o "se borró" — son
+    // indistinguibles aquí. Borrar por ausencia eliminaría todo el diagrama
+    // importado/cargado (pérdida de datos). Las eliminaciones reales llegan en
+    // vivo por applyRemote (change.action === 'delete').
     const current = this.currentSnapshots()
     const adds: ElementSnapshot[] = []
     const updates: ElementSnapshot[] = []
@@ -259,15 +265,12 @@ export class YjsBpmnBinding {
       if (!current.has(id)) adds.push(snap)
       else if (!snapshotsEqual(current.get(id)!, snap)) updates.push(snap)
     })
-    const removes: string[] = []
-    current.forEach((_s, id) => { if (!this.ymap.has(id)) removes.push(id) })
 
     this.suppress = true
     try {
       adds.filter((s) => !isConnectionSnap(s)).forEach((s) => this.createShape(s))
       adds.filter((s) => isConnectionSnap(s)).forEach((s) => this.createConnection(s))
       updates.forEach((s) => this.updateElement(s))
-      removes.forEach((id) => this.removeElement(id))
     } finally {
       this.suppress = false
       this.last = this.currentSnapshots()

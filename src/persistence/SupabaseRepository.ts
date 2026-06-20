@@ -214,7 +214,14 @@ export class SupabaseRepository implements IDiagramRepository {
     // (evita el GET 400 "Object not found" y su ruido en consola).
     if (this.thumbPaths.has(id) && !this.thumbPaths.get(id)) return null
     const { data, error } = await this.sb.storage.from(THUMB_BUCKET).download(thumbPath(id))
-    if (error || !data) return null
+    if (error || !data) {
+      // BD decía que había thumbnail pero el objeto no existe (inconsistencia
+      // BD↔Storage → GET 400). Cacheamos el negativo para no reintentar y
+      // limpiamos el thumbnail_path huérfano (best-effort; cosmético).
+      this.thumbPaths.set(id, null)
+      void this.sb.from('diagrams').update({ thumbnail_path: null }).eq('id', id)
+      return null
+    }
     try {
       return await blobToDataUrl(data)
     } catch {
