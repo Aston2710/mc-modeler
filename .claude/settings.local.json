@@ -4,8 +4,10 @@
       "Bash(npx tsc *)",
       "mcp__supabase__apply_migration",
       "Bash(npm run *)",
-      "PowerShell(ilspycmd *)",                                                 
-      "PowerShell(& ilspycmd *)"
+      "PowerShell(ilspycmd *)",
+      "PowerShell(& ilspycmd *)",
+      "Skill(deep-research)",
+      "WebSearch"
     ]
   },
   "enabledMcpjsonServers": [

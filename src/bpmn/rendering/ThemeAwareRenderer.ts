@@ -190,7 +190,7 @@ ThemeAwareRenderer.prototype.drawShape = function (
   if (isPhase(element)) {
     const w: number = element.width
     const h: number = element.height
-    const accent = cssVar('--accent') || '#8b5cf6'
+    const accent = cssVar('--accent') || '#8b5cf6'            //  color de las fases
     const stroke = cssVar('--border-strong') || '#d0d5dd'
     const bodyFill = cssVar('--bg-1') || '#fafbfc'
     const R = 8
