@@ -29,7 +29,25 @@ export class YjsBpmnBinding {
   private suppress = false
   private last = new Map<string, ElementSnapshot>()
   private debounceTimer: ReturnType<typeof setTimeout> | null = null
+  private importInProgress = false
   private onCommandStackChanged = () => this.scheduleLocalSync()
+  private onImportStart = () => {
+    this.importInProgress = true
+    if (this.debounceTimer) { clearTimeout(this.debounceTimer); this.debounceTimer = null }
+  }
+  private onImportDone = () => {
+    this.importInProgress = false
+    this.last = this.currentSnapshots()
+  }
+  // Interceptor de alta prioridad para commandStack.changed durante apply remoto.
+  // LabelEditingProvider (bpmn-js) escucha commandStack.changed en prioridad 1000
+  // y llama directEditing.cancel() en CUALQUIER operación — incluso shapes remotos
+  // no relacionados. Registrando en prioridad 5000, disparamos ANTES y si suppress=true
+  // retornamos false → corta propagación → cancel() nunca llega.
+  // diagram-js EventBus: retornar cualquier valor !== undefined llama stopPropagation().
+  private onCommandStackChangedIntercept = (): false | void => {
+    if (this.suppress) return false
+  }
   private observer: ((events: Y.YMapEvent<ElementSnapshot>, tx: Y.Transaction) => void) | null = null
 
   constructor(modeler: Any, doc: Y.Doc) {
@@ -51,6 +69,10 @@ export class YjsBpmnBinding {
     }
 
     this.modeler.get('eventBus').on('commandStack.changed', this.onCommandStackChanged)
+    // Prioridad 5000 > prioridad default 1000 de LabelEditingProvider
+    this.modeler.get('eventBus').on('commandStack.changed', 5000, this.onCommandStackChangedIntercept)
+    this.modeler.get('eventBus').on('import.render.start', this.onImportStart)
+    this.modeler.get('eventBus').on('import.done', this.onImportDone)
 
     this.observer = (event, tx) => {
       if (tx.origin === this.origin) return // cambio propio, el canvas ya lo refleja
@@ -63,6 +85,9 @@ export class YjsBpmnBinding {
     if (this.debounceTimer) clearTimeout(this.debounceTimer)
     try {
       this.modeler.get('eventBus').off('commandStack.changed', this.onCommandStackChanged)
+      this.modeler.get('eventBus').off('commandStack.changed', this.onCommandStackChangedIntercept)
+      this.modeler.get('eventBus').off('import.render.start', this.onImportStart)
+      this.modeler.get('eventBus').off('import.done', this.onImportDone)
     } catch { /* modeler ya destruido */ }
     if (this.observer) this.ymap.unobserve(this.observer)
     this.observer = null
@@ -70,7 +95,12 @@ export class YjsBpmnBinding {
 
   // ── Local → Y ────────────────────────────────────────────────
   private scheduleLocalSync() {
-    if (this.suppress) return
+    if (this.suppress || this.importInProgress) {
+      // Cancelar timer pendiente — su diff quedaría obsoleto porque applyRemote/import
+      // va a avanzar this.last. El flush se hace en applyRemote() antes de suppress=true.
+      if (this.debounceTimer) { clearTimeout(this.debounceTimer); this.debounceTimer = null }
+      return
+    }
     if (this.debounceTimer) clearTimeout(this.debounceTimer)
     this.debounceTimer = setTimeout(() => this.syncLocalToY(), SYNC_DEBOUNCE_MS)
   }
@@ -102,6 +132,23 @@ export class YjsBpmnBinding {
 
   // ── Y → Local ────────────────────────────────────────────────
   private applyRemote(event: Y.YMapEvent<ElementSnapshot>) {
+    // (M2) No aplicar cambios remotos mientras el canvas está siendo re-importado.
+    if (this.importInProgress) return
+
+    // (C1) Flush de cualquier sync local pendiente ANTES de avanzar this.last.
+    // Sin esto, el debounce timer pendiente expira después de que this.last ya fue
+    // actualizado y encuentra diff vacío → el cambio local se pierde silenciosamente.
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer)
+      this.debounceTimer = null
+      this.syncLocalToY()
+    }
+
+    // (C2) El interceptor onCommandStackChangedIntercept (prioridad 5000) bloquea
+    // la propagación de commandStack.changed mientras suppress=true, evitando que
+    // LabelEditingProvider.js:104 llame directEditing.cancel() por ops remotas.
+    // El usuario puede seguir tipeando sin interrupción aunque lleguen cambios de otros peers.
+
     const registry = this.modeler.get('elementRegistry')
     const adds: ElementSnapshot[] = []
     const updates: ElementSnapshot[] = []
@@ -214,12 +261,21 @@ export class YjsBpmnBinding {
           modeling.moveElements([el], { x: dx, y: dy })
         }
       }
-      // nombre
-      if (snap.name != null && el.businessObject?.name !== snap.name) {
+      // (M1) nombre y texto: omitir si el usuario está editando activamente este elemento.
+      // modeling.updateProperties() durante directEditing cancela la edición en curso.
+      let beingEdited = false
+      try {
+        const de = this.modeler.get('directEditing')
+        if (de?.isActive()) {
+          const activeEl = de.getActive()?.element
+          beingEdited = activeEl?.id === snap.id || activeEl?.id === (el as Any).label?.id
+        }
+      } catch { /* noop */ }
+      if (!beingEdited && snap.name != null && el.businessObject?.name !== snap.name) {
         modeling.updateProperties(el, { name: snap.name })
       }
       // texto (TextAnnotation / imágenes embebidas)
-      if (snap.text != null && el.businessObject?.text !== snap.text) {
+      if (!beingEdited && snap.text != null && el.businessObject?.text !== snap.text) {
         modeling.updateProperties(el, { text: snap.text })
       }
       // enlace de subproceso
@@ -245,7 +301,19 @@ export class YjsBpmnBinding {
   private removeElement(id: string) {
     try {
       const el = this.modeler.get('elementRegistry').get(id)
-      if (el) this.modeler.get('modeling').removeElements([el])
+      if (!el) return
+      // (C3) Cancelar directEditing sobre este elemento antes de removeElements().
+      // bpmn-js #1664: llamar removeElements() mientras directEditing está activo
+      // dispara element.updateLabel dentro de execute/revert → corrupción del CommandStack.
+      try {
+        const de = this.modeler.get('directEditing')
+        if (de?.isActive()) {
+          const activeEl = de.getActive()?.element
+          if (activeEl?.id === id || activeEl?.id === (el as Any).label?.id)
+            de.cancel()
+        }
+      } catch { /* noop */ }
+      this.modeler.get('modeling').removeElements([el])
     } catch (e) {
       console.warn('[collab] removeElement falló', id, e)
     }
@@ -265,6 +333,14 @@ export class YjsBpmnBinding {
       if (!current.has(id)) adds.push(snap)
       else if (!snapshotsEqual(current.get(id)!, snap)) updates.push(snap)
     })
+    // (C4) Elementos en canvas pero ausentes del Y.Doc → publicarlos al doc.
+    // "Ausente del Y.Map" en reconciliación inicial ≠ "borrado remotamente";
+    // puede ser trabajo offline que el Y.Doc aún no conoce. Borrar sería pérdida de datos.
+    this.doc.transact(() => {
+      current.forEach((snap, id) => {
+        if (!this.ymap.has(id)) this.ymap.set(id, snap)
+      })
+    }, this.origin)
 
     this.suppress = true
     try {

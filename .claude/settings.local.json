@@ -4,8 +4,22 @@
       "Bash(npx tsc *)",
       "mcp__supabase__apply_migration",
       "Bash(npm run *)",
-      "PowerShell(ilspycmd *)",                                                 
-      "PowerShell(& ilspycmd *)"
+      "PowerShell(ilspycmd *)",
+      "PowerShell(& ilspycmd *)",
+      "Skill(deep-research)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.synergycodes.com)",
+      "WebFetch(domain:discuss.yjs.dev)",
+      "WebFetch(domain:arxiv.org)",
+      "WebFetch(domain:hub.docker.com)",
+      "WebFetch(domain:bpmn.io)",
+      "WebFetch(domain:docs.camunda.io)",
+      "WebFetch(domain:unsupported.docs.camunda.io)",
+      "WebFetch(domain:forum.bpmn.io)",
+      "WebFetch(domain:help.sap.com)",
+      "WebFetch(domain:camunda.com)",
+      "WebFetch(domain:www.enjoytoday.cn)"
     ]
   },
   "enabledMcpjsonServers": [
