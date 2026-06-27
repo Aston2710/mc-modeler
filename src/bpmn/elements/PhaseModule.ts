@@ -53,6 +53,11 @@ function PhaseModule(this: any, eventBus: any, modeling: any, elementRegistry: a
   // Snapshot de anchos por fase (id → width) y del pool, para detectar el delta
   // de un resize y repartirlo con la vecina.
   this._snap = new Map()
+  // Fases capturadas justo antes de un move de pool (posición vieja del pool).
+  // getPhases() usa detección espacial: si el pool ya se movió, no encuentra las
+  // fases porque siguen en la posición anterior. Se captura en preExecute y se
+  // consume en postExecuted para que tile() pueda reubicarlas correctamente.
+  this._movingPoolPhases = null
   const self = this
 
   // Al cargar un diagrama, sanar fases con geometría inválida (NaN) heredadas de
@@ -74,7 +79,7 @@ function PhaseModule(this: any, eventBus: any, modeling: any, elementRegistry: a
   // Tras crear una fase → numerar, colorear y teselar el pool.
   this.postExecuted(['shape.create'], (event: AnyObj) => {
     const shape = event.context.shape
-    if (isPhase(shape)) self.onPhaseAdded(shape)
+    if (isPhase(shape)) self.onPhaseAdded(shape, event.context.target)
   })
 
   // Antes de un resize, captura los anchos actuales (old) para poder calcular el
@@ -95,15 +100,40 @@ function PhaseModule(this: any, eventBus: any, modeling: any, elementRegistry: a
     else if (isPool(shape)) self.onPoolChanged(shape)
   })
 
+  // Antes de mover: capturar qué fases pertenecen a cada pool usando la posición
+  // ACTUAL (pre-move). postExecuted las usa para reubicarlas porque getPhases()
+  // falla cuando el pool ya se movió (las fases siguen en la posición anterior).
+  this.preExecute(['shape.move', 'elements.move'], (event: AnyObj) => {
+    if (self._busy) return
+    const ctx = event.context
+    const shapes: AnyObj[] = ctx.shapes || (ctx.shape ? [ctx.shape] : [])
+    self._movingPoolPhases = null
+    for (const s of shapes) {
+      if (isPool(s)) {
+        const phases = self.getPhases(s)
+        if (phases.length > 0) {
+          if (!self._movingPoolPhases) self._movingPoolPhases = new Map()
+          self._movingPoolPhases.set(s.id, phases)
+        }
+      }
+    }
+  })
+
   // Mover fase → reordenar/encajar en su slot. Mover pool → reubicar fases.
   this.postExecuted(['shape.move', 'elements.move'], (event: AnyObj) => {
     if (self._busy) return
     const ctx = event.context
     const shapes: AnyObj[] = ctx.shapes || (ctx.shape ? [ctx.shape] : [])
     for (const s of shapes) {
-      if (isPhase(s)) { self.onPhaseMoved(s); return }
-      if (isPool(s)) { self.onPoolChanged(s); return }
+      if (isPhase(s)) { self._movingPoolPhases = null; self.onPhaseMoved(s); return }
+      if (isPool(s)) {
+        const precaptured = self._movingPoolPhases?.get(s.id) ?? null
+        self._movingPoolPhases = null
+        self.onPoolChanged(s, precaptured)
+        return
+      }
     }
+    self._movingPoolPhases = null
   })
 
   // ANTES de borrar: (a) si se borra un pool, sus fases se borran con él;
@@ -169,10 +199,36 @@ PhaseModule.prototype.leftOffset = function (pool: AnyObj): number {
 
 // ── operaciones ───────────────────────────────────────────────────────────────
 
-PhaseModule.prototype.onPhaseAdded = function (phase: AnyObj): void {
-  const pool = this.getPool(phase)
-  // Una fase es parte de un pool: si se suelta fuera de todo pool, se cancela.
-  if (!pool) { this.deferRemove([phase]); return }
+PhaseModule.prototype.onPhaseAdded = function (phase: AnyObj, dropTarget?: AnyObj): void {
+  // Buscar el pool vía posición de la nueva fase (caso normal).
+  // Fallback: usar el elemento sobre el que se soltó — cuando se suelta sobre una
+  // fase existente (que cubre todo el pool), getPool(fase_nueva) puede fallar
+  // porque la nueva fase aún está en la posición pre-tile. En ese caso, la fase
+  // o pool bajo el cursor sí tiene posición correcta y lleva al mismo pool.
+  let pool = this.getPool(phase)
+  if (!pool && dropTarget) {
+    if (isPool(dropTarget)) {
+      pool = dropTarget
+    } else if (isPhase(dropTarget)) {
+      pool = this.getPool(dropTarget)
+    } else {
+      let el = dropTarget
+      while (el) { if (isPool(el)) { pool = el; break } el = el.parent }
+    }
+  }
+  // Si aún no se encontró pool, reintentar en el siguiente tick: cuando
+  // postExecuted dispara, bpmn-js puede no haber finalizado la posición del
+  // shape (sub-comandos de CreateGroupBehavior). Sin pool → NO borrar.
+  // Si el retry también falla, la fase queda flotando (visible, no se elimina).
+  if (!pool) {
+    const self = this, ph = phase
+    setTimeout(() => {
+      if (!self._registry.get(ph.id)) return
+      const retryPool = self.getPool(ph)
+      if (retryPool) self.onPhaseAdded(ph)
+    }, 0)
+    return
+  }
   // Numerar y colorear si vienen vacías.
   const all = this.getPhases(pool)
   const idx = all.length // esta fase ya está incluida en getPhases
@@ -296,9 +352,9 @@ PhaseModule.prototype.onPhaseMoved = function (phase: AnyObj): void {
   this.refreshPhases(pool) // reordenar puede cambiar cuál es la última
 }
 
-PhaseModule.prototype.onPoolChanged = function (pool: AnyObj): void {
+PhaseModule.prototype.onPoolChanged = function (pool: AnyObj, precapturedPhases?: AnyObj[] | null): void {
   const offset = this.leftOffset(pool)
-  const phases = this.getPhases(pool)
+  const phases = precapturedPhases ?? this.getPhases(pool)
   if (phases.length === 0) return
   if (!Number.isFinite(pool.width)) return
 

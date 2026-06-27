@@ -431,6 +431,7 @@ export default function App() {
           onNewProject={handleNewProject}
           onShareProject={handleShareProject}
           onNewInProject={handleNewInProject}
+          onSignOut={handleSignOut}
         />
       ) : (
         <div className="app">

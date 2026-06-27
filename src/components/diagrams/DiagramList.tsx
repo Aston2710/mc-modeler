@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, Upload, Plus, FileText, Sun, Moon, X, FolderPlus, Folder, Share2, ArrowLeft, Trash2 } from 'lucide-react'
+import { Search, Upload, Plus, FileText, Sun, Moon, X, FolderPlus, Folder, Share2, ArrowLeft, Trash2, LogOut } from 'lucide-react'
 import { useDiagramStore } from '@/store/diagramStore'
 import { useUIStore } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
@@ -16,9 +16,10 @@ interface DiagramListProps {
   onNewProject?: () => void
   onShareProject?: (projectId: string, projectName: string) => void
   onNewInProject?: (projectId: string) => void
+  onSignOut?: () => void
 }
 
-export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProject, onNewInProject }: DiagramListProps) {
+export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProject, onNewInProject, onSignOut }: DiagramListProps) {
   const { t } = useTranslation()
   const diagrams = useDiagramStore((s) => s.diagrams)
   const projects = useDiagramStore((s) => s.projects)
@@ -53,7 +54,11 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
       if (openProjectId) {
         if (d.projectId !== openProjectId) return false
       } else if (d.projectId) {
-        return false
+        // Si el proyecto padre es visible, el diagrama se navega desde su carpeta.
+        // Si no es visible (acceso solo al diagrama, sin acceso al proyecto),
+        // mostrar en raíz para que el usuario pueda acceder.
+        const projectIsVisible = projects.some((p) => p.id === d.projectId)
+        if (projectIsVisible) return false
       }
       if (search && !d.name.toLowerCase().includes(search.toLowerCase())) return false
       if (filter === 'recent') {
@@ -104,6 +109,11 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
         <button className="icon-btn" onClick={toggleTheme}>
           {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
         </button>
+        {isSupabaseConfigured && onSignOut && (
+          <button className="icon-btn" onClick={onSignOut} title="Cerrar sesión">
+            <LogOut size={16} />
+          </button>
+        )}
       </div>
 
       <div className="home-content">
