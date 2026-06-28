@@ -533,12 +533,12 @@ function buildProcessContent(process: Element, parsed: ParsedBpmn): { activities
 
 // ─── Lanes builder ────────────────────────────────────────────────────────────
 
-function defaultLaneXml(laneId: string, poolId: string, poolBounds: Bounds): string {
+function defaultLaneXml(laneId: string, poolId: string, poolBounds: Bounds, laneName = ''): string {
   const b = { x: poolBounds.x, y: poolBounds.y, width: poolBounds.width, height: poolBounds.height }
-  // Coordinates RELATIVAS al pool (Bizagi guarda los lanes relativos); TextX/Y absolutas.
-  return `<Lane Id="${laneId}" Name="Proceso principal" ParentPool="${poolId}">
+  // Coordinates RELATIVAS al pool (Bizagi guarda los lanes relativos); TextX/Y también relativas.
+  return `<Lane Id="${laneId}" Name="${esc(laneName)}" ParentPool="${poolId}">
           <NodeGraphicsInfos>
-            <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${C.lane.border}" FillColor="${C.lane.fill}" BorderVisible="false" TextX="${b.x}" TextY="${b.y}" TextWidth="${b.width}" TextHeight="${b.height}">
+            <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${C.lane.border}" FillColor="${C.lane.fill}" BorderVisible="false" TextX="0" TextY="0" TextWidth="${b.width}" TextHeight="${b.height}">
               <Coordinates XCoordinate="0" YCoordinate="0" />
               ${formatting(8, true)}
               <TextBackgroundColor>${C.white}</TextBackgroundColor>
@@ -555,14 +555,15 @@ function buildLanes(
   poolBounds: Bounds,
   shapes: Map<string, Bounds>,
   idMap: Map<string, string>,
+  poolName = '',
 ): string {
   const lanes = laneSet
     ? Array.from(laneSet.getElementsByTagNameNS('http://www.omg.org/spec/BPMN/20100524/MODEL', 'lane'))
     : []
 
   if (lanes.length === 0) {
-    // Bizagi needs at least one Lane to render the pool container
-    return `<Lanes>\n        ${defaultLaneXml(crypto.randomUUID(), poolId, poolBounds)}\n      </Lanes>`
+    // Bizagi needs at least one Lane to render the pool container; use pool name, not hardcoded string
+    return `<Lanes>\n        ${defaultLaneXml(crypto.randomUUID(), poolId, poolBounds, poolName)}\n      </Lanes>`
   }
 
   const laneXmls = lanes.map(lane => {
@@ -671,7 +672,7 @@ function buildPool(participant: Element, process: Element | null, parsed: Parsed
   const name           = participant.getAttribute('name') ?? ''
   const b              = shapes.get(origId) ?? { x: 30, y: 40, width: 900, height: 300 }
   const laneSet  = process?.getElementsByTagNameNS(ns.bpmn, 'laneSet')[0]
-  const lanesXml = buildLanes(laneSet, id, b, shapes, idMap)
+  const lanesXml = buildLanes(laneSet, id, b, shapes, idMap, name)
   const milestonesXml = buildMilestones(phaseGroups, id, b, shapes, idMap)
 
   return `<Pool Id="${id}" Name="${esc(name)}" Process="${processRef}" BoundaryVisible="true">
@@ -688,7 +689,7 @@ function buildPool(participant: Element, process: Element | null, parsed: Parsed
 function buildSyntheticPool(poolId: string, processRef: string, diagramName: string, shapes: Map<string, Bounds>, phaseGroups: Element[] = []): string {
   const b        = shapes.get(processRef) ?? { x: 30, y: 40, width: 1500, height: 800 }
   const laneId   = crypto.randomUUID()
-  const lanesXml = `<Lanes>\n        ${defaultLaneXml(laneId, poolId, b)}\n      </Lanes>`
+  const lanesXml = `<Lanes>\n        ${defaultLaneXml(laneId, poolId, b, diagramName)}\n      </Lanes>`
   const milestonesXml = buildMilestones(phaseGroups, poolId, b, shapes, new Map())
   return `<Pool Id="${poolId}" Name="${esc(diagramName)}" Process="${processRef}" BoundaryVisible="true">
     ${lanesXml}
@@ -928,6 +929,40 @@ ${items}
 </UserPreferences>`
 }
 
+// ─── Ghost "Proceso principal" pool (Bizagi always requires this outer container) ──
+
+function buildGhostPoolXml(now: string): { pool: string; wf: string } {
+  const ghostPoolId = crypto.randomUUID()
+  const ghostProcId = crypto.randomUUID()
+  const rtProps = buildRuntimeProperties('Proceso principal', now)
+  const pool = `<Pool Id="${ghostPoolId}" Name="Proceso principal" Process="${ghostProcId}" BoundaryVisible="false">
+      <Lanes />
+      <NodeGraphicsInfos>
+        <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="0" Width="0" BorderColor="${C.pool.border}" FillColor="${C.pool.fill}">
+          <Coordinates XCoordinate="30" YCoordinate="30" />
+          ${formatting(10, true)}
+        </NodeGraphicsInfo>
+      </NodeGraphicsInfos>
+    </Pool>`
+  const wf = `<WorkflowProcess Id="${ghostProcId}" Name="Proceso principal">
+    <ProcessHeader>
+      <Created>${now}</Created>
+      <Description />
+    </ProcessHeader>
+    <RedefinableHeader>
+      <Author />
+      <Version />
+      <Countrykey>CO</Countrykey>
+    </RedefinableHeader>
+    <ActivitySets />
+    <DataInputOutputs />
+    <ExtendedAttributes>
+      <ExtendedAttribute Name="RuntimeProperties" Value="${rtProps}" />
+    </ExtendedAttributes>
+  </WorkflowProcess>`
+  return { pool, wf }
+}
+
 // ─── Diagram.xml builder (XPDL 2.2) ──────────────────────────────────────────
 
 function buildDiagramXml(diagUuid: string, diagramName: string, author: string, now: string, parsed: ParsedBpmn): string {
@@ -935,6 +970,11 @@ function buildDiagramXml(diagUuid: string, diagramName: string, author: string, 
 
   const poolParts: string[] = []
   const wfParts:   string[] = []
+
+  // Bizagi requires a hidden "Proceso principal" outer container as the first Pool/WorkflowProcess.
+  const { pool: ghostPool, wf: ghostWf } = buildGhostPoolXml(now)
+  poolParts.push(ghostPool)
+  wfParts.push(ghostWf)
 
   // Las fases (Group id `Phase_*`) se exportan como <Milestone> dentro del Pool,
   // NO como <Artifact/Group>. El resto de grupos siguen siendo artefactos.

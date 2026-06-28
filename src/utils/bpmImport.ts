@@ -319,11 +319,11 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
 
   if (pools.length > 0) {
     pools.forEach((pool) => {
-      // Fix 1: skip Bizagi's invisible outer container pool (BoundaryVisible=false + 0×0 dims)
-      if (pool.getAttribute('BoundaryVisible') === 'false') {
-        const { bounds: pb0 } = readGraphics(pool)
-        if (!pb0 || (pb0.width === 0 && pb0.height === 0)) return
-      }
+      // Skip Bizagi's invisible outer container pool. BoundaryVisible=false is the primary
+      // signal; the secondary check (no Lane children) guards against non-Bizagi XPDL tools
+      // that may use BoundaryVisible=false for borderless-but-real pools with content.
+      if (pool.getAttribute('BoundaryVisible') === 'false' &&
+          pool.querySelectorAll('Lane').length === 0) return
       const poolId = id(pool.getAttribute('Id'))
       knownIds.add(poolId)
       const poolName = pool.getAttribute('Name') ?? ''

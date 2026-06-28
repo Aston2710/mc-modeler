@@ -1,8 +1,8 @@
-# Fix: Pool fantasma y artefactos en proceso equivocado — Importación Bizagi
+# Fix: Pool fantasma y artefactos en proceso equivocado — Importación/Exportación Bizagi
 
-**Archivo afectado:** `src/utils/bpmImport.ts`  
+**Archivos afectados:** `src/utils/bpmImport.ts`, `src/utils/bpmExport.ts`  
 **Fecha:** 2026-06-28  
-**Síntomas:** Pool invisible arrastrable, comentarios/grupos ocultos bajo el pool real, desfase de shapes al expandir el pool fantasma.
+**Síntomas:** Pool invisible arrastrable, comentarios/grupos ocultos bajo el pool real, desfase de shapes al expandir el pool fantasma. En diagramas complejos (ej. "Trazabilidad de pedidos"), el ghost pool aparecía **visiblemente** en mc-modeler y algunos comentarios quedaban atrapados dentro de él.
 
 ---
 
@@ -24,13 +24,11 @@ La función central es `xpdlToBpmn()`. Su flujo:
 
 ### 2.1 Qué genera Bizagi en el XPDL
 
-Todo proyecto de Bizagi exporta **obligatoriamente** un pool contenedor llamado "Proceso principal". Este pool es invisible en la UI de Bizagi —el usuario nunca lo ve— pero está presente en el XPDL con estas características:
+Todo proyecto de Bizagi exporta **obligatoriamente** un pool contenedor llamado "Proceso principal". Este pool es invisible en la UI de Bizagi —el usuario nunca lo ve— pero está presente en el XPDL con `BoundaryVisible="false"`.
 
+**Forma mínima** (diagramas simples, ej. Prueba.bpm):
 ```xml
-<Pool Id="cfd50d1f-60b6-4782-a2b3-6601d13b89f1"
-      Name="Proceso principal"
-      Process="f2bfdb37-7ff6-4ca0-87ea-f65dd50deef2"
-      BoundaryVisible="false">
+<Pool Id="cfd50d1f-..." Name="Proceso principal" Process="f2bfdb37-..." BoundaryVisible="false">
   <Lanes />
   <NodeGraphicsInfos>
     <NodeGraphicsInfo Height="0" Width="0">
@@ -40,79 +38,62 @@ Todo proyecto de Bizagi exporta **obligatoriamente** un pool contenedor llamado 
 </Pool>
 ```
 
-Flags clave:
-- `BoundaryVisible="false"` — Bizagi no lo dibuja.
-- `Height=0, Width=0` — dimensiones explícitamente nulas.
-- Posición `(30, 30)` — idéntica a la del pool real del usuario.
-- `<Lanes />` vacío y `WorkflowProcess` asociado también vacío (sin actividades).
-
-El pool real del usuario (ej. "cualquiera") aparece **a continuación** en el XPDL:
-
+**Forma con dimensiones reales** (diagramas editados/complejos, ej. Trazabilidad de pedidos.bpm):
 ```xml
-<Pool Id="3535cab7-19c9-423f-9e5c-1ce9ffc9dea8"
-      Name="cualquiera"
-      Process="8068af47-4861-4469-8f60-da72a7ba086c"
-      BoundaryVisible="true">
+<Pool Id="f8c2999b-..." Name="Proceso principal" Process="aa686297-..." BoundaryVisible="false">
+  <Lanes />
   <NodeGraphicsInfos>
-    <NodeGraphicsInfo Height="240" Width="700">
+    <NodeGraphicsInfo Height="350" Width="700">
       <Coordinates XCoordinate="30" YCoordinate="30" />
+    </NodeGraphicsInfo>
+  </NodeGraphicsInfos>
+</Pool>
 ```
 
-Ambos pools comparten la misma posición `(30, 30)`.
+**Invariantes del ghost pool en TODOS los archivos Bizagi:**
+- `BoundaryVisible="false"` — siempre.
+- `<Lanes />` vacío — nunca tiene Lane children.
+- `WorkflowProcess` asociado vacío — sin `<Activities>`, sin `<Transitions>`.
+- Aparece **primero** en el listado de `<Pools>`.
 
-### 2.2 Lo que el importador hacía
+Las dimensiones varían: Bizagi las actualiza cuando el usuario interactúa con el diagrama raíz antes de exportar. Por eso no son un identificador confiable.
 
-El loop original en `xpdlToBpmn()` iteraba **todos** los pools sin distinción:
+### 2.2 Lo que el importador hacía (primer fix — condición insuficiente)
+
+La primera versión del fix filtraba con condición doble: `BoundaryVisible=false` **y** `Width=0 && Height=0`:
 
 ```typescript
-// ANTES — sin filtro
-if (pools.length > 0) {
-  pools.forEach((pool) => {
-    const poolId = id(pool.getAttribute('Id'))
-    // ... generaba participant + process para TODOS los pools
-    participantsXml.push(`<bpmn:participant id="${poolId}" name="${esc(poolName)}" .../>`)
-    shapesXml.push(`<dc:Bounds x="30" y="30" width="0" height="0" />`)
-    emitProcess(procId, lanes, nodes, edges)
-  })
+if (pool.getAttribute('BoundaryVisible') === 'false') {
+  const { bounds: pb0 } = readGraphics(pool)
+  if (!pb0 || (pb0.width === 0 && pb0.height === 0)) return  // ← solo filtraba 0×0
 }
 ```
 
-Para "Proceso principal" esto generaba BPMN completamente válido:
-
-```xml
-<bpmn:participant id="n_cfd50d1f60b64782a2b36601d13b89f1"
-                  name="Proceso principal"
-                  processRef="n_f2bfdb377ff64ca087eaf65dd50deef2" />
-<bpmndi:BPMNShape ...>
-  <dc:Bounds x="30" y="30" width="0" height="0" />  <!-- 0×0 -->
-</bpmndi:BPMNShape>
-<bpmn:process id="n_f2bfdb377ff64ca087eaf65dd50deef2" isExecutable="false"/>
-```
-
-bpmn-js recibía una colaboración con **dos participantes**: uno 0×0 (fantasma) y uno 700×240 (real), ambos en `(30, 30)`.
+**Falla:** "Trazabilidad de pedidos" tiene ghost pool con `Height=350, Width=700` → pasa el check → se renderiza como pool real visible en mc-modeler.
 
 ---
 
 ## 3. Consecuencias en bpmn-js
 
-### 3.1 Por qué el pool 0×0 es invisible pero interactuable
+### 3.1 Ghost pool 0×0 — invisible pero interactuable
 
-Un `<rect width="0" height="0">` en SVG no tiene área visual → invisible. Sin embargo, bpmn-js crea el elemento en su `elementRegistry` como un participante legítimo. Existen:
-- Su shape en el registry.
-- Su label ("Proceso principal") como elemento separado, posicionado en `(30, 30)` con altura degenerada → texto disperso visible en el canvas a escala.
-- Sus handles de selección/resize una vez seleccionado.
+Un `<rect width="0" height="0">` en SVG no tiene área visual → invisible. Sin embargo, bpmn-js lo registra en su `elementRegistry` como participante legítimo:
+- Su label ("Proceso principal") aparece como texto flotante en `(30, 30)`.
+- Seleccionable por Ctrl+A o clic en la posición `(30, 30)` (superpuesto al pool real).
+- Arrastrable una vez seleccionado.
 
-El usuario podía llegar a seleccionarlo accidentalmente (por Ctrl+A o clic en `(30, 30)` donde ambos pools se superponen) y arrastrarlo.
+### 3.2 Ghost pool con dimensiones reales — visible directamente
 
-### 3.2 Por qué expandirlo rompía el diagrama
+Cuando el ghost tiene dimensiones > 0 (ej. 700×350), bpmn-js lo renderiza como un participant real con borde y etiqueta "Proceso principal" visible en el canvas. El usuario ve dos pools superpuestos: el real y el fantasma.
 
-bpmn-js implementa **reparenting automático**: al hacer resize de un participante, cualquier elemento cuyos bounds caigan dentro del nuevo tamaño del participante pasa a ser hijo de ese participante (`shape.parent` cambia). 
+### 3.3 Expandir el ghost rompía el diagrama (ambos casos)
 
-Cuando el usuario expandía "Proceso principal" hasta cubrir el área de "cualquiera":
-1. Las tareas, eventos y lanes de "cualquiera" quedaban geométricamente dentro de "Proceso principal".
-2. bpmn-js los reparentaba a "Proceso principal".
-3. "cualquiera" perdía sus hijos → su laneSet y procesos internos quedaban inconsistentes.
-4. Mover cualquier elemento causaba desfases porque las relaciones padre-hijo estaban rotas.
+bpmn-js implementa **reparenting automático**: al hacer resize de un participante, cualquier elemento dentro de sus nuevos bounds pasa a ser hijo de ese participante (`shape.parent` cambia).
+
+Cuando el usuario expandía "Proceso principal" hasta cubrir "cualquiera":
+1. Tareas, eventos y lanes de "cualquiera" se reparentaban a "Proceso principal".
+2. "cualquiera" perdía sus hijos → laneSet y procesos internos inconsistentes.
+3. Mover cualquier elemento causaba desfases por relaciones padre-hijo rotas.
 
 ---
 
@@ -120,82 +101,81 @@ Cuando el usuario expandía "Proceso principal" hasta cubrir el área de "cualqu
 
 ### 4.1 El mecanismo de inyección original
 
-Los artefactos XPDL (textAnnotation, Group, DataObject) viven a nivel de `<Package>`, no dentro de un `<WorkflowProcess>`. BPMN 2.0 requiere que estén dentro de un `<bpmn:process>`. El importador los colectaba y los inyectaba así:
+Los artefactos XPDL (textAnnotation, Group, DataObject) viven a nivel de `<Package>`. BPMN 2.0 requiere que estén dentro de un `<bpmn:process>`. El importador original los inyectaba siempre en `processesXml[0]`:
 
 ```typescript
-// ANTES — siempre processesXml[0]
+// ANTES
 const artifactEls: string[] = []
-// ... llenaba artifactEls ...
 if (artifactEls.length > 0) {
-  processesXml[0] = processesXml[0].replace(
-    '</bpmn:process>',
-    `${artifactEls.join('')}</bpmn:process>`
-  )
+  processesXml[0] = processesXml[0].replace('</bpmn:process>', `${artifactEls.join('')}</bpmn:process>`)
 }
 ```
 
-### 4.2 Por qué `processesXml[0]` era el proceso equivocado
+### 4.2 Por qué era el proceso equivocado
 
-El array `processesXml` se llenaba en el orden de aparición de los pools en el XPDL. En todo archivo Bizagi:
+`processesXml` se llenaba en orden de aparición de pools. Bizagi siempre pone "Proceso principal" primero:
 
 ```
 XPDL order:
   Pool 1: "Proceso principal"  →  processesXml[0] = proceso VACÍO
-  Pool 2: "cualquiera"         →  processesXml[1] = proceso REAL
+  Pool 2: pool real del usuario →  processesXml[1] = proceso REAL
 ```
 
-Los artefactos (ej. "comentario 1", coordenadas `x=436, y=171` — dentro de "cualquiera") se inyectaban en `processesXml[0]` = el proceso del fantasma, no en el proceso de "cualquiera".
+Los artefactos se inyectaban en el proceso vacío del fantasma, no en el proceso real.
 
-### 4.3 Consecuencia visual
+### 4.3 Caso agravado con ghost pool visible (Trazabilidad)
 
-En bpmn-js, un elemento pertenece al participante de su proceso. El comentario estaba en el proceso de "Proceso principal" pero visualmente en `(436, 171)`, dentro de los bounds de "cualquiera" `(30–730 × 30–270)`.
+Ghost pool bounds: `x=30, y=30, w=700, h=350` → cubre `(30–730, 30–380)`.
 
-- bpmn-js lo renderizaba en `(436, 171)` correctamente.
-- Pero su **z-order** y **ownership** correspondían al participante fantasma.
-- El pool "cualquiera" (renderizado encima) lo cubría visualmente.
-- Al mover "cualquiera", el comentario no se movía (no era su hijo) → quedaba visible, desplazado de su posición original relativa.
+Artefacto "El ERP retiene el pedido..." en `(521, 130)`, centro en `(607, 160)` — geometricamente dentro del ghost pool. Con el ghost pool sin filtrar y en `poolBoundsMap`, la contención geométrica lo asignaba **correctamente al proceso del ghost**, que era el proceso incorrecto. El artefacto aparecía atrapado dentro del ghost pool visible.
 
-Lo mismo para grupos Bizagi y data objects.
+### 4.4 Consecuencia visual (caso 0×0)
+
+El comentario estaba en el proceso de "Proceso principal" pero visualmente en `(436, 171)`, dentro de los bounds de "cualquiera":
+- bpmn-js lo renderizaba correctamente en `(436, 171)`.
+- Su z-order y ownership correspondían al participante fantasma.
+- El pool "cualquiera" (encima) lo cubría visualmente.
+- Al mover "cualquiera", el comentario no se movía → quedaba desplazado.
 
 ---
 
-## 5. La solución
+## 5. La solución — importación
 
-### 5.1 Fix 1 — Filtrar el pool contenedor (Bug principal)
+### 5.1 Fix definitivo — filtro robusto
 
-En el loop de pools, antes de procesar cualquier pool, se evalúan sus atributos de visibilidad y sus dimensiones. Si un pool tiene `BoundaryVisible="false"` **y** sus dimensiones son 0×0, se omite completamente:
+La condición correcta usa `BoundaryVisible="false"` como señal primaria y ausencia de `<Lane>` children como guarda secundaria para compatibilidad con XPDL de terceros:
 
 ```typescript
 pools.forEach((pool) => {
-  // Skip Bizagi's invisible outer container pool (BoundaryVisible=false + 0×0 dims)
-  if (pool.getAttribute('BoundaryVisible') === 'false') {
-    const { bounds: pb0 } = readGraphics(pool)
-    if (!pb0 || (pb0.width === 0 && pb0.height === 0)) return
-  }
+  // BoundaryVisible=false es siempre el pool contenedor oculto de Bizagi.
+  // Guarda secundaria (sin Lane children): protege contra herramientas XPDL que
+  // usen BoundaryVisible=false para pools sin borde pero con contenido real.
+  if (pool.getAttribute('BoundaryVisible') === 'false' &&
+      pool.querySelectorAll('Lane').length === 0) return
+
   // ... resto del procesamiento
 })
 ```
 
-**Por qué la condición doble (`BoundaryVisible` + dimensiones 0×0):**
-- `BoundaryVisible="false"` solo podría ser una convención interna de Bizagi para marcar el contenedor. La combinación con `0×0` garantiza que no se salten pools que el usuario haya marcado como no-visible pero con dimensiones reales (caso hipotético pero posible en XPDL de terceros).
-- Es la condición más específica y segura posible.
+**Por qué esta combinación es segura:**
+- `BoundaryVisible=false` + sin lanes → SIEMPRE el ghost de Bizagi (confirmado en todos los archivos analizados).
+- Un pool real nunca tiene ambos a la vez: si tiene contenido, tiene lanes; si tiene `BoundaryVisible=false` sin lanes, es el contenedor oculto.
+- Dimensiones 0×0 o 700×350 o cualquier otra: ambas quedan filtradas.
 
-**Resultado:** El BPMN generado contiene solo los pools reales del usuario. `processesXml[0]` pasa a ser el primer proceso con contenido real.
+### 5.2 Fix 2 — Inyección de artefactos por contención geométrica
 
-### 5.2 Fix 2 — Inyección de artefactos por contención geométrica (Bug secundario)
-
-Se introduce un mapa `poolBoundsMap` que registra los bounds de cada pool aceptado y el índice de su proceso en `processesXml`:
+Se introduce `poolBoundsMap` que registra bounds de cada pool aceptado y el índice de su proceso en `processesXml`:
 
 ```typescript
 const poolBoundsMap: Array<{ bounds: Bounds; procIdx: number }> = []
 
-// En el loop de pools, justo antes/después de emitProcess():
-const procIdx = processesXml.length   // índice que tomará el proceso nuevo
+// En el loop de pools, después de emitProcess():
+const procIdx = processesXml.length
 emitProcess(procId, lanes, nodes, edges)
 if (poolBounds) poolBoundsMap.push({ bounds: poolBounds, procIdx })
 ```
 
-Se añade `findProcIdx()` que dado los bounds de un artefacto busca qué pool lo contiene geométricamente (punto central del artefacto dentro del rectángulo del pool). Fallback a índice 0 si no hay coincidencia:
+`findProcIdx()` asigna cada artefacto al proceso del pool que lo contiene geométricamente:
 
 ```typescript
 const findProcIdx = (b: Bounds | null): number => {
@@ -213,11 +193,11 @@ const findProcIdx = (b: Bounds | null): number => {
 }
 ```
 
-`artifactEls: string[]` se reemplaza por `artifactsByProc: Map<number, string[]>` y `addArtifact(procIdx, el, id?)`:
+`artifactEls: string[]` → reemplazado por `artifactsByProc: Map<number, string[]>` + `artifactProcMap: Map<string, number>`:
 
 ```typescript
 const artifactsByProc = new Map<number, string[]>()
-const artifactProcMap = new Map<string, number>() // artifact bpmn-id → process index
+const artifactProcMap = new Map<string, number>()
 
 const addArtifact = (procIdx: number, el: string, artifactId?: string) => {
   if (!artifactsByProc.has(procIdx)) artifactsByProc.set(procIdx, [])
@@ -226,8 +206,7 @@ const addArtifact = (procIdx: number, el: string, artifactId?: string) => {
 }
 ```
 
-La inyección final itera el mapa en lugar de siempre usar índice 0:
-
+Inyección final por proceso correcto:
 ```typescript
 artifactsByProc.forEach((els, pi) => {
   const idx = Math.min(pi, processesXml.length - 1)
@@ -235,40 +214,99 @@ artifactsByProc.forEach((els, pi) => {
 })
 ```
 
-### 5.3 Fix bonus — Asociaciones enrutadas correctamente
-
-Las `<bpmn:association>` (línea que conecta anotación ↔ tarea) también deben estar dentro del proceso correcto. `artifactProcMap` registra a qué proceso fue cada artefacto. Las asociaciones consultan el mapa con sus endpoints:
+### 5.3 Asociaciones enrutadas correctamente
 
 ```typescript
 const assocProcIdx = artifactProcMap.get(src) ?? artifactProcMap.get(tgt) ?? 0
 addArtifact(assocProcIdx, `<bpmn:association id="${aid}" sourceRef="${src}" targetRef="${tgt}" />`)
 ```
 
-Esto garantiza que la asociación entre "comentario 1" y "Tarea 3" quede en el mismo proceso que la anotación.
+---
+
+## 6. La solución — exportación
+
+### 6.1 Problema: mc-modeler no generaba el ghost pool
+
+Los `.bpm` exportados por mc-modeler no incluían el pool "Proceso principal". Al reimportar en Bizagi:
+- Visualmente correcto (Bizagi mostraba los pools reales).
+- Bizagi reconstruía "Proceso principal" internamente al guardar.
+- Para diagramas con BPSim, variables de proceso o atributos del proceso raíz: posible pérdida de datos durante el ciclo de importación.
+
+### 6.2 Fix — `buildGhostPoolXml()` en bpmExport.ts
+
+Nueva función que genera el pool fantasma y su WorkflowProcess vacío:
+
+```typescript
+function buildGhostPoolXml(now: string): { pool: string; wf: string } {
+  const ghostPoolId = crypto.randomUUID()
+  const ghostProcId = crypto.randomUUID()
+  const rtProps = buildRuntimeProperties('Proceso principal', now)
+  const pool = `<Pool Id="${ghostPoolId}" Name="Proceso principal" Process="${ghostProcId}" BoundaryVisible="false">
+      <Lanes />
+      <NodeGraphicsInfos>
+        <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="0" Width="0" ...>
+          <Coordinates XCoordinate="30" YCoordinate="30" />
+          ...
+        </NodeGraphicsInfo>
+      </NodeGraphicsInfos>
+    </Pool>`
+  const wf = `<WorkflowProcess Id="${ghostProcId}" Name="Proceso principal">
+    <ProcessHeader><Created>${now}</Created><Description /></ProcessHeader>
+    <RedefinableHeader><Author /><Version /><Countrykey>CO</Countrykey></RedefinableHeader>
+    <ActivitySets />
+    <DataInputOutputs />
+    <ExtendedAttributes>
+      <ExtendedAttribute Name="RuntimeProperties" Value="${rtProps}" />
+    </ExtendedAttributes>
+  </WorkflowProcess>`
+  return { pool, wf }
+}
+```
+
+En `buildDiagramXml`, se prepend antes de todos los pools reales:
+
+```typescript
+const poolParts: string[] = []
+const wfParts:   string[] = []
+
+// Ghost pool primero — Bizagi siempre lo espera como primer elemento
+const { pool: ghostPool, wf: ghostWf } = buildGhostPoolXml(now)
+poolParts.push(ghostPool)
+wfParts.push(ghostWf)
+
+// ... pools reales del diagrama
+```
+
+**Resultado del round-trip:** Bizagi recibe "Proceso principal" exactamente donde lo espera → no necesita reconstruirlo → comportamiento idéntico al de un archivo nativo Bizagi.
 
 ---
 
-## 6. Por qué no bastaba con Fix 1 solo (en general)
+## 7. Por qué el Fix 1 original era insuficiente (y el nuevo es robusto)
 
-En el caso de Prueba.bpm, Fix 1 era suficiente para arreglar Fix 2 también: al eliminar "Proceso principal", `processesXml[0]` pasa a ser "cualquiera" y los artefactos van al proceso correcto.
+| Versión | Condición | Prueba.bpm (0×0) | Trazabilidad (700×350) |
+|---|---|---|---|
+| Fix original | `BoundaryVisible=false` + `Width=0 && Height=0` | ✓ filtrado | ✗ no filtrado → visible |
+| Fix definitivo | `BoundaryVisible=false` + `querySelectorAll('Lane').length === 0` | ✓ filtrado | ✓ filtrado |
 
-Sin embargo, para diagramas con **múltiples pools reales** (Pool A + Pool B + artefactos en Pool B), el `processesXml[0]` sería el proceso de Pool A, no el de Pool B. Fix 2 resuelve este caso correctamente con la contención geométrica.
+Las dimensiones del ghost pool varían entre archivos Bizagi. `BoundaryVisible` y ausencia de lanes son los únicos invariantes confiables.
 
 ---
 
-## 7. Cobertura de casos restantes
+## 8. Cobertura de casos
 
 | Caso | Comportamiento |
 |------|---------------|
-| `.bpm` con un solo pool | Fix 1 elimina el fantasma; Fix 2 enruta artefactos al único pool real. |
-| `.bpm` con múltiples pools reales | Fix 2 usa contención geométrica para cada artefacto. |
-| Artefacto fuera de todos los pools | Fallback a `procIdx=0` (primer pool real). |
-| `.bpm` sin pools (proceso suelto) | `poolBoundsMap` queda vacío; fallback a 0 = único proceso. Comportamiento sin cambio. |
-| Pool con `BoundaryVisible="false"` y dimensiones > 0 | NO se salta — solo se salta la combinación invisible + 0×0. |
-| Asociación con source en un pool y target en otro | Va al proceso del endpoint que sea artefacto; si ninguno es artefacto (caso inválido en BPMN), va a índice 0. |
+| `.bpm` ghost pool 0×0 | Filtrado en import. ✓ |
+| `.bpm` ghost pool con dimensiones reales | Filtrado en import. ✓ |
+| `.bpm` con un solo pool real | Fix 1 elimina ghost; Fix 2 enruta artefactos al único pool real. ✓ |
+| `.bpm` con múltiples pools reales | Fix 2 usa contención geométrica para asignar artefactos al pool correcto. ✓ |
+| Artefacto fuera de todos los pools | Fallback a `procIdx=0` (primer pool real). ✓ |
+| `.bpm` sin pools (proceso suelto) | `poolBoundsMap` vacío; fallback a 0. ✓ |
+| Pool `BoundaryVisible=false` con lanes (XPDL terceros) | NO se filtra — guarda secundaria protege pools reales sin borde. ✓ |
+| Export mc-modeler → Bizagi | Ghost pool emitido → round-trip limpio sin reconstrucción Bizagi. ✓ |
 
 ---
 
-## 8. Archivo verificado
+## 9. Archivos verificados
 
-`src/utils/bpmImport.ts` pasa `tsc --noEmit` sin errores tras los cambios. No quedan referencias a `artifactEls`.
+`src/utils/bpmImport.ts` y `src/utils/bpmExport.ts` pasan `tsc --noEmit` sin errores tras todos los cambios.
