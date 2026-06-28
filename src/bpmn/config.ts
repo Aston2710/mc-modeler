@@ -23,6 +23,7 @@ import SubProcessInterceptorModule from './elements/SubProcessInterceptorModule'
 import PhaseModule from './elements/PhaseModule'
 import PhaseLabelEditingModule from './elements/PhaseLabelEditingModule'
 import GroupConnectionRulesModule from './elements/GroupConnectionRulesModule'
+import StickyLaneLabelsModule from './canvas/StickyLaneLabelsModule'
 import flujoModdle from './moddle/flujo.json'
 
 // NOTA: BizagiDragRouter eliminado — bpmn-js llama al layouter registrado
@@ -52,6 +53,7 @@ export const MODELER_CONFIG = {
     PhaseModule,
     PhaseLabelEditingModule,
     GroupConnectionRulesModule,
+    StickyLaneLabelsModule,
     BizagiLayouter,
     BizagiConnectionDocking,
     BizagiSegmentHandles,
