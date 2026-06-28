@@ -438,6 +438,10 @@ PhaseModule.prototype.healAll = function (): void {
     const phases = this.getPhases(pool)
     if (phases.length === 0) continue
     this.onPoolChanged(pool)
+    // Re-render forzado: durante el import bpmn-js renderiza cada shape por
+    // separado (siblings incompletos) → chevrones y divisores no aparecen.
+    // element.changed es un evento puro (no toca CommandStack → no ensucia).
+    this.refreshPhases(pool)
   }
 }
 
