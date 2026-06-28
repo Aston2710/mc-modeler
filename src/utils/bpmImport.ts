@@ -202,6 +202,7 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
   const processesXml: string[] = []
   const phaseGroupsXml: string[] = [] // Milestones → fases (bpmn:group Phase_*)
   const knownIds = new Set<string>() // ids ya emitidos (nodos/lanes/artefactos) → validar asociaciones
+  const poolBoundsMap: Array<{ bounds: Bounds; procIdx: number }> = []
 
   const buildProcess = (procBizId: string, wf: Element | undefined): { procId: string; nodes: FlowNode[]; edges: Edge[] } => {
     const procId = id(procBizId || `proc_${Math.random().toString(36).slice(2, 8)}`)
@@ -318,6 +319,11 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
 
   if (pools.length > 0) {
     pools.forEach((pool) => {
+      // Fix 1: skip Bizagi's invisible outer container pool (BoundaryVisible=false + 0×0 dims)
+      if (pool.getAttribute('BoundaryVisible') === 'false') {
+        const { bounds: pb0 } = readGraphics(pool)
+        if (!pb0 || (pb0.width === 0 && pb0.height === 0)) return
+      }
       const poolId = id(pool.getAttribute('Id'))
       knownIds.add(poolId)
       const poolName = pool.getAttribute('Name') ?? ''
@@ -383,7 +389,9 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
         })
       }
 
+      const procIdx = processesXml.length
       emitProcess(procId, lanes, nodes, edges)
+      if (poolBounds) poolBoundsMap.push({ bounds: poolBounds, procIdx })
     })
   } else if (workflows.length > 0) {
     // Sin pools: un proceso suelto.
@@ -395,7 +403,27 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
   // ── Artefactos package-level (Anotaciones, Data Objects, Grupos) ──────────────
   // Se exportan/almacenan a nivel de paquete; los traemos como elementos BPMN y
   // se inyectan en un proceso (bpmn-js los necesita dentro de un <process>).
-  const artifactEls: string[] = []
+  // Fix 2: group artifacts by process index using geometric containment
+  const artifactsByProc = new Map<number, string[]>()
+  const artifactProcMap = new Map<string, number>() // artifact bpmn-id → process index
+  const findProcIdx = (b: Bounds | null): number => {
+    if (b && poolBoundsMap.length > 0) {
+      const cx = b.x + b.width / 2
+      const cy = b.y + b.height / 2
+      for (const entry of poolBoundsMap) {
+        if (cx >= entry.bounds.x && cx <= entry.bounds.x + entry.bounds.width &&
+            cy >= entry.bounds.y && cy <= entry.bounds.y + entry.bounds.height) {
+          return entry.procIdx
+        }
+      }
+    }
+    return 0
+  }
+  const addArtifact = (procIdx: number, el: string, artifactId?: string) => {
+    if (!artifactsByProc.has(procIdx)) artifactsByProc.set(procIdx, [])
+    artifactsByProc.get(procIdx)!.push(el)
+    if (artifactId) artifactProcMap.set(artifactId, procIdx)
+  }
   const categoriesXml: string[] = [] // categorías para el nombre de los grupos
   let catSeq = 0
   // <Documentation> del elemento → bpmn:documentation (el "comentario").
@@ -414,11 +442,11 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
       const doc = readDoc(art)
       if (type === 'Annotation') {
         const text = art.getAttribute('TextAnnotation') ?? ''
-        artifactEls.push(`<bpmn:textAnnotation id="${aid}">${doc}<bpmn:text>${esc(text)}</bpmn:text></bpmn:textAnnotation>`)
+        addArtifact(findProcIdx(b), `<bpmn:textAnnotation id="${aid}">${doc}<bpmn:text>${esc(text)}</bpmn:text></bpmn:textAnnotation>`, aid)
         shapesXml.push(di); knownIds.add(aid)
       } else if (type === 'DataObject') {
         const name = art.getAttribute('Name') ?? ''
-        artifactEls.push(`<bpmn:dataObjectReference id="${aid}" name="${esc(name)}">${doc}</bpmn:dataObjectReference>`)
+        addArtifact(findProcIdx(b), `<bpmn:dataObjectReference id="${aid}" name="${esc(name)}">${doc}</bpmn:dataObjectReference>`, aid)
         shapesXml.push(di); knownIds.add(aid)
       } else if (type === 'Group') {
         // Grupo con nombre (el "comentario" visible). bpmn-js muestra la etiqueta
@@ -431,7 +459,7 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
           catRef = ` categoryValueRef="${cvId}"`
           catSeq++
         }
-        artifactEls.push(`<bpmn:group id="${aid}"${catRef}>${doc}</bpmn:group>`)
+        addArtifact(findProcIdx(b), `<bpmn:group id="${aid}"${catRef}>${doc}</bpmn:group>`, aid)
         shapesXml.push(di); knownIds.add(aid)
       }
     })
@@ -449,8 +477,8 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
     const objEl = directChild(dobj, 'Object')
     const doc = objEl ? readDoc(objEl) : readDoc(dobj)
     const doId = `DataObject_${dataSeq++}`
-    artifactEls.push(`<bpmn:dataObject id="${doId}" />`)
-    artifactEls.push(`<bpmn:dataObjectReference id="${oid}" name="${esc(name)}" dataObjectRef="${doId}">${doc}</bpmn:dataObjectReference>`)
+    addArtifact(findProcIdx(b), `<bpmn:dataObject id="${doId}" />`)
+    addArtifact(findProcIdx(b), `<bpmn:dataObjectReference id="${oid}" name="${esc(name)}" dataObjectRef="${doId}">${doc}</bpmn:dataObjectReference>`)
     shapesXml.push(`<bpmndi:BPMNShape id="${oid}_di" bpmnElement="${oid}"><dc:Bounds x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" /></bpmndi:BPMNShape>`)
     knownIds.add(oid)
   })
@@ -464,19 +492,24 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
       const tgt = id(assoc.getAttribute('Target'))
       // Ambos extremos deben existir o bpmn-js rechaza todo el import.
       if (!knownIds.has(src) || !knownIds.has(tgt)) return
-      artifactEls.push(`<bpmn:association id="${aid}" sourceRef="${src}" targetRef="${tgt}" />`)
+      const assocProcIdx = artifactProcMap.get(src) ?? artifactProcMap.get(tgt) ?? 0
+      addArtifact(assocProcIdx, `<bpmn:association id="${aid}" sourceRef="${src}" targetRef="${tgt}" />`)
       const { coords } = readGraphics(assoc)
       const wps = coords.length >= 2 ? coords.map((p) => `<di:waypoint x="${p.x}" y="${p.y}" />`).join('') : ''
       edgesXml.push(`<bpmndi:BPMNEdge id="${aid}_di" bpmnElement="${aid}">${wps}</bpmndi:BPMNEdge>`)
     })
   }
 
-  // Inyectar los artefactos en un proceso (el primero; si no hay, crear uno).
-  if (artifactEls.length > 0) {
+  // Inyectar artefactos en el proceso correcto según contención geométrica (Fix 2).
+  if (artifactsByProc.size > 0) {
     if (processesXml.length === 0) {
-      processesXml.push(`<bpmn:process id="Process_artifacts" isExecutable="false">${artifactEls.join('')}</bpmn:process>`)
+      const allEls = Array.from(artifactsByProc.values()).flat()
+      processesXml.push(`<bpmn:process id="Process_artifacts" isExecutable="false">${allEls.join('')}</bpmn:process>`)
     } else {
-      processesXml[0] = processesXml[0].replace('</bpmn:process>', `${artifactEls.join('')}</bpmn:process>`)
+      artifactsByProc.forEach((els, pi) => {
+        const idx = Math.min(pi, processesXml.length - 1)
+        processesXml[idx] = processesXml[idx].replace('</bpmn:process>', `${els.join('')}</bpmn:process>`)
+      })
     }
   }
 
