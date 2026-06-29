@@ -468,17 +468,25 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
   // ── Data Objects: Bizagi los guarda en <DataObjects><DataObject Id Name> dentro
   // del WorkflowProcess (NO como Artifact). Los traemos como dataObjectReference
   // (con su dataObject para que el BPMN sea válido) y su nombre.
+  // Fix: bounds forzados a 36×50 (tamaño estándar bpmn-js) — Bizagi usa 40×50 pero
+  // bpmn-js puede auto-renderizar el dataObject semántico con bounds grandes si el
+  // tamaño difiere del default. La posición (x,y) sí viene del XPDL.
+  // Fix: oid pasado como artifactId → artifactProcMap lo registra → asociaciones
+  // (ej. Tarea → DataObject) se inyectan en el proceso correcto.
   let dataSeq = 0
   childrenByTag(pkg, 'DataObject').forEach((dobj) => {
     const oid = id(dobj.getAttribute('Id'))
     const name = dobj.getAttribute('Name') ?? ''
     const { bounds } = readGraphics(dobj)
-    const b = bounds ?? { x: 0, y: 0, width: 36, height: 50 }
+    const pos = bounds ?? { x: 0, y: 0 }
+    const b = { x: pos.x, y: pos.y, width: 36, height: 50 }
     const objEl = directChild(dobj, 'Object')
     const doc = objEl ? readDoc(objEl) : readDoc(dobj)
     const doId = `DataObject_${dataSeq++}`
-    addArtifact(findProcIdx(b), `<bpmn:dataObject id="${doId}" />`)
-    addArtifact(findProcIdx(b), `<bpmn:dataObjectReference id="${oid}" name="${esc(name)}" dataObjectRef="${doId}">${doc}</bpmn:dataObjectReference>`)
+    const procIdx = findProcIdx(b)
+    addArtifact(procIdx, `<bpmn:dataObject id="${doId}" />`)
+    addArtifact(procIdx, `<bpmn:dataObjectReference id="${oid}" name="${esc(name)}" dataObjectRef="${doId}">${doc}</bpmn:dataObjectReference>`, oid)
+    // BPMNShape solo para el reference (bpmn:dataObject es semántico, sin shape).
     shapesXml.push(`<bpmndi:BPMNShape id="${oid}_di" bpmnElement="${oid}"><dc:Bounds x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" /></bpmndi:BPMNShape>`)
     knownIds.add(oid)
   })
