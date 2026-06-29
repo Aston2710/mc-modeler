@@ -43,7 +43,7 @@ const C = {
   startEvent:        { border: -10311914, fill: -1638505 },
   endEvent:          { border: -6750208,  fill: -1135958 },
   intermediateEvent: { border: -10311914, fill: -1638505 },
-  gateway:           { border: -4491740,  fill: -10496 },
+  gateway:           { border: -5855715,  fill: -52 },
   lane:              { border: -11513776, fill: -1 },
   pool:              { border: -16777216, fill: -1 },
   annotation:        { border: -2763307,  fill: -2763307 },
