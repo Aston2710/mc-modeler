@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useDiagramStore } from '@/store/diagramStore'
 import { useUIStore } from '@/store/uiStore'
 import { buildThumbnail } from '@/utils/thumbnailUtils'
+import { isCanvasReadyFor } from '@/collab/canvasSession'
 
 export function useAutoSave(
   getXml: () => Promise<string>,
@@ -18,6 +19,10 @@ export function useAutoSave(
     const id = useDiagramStore.getState().activeTabId
     const dirty = useUIStore.getState().unsavedChanges
     if (!id || !dirty) return
+    // El timer puede disparar justo durante un cambio de pestaña: si el
+    // canvas todavía muestra el diagrama saliente, exportarlo guardaría su
+    // contenido bajo el id del diagrama entrante. Esperar al siguiente ciclo.
+    if (!isCanvasReadyFor(id)) return
     try {
       const [xml, thumbnail] = await Promise.all([
         getXml(),

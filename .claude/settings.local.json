@@ -21,7 +21,18 @@
       "WebFetch(domain:camunda.com)",
       "WebFetch(domain:www.enjoytoday.cn)",
       "Bash(mkdir -p \"C:\\\\Users\\\\jredondo\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-jredondo-Desktop-projects-PMC-mc-modeler\\\\fda9710b-4271-414e-b75e-fe7a54b7fdc8\\\\scratchpad\\\\bpm_extract\")",
-      "Bash(powershell -NoProfile -Command \"Expand-Archive -Path 'docs\\\\bpm\\\\Prueba.bpm' -DestinationPath 'C:\\\\Users\\\\jredondo\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-jredondo-Desktop-projects-PMC-mc-modeler\\\\fda9710b-4271-414e-b75e-fe7a54b7fdc8\\\\scratchpad\\\\bpm_extract' -Force\")"
+      "Bash(powershell -NoProfile -Command \"Expand-Archive -Path 'docs\\\\bpm\\\\Prueba.bpm' -DestinationPath 'C:\\\\Users\\\\jredondo\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-jredondo-Desktop-projects-PMC-mc-modeler\\\\fda9710b-4271-414e-b75e-fe7a54b7fdc8\\\\scratchpad\\\\bpm_extract' -Force\")",
+      "WebFetch(domain:www.inkandswitch.com)",
+      "WebFetch(domain:martin.kleppmann.com)",
+      "WebFetch(domain:loro.dev)",
+      "WebFetch(domain:groups.csail.mit.edu)",
+      "WebFetch(domain:developers.google.com)",
+      "WebFetch(domain:dspace.mit.edu)",
+      "WebFetch(domain:issuetracker.google.com)",
+      "WebFetch(domain:docs.yjs.dev)",
+      "Bash(xargs grep -l \"importXML\")",
+      "Bash(find node_modules/bpmn-js/lib/import -iname \"*.js\")",
+      "Bash(grep -rn \"import.render.start\\\\|import.done\" node_modules/bpmn-js/lib/import/*.js)"
     ]
   },
   "enabledMcpjsonServers": [

@@ -9,6 +9,7 @@ import { BPMN_ELEMENTS } from '@/domain/bpmnElements'
 import { ELEMENT_SIZES } from '@/bpmn/ElementSizes'
 import { PHASE_ID_PREFIX, isPhase, setPhaseName, setPhaseColor } from '@/bpmn/elements/phaseUtil'
 import { getLinkedDiagram as readLink, setLinkedDiagram as writeLink, isSubProcessElement } from '@/bpmn/elements/subProcessLink'
+import { beginImport, completeImport } from '@/collab/canvasSession'
 
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -216,10 +217,16 @@ export function useBpmnModeler(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [containerRef])
 
-  const importXml = useCallback(async (xml: string) => {
+  const importXml = useCallback(async (xml: string, diagramId: string) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const modeler = modelerRef.current as any
     if (!modeler) return
+    // Fencing token: mientras esta importación está en curso, canvasSession
+    // reporta "ningún diagrama confirmado" — cualquier sistema (colaboración,
+    // guardado) que consulte isCanvasReadyFor() sabe que el canvas está en
+    // transición y debe esperar, en vez de asumir que el contenido actual
+    // (todavía el diagrama anterior) ya pertenece al nuevo.
+    const token = beginImport()
     try {
       await modeler.importXML(xml)
     } catch (err) {
@@ -227,6 +234,9 @@ export function useBpmnModeler(
       throw err
     }
     if (modelerRef.current !== modeler) return
+    // Si mientras tanto se lanzó OTRA importación (cambio de pestaña más
+    // rápido que esta), completeImport descarta este resultado en silencio.
+    completeImport(token, diagramId)
     try {
       modeler.get('canvas').zoom('fit-viewport', 'all')
     } catch {

@@ -1,10 +1,16 @@
 import { useRef, forwardRef, useImperativeHandle, useEffect, useCallback, useState } from 'react'
 import { useBpmnModeler } from '@/hooks/useBpmnModeler'
 import { useCollab } from '@/hooks/useCollab'
+import { useCommentSetup } from '@/hooks/useCommentSetup'
 import { RemoteCursors } from '@/components/collab/RemoteCursors'
+import { CommentsOverlay } from '@/components/comments/CommentsOverlay'
+import { CommentsPanel } from '@/components/comments/CommentsPanel'
+import { SelectionCommentTrigger } from '@/components/comments/SelectionCommentTrigger'
+import { useCommentStore } from '@/store/commentStore'
+import type { Anchor } from '@/store/commentStore'
 
 export interface BpmnCanvasHandle {
-  importXml: (xml: string) => Promise<void>
+  importXml: (xml: string, diagramId: string) => Promise<void>
   exportXml: () => Promise<string>
   exportSvg: () => Promise<string>
   undo: () => void
@@ -46,10 +52,30 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
       onReady?.()
     }, [onReady])
 
-    const modeler = useBpmnModeler(containerRef, { onReady: handleReady, onChanged, onSelectionChange, onSubProcessOpen })
+    const handleSelectionChange = useCallback((ids: string[]) => {
+      onSelectionChange?.(ids)
+      useCommentStore.getState().setSelectedElementId(ids.length === 1 ? ids[0] : null)
+      useCommentStore.getState().setSelectedElementIds(ids)
+    }, [onSelectionChange])
+
+    const modeler = useBpmnModeler(containerRef, { onReady: handleReady, onChanged, onSelectionChange: handleSelectionChange, onSubProcessOpen })
 
     // Colaboración en tiempo real (presencia + cursores + CRDT). No-op en modo local / sin sesión.
     useCollab(modeler.modelerRef, wrapRef)
+
+    // Comentarios — siempre activo, persiste en localforage por diagrama.
+    useCommentSetup(modeler.modelerRef)
+
+    // Escuchar el evento del context pad para abrir el composer de comentarios.
+    useEffect(() => {
+      const handler = (e: Event) => {
+        const detail = (e as CustomEvent<Anchor>).detail
+        useCommentStore.getState().openComposer(detail)
+        useCommentStore.getState().setPanelOpen(true)
+      }
+      document.addEventListener('bpmn:comment:create', handler)
+      return () => document.removeEventListener('bpmn:comment:create', handler)
+    }, [])
 
     useImperativeHandle(ref, () => ({
       importXml: modeler.importXml,
@@ -272,6 +298,15 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
 
         {/* Cursores de colaboradores en tiempo real */}
         {ready && <RemoteCursors modelerRef={modeler.modelerRef} />}
+
+        {/* Pines y highlights de comentario — renderizados por bpmn-js overlays service */}
+        {ready && <CommentsOverlay modelerRef={modeler.modelerRef} />}
+
+        {/* Botón flotante para comentar selecciones múltiples */}
+        {ready && <SelectionCommentTrigger modelerRef={modeler.modelerRef} />}
+
+        {/* Panel y botón de comentarios */}
+        {ready && <CommentsPanel modelerRef={modeler.modelerRef} />}
 
         {/* ── Scrollbar horizontal ── */}
         <div ref={hScrollRef} className="bpmn-scrollbar bpmn-scrollbar--h">

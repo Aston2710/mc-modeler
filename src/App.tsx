@@ -16,6 +16,7 @@ import { useKeyboard } from '@/hooks/useKeyboard'
 //import { useExport, type ExportFormat, type PngScale, type PdfOrientation, type ExportTheme } from '@/hooks/useExport'
 import { useExport, type ExportFormat, type PngScale, type PdfOrientation, type ExportTheme } from '@/hooks/useExport'
 import { buildThumbnail } from '@/utils/thumbnailUtils'
+import { isCanvasReadyFor } from '@/collab/canvasSession'
 
 import { validateDiagram } from '@/domain/validation'
 
@@ -157,7 +158,7 @@ export default function App() {
       // Resetear antes: evita que el evento commandStack.changed de importXML
       // marque el diagrama como "con cambios" al simplemente abrirlo.
       useUIStore.getState().setUnsavedChanges(false)
-      canvasRef.current.importXml(diagram.xml)
+      canvasRef.current.importXml(diagram.xml, diagram.id)
         .then(() => {
           // Resetear después también: bpmn-js puede disparar commandStack.changed
           // de forma asíncrona al terminar de procesar el XML.
@@ -209,6 +210,10 @@ export default function App() {
     if (!tabId || !canvasRef.current) return
     if (!useUIStore.getState().unsavedChanges) return
     if (!useCollabStore.getState().canEdit(tabId)) return
+    // Identidad confirmada: si el canvas está a medio importar otro diagrama
+    // (o algo dejó currentCanvasTabRef desincronizado), no exportar/guardar —
+    // se guardaría contenido que no pertenece a `tabId`.
+    if (!isCanvasReadyFor(tabId)) return
     try {
       const xml = await canvasRef.current.exportXml()
       const thumbnail = await buildThumbnail(getSvg).catch(() => undefined)
@@ -227,6 +232,9 @@ export default function App() {
 
   const handleSave = useCallback(async () => {
     if (!activeTabId || !canEditActive) return
+    // Igual que en persistCanvasTab: no exportar un canvas que todavía
+    // muestra el diagrama anterior porque la importación del activo no terminó.
+    if (!isCanvasReadyFor(activeTabId)) return
     try {
       // XML y SVG se exportan del mismo estado del canvas, en el mismo tick,
       // antes de que el usuario pueda hacer otro cambio. Esto garantiza que
