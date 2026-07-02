@@ -10,11 +10,17 @@ import { uint8ToBase64, base64ToUint8 } from '@/collab/yBpmnModel'
 import { YjsBpmnBinding, REMOTE_ORIGIN } from '@/collab/YjsBpmnBinding'
 import { YjsCommentBinding } from '@/collab/YjsCommentBinding'
 import { setCommentBinding, useCommentStore } from '@/store/commentStore'
-import { loadYjsState, saveYjsState } from '@/collab/yjsPersistence'
+import { loadYjsState, appendYjsUpdate } from '@/collab/yjsPersistence'
 import { isCanvasReadyFor } from '@/collab/canvasSession'
 
 const CURSOR_THROTTLE_MS = 50
 const PERSIST_DEBOUNCE_MS = 1500
+// Keyframe periódico: si hubo cambios, añade un snapshot de estado completo al log
+// como red de seguridad ante deltas que fallaran al persistir. Acota la pérdida
+// máxima (ante desconexión total) a la ventana entre keyframes.
+const KEYFRAME_MS = 30000
+// Backoff base para reintentar un append fallido por red.
+const APPEND_RETRY_MS = 2000
 // Tope máximo esperando confirmación de que el canvas muestra este diagrama.
 // Si nunca llega (import falló, XML corrupto), no forzamos el binding —
 // preferible perder colaboración en esta sesión que mezclar contenido ajeno.
@@ -52,8 +58,13 @@ export function useCollab(
     let binding: YjsBpmnBinding | null = null
     let disposed = false
     let persistTimer: ReturnType<typeof setTimeout> | null = null
+    let keyframeTimer: ReturnType<typeof setTimeout> | null = null
     let pendingImportHandler: (() => void) | null = null
     let pendingRetryTimer: ReturnType<typeof setTimeout> | null = null
+    // Deltas acumulados en la ventana de debounce, pendientes de append al log.
+    let pendingDeltas: Uint8Array[] = []
+    // Marca si hubo cambios desde el último keyframe (evita keyframes vacíos).
+    let dirtySinceKeyframe = false
     const bindWaitStartedAt = Date.now()
 
     const clearPendingImportWait = () => {
@@ -71,18 +82,45 @@ export function useCollab(
 
     const { setParticipants, setCursor, reset } = usePresenceStore.getState()
 
+    // Fusiona los deltas de la ventana en un solo update y lo añade al log.
+    // Si el append falla (red), reencola el merge al frente y reintenta con backoff
+    // — nunca se descarta un cambio silenciosamente.
+    const flushDeltas = async () => {
+      if (disposed || pendingDeltas.length === 0) return
+      const merged = Y.mergeUpdates(pendingDeltas)
+      pendingDeltas = []
+      const ok = await appendYjsUpdate(diagramId, uint8ToBase64(merged))
+      if (!ok && !disposed) {
+        pendingDeltas.unshift(merged)
+        setTimeout(() => { void flushDeltas() }, APPEND_RETRY_MS)
+      }
+    }
+
     const schedulePersist = () => {
       if (persistTimer) clearTimeout(persistTimer)
-      persistTimer = setTimeout(() => {
-        void saveYjsState(diagramId, uint8ToBase64(Y.encodeStateAsUpdate(doc)))
-      }, PERSIST_DEBOUNCE_MS)
+      persistTimer = setTimeout(() => { void flushDeltas() }, PERSIST_DEBOUNCE_MS)
     }
 
     const onDocUpdate = (update: Uint8Array, origin: unknown) => {
       if (origin === REMOTE_ORIGIN) return
       channel.sendYjsUpdate(uint8ToBase64(update))
+      // Persistencia append-only: acumular el delta y volcarlo (fusionado) al log.
+      pendingDeltas.push(update)
+      dirtySinceKeyframe = true
       schedulePersist()
     }
+
+    // Keyframe periódico (solo si hubo cambios): snapshot completo al log como
+    // checkpoint. Best-effort; no bloquea ni reintenta (el próximo tick reintenta).
+    const keyframeTick = () => {
+      if (disposed) return
+      if (dirtySinceKeyframe) {
+        dirtySinceKeyframe = false
+        void appendYjsUpdate(diagramId, uint8ToBase64(Y.encodeStateAsUpdate(doc)))
+      }
+      keyframeTimer = setTimeout(keyframeTick, KEYFRAME_MS)
+    }
+    keyframeTimer = setTimeout(keyframeTick, KEYFRAME_MS)
 
     const sendFullState = () => {
       try {
@@ -189,7 +227,11 @@ export function useCollab(
       wrap.removeEventListener('mousemove', onMove)
       wrap.removeEventListener('mouseleave', onLeave)
       if (persistTimer) clearTimeout(persistTimer)
-      void saveYjsState(diagramId, uint8ToBase64(Y.encodeStateAsUpdate(doc)))
+      if (keyframeTimer) clearTimeout(keyframeTimer)
+      // Keyframe de cierre: snapshot completo al log. Captura TODO el estado del doc
+      // (incluidos deltas pendientes sin volcar, que ya están aplicados al doc) antes
+      // de destruirlo — checkpoint natural al cerrar/cambiar de diagrama.
+      void appendYjsUpdate(diagramId, uint8ToBase64(Y.encodeStateAsUpdate(doc)))
       doc.off('update', onDocUpdate)
       commentBinding.destroy()
       setCommentBinding(null)

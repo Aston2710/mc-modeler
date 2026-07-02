@@ -40,13 +40,19 @@ export async function loadYjsState(diagramId: string): Promise<string[]> {
   return blobs
 }
 
-/** Persiste (upsert) el snapshot del Y.Doc (base64). */
-export async function saveYjsState(diagramId: string, stateB64: string): Promise<void> {
-  if (!supabase) return
-  await supabase
-    .from('yjs_documents')
-    .upsert(
-      { diagram_id: diagramId, state: stateB64, updated_at: new Date().toISOString() },
-      { onConflict: 'diagram_id' }
-    )
+/**
+ * Añade un update Yjs (delta o keyframe de estado completo) al log append-only.
+ * Devuelve true si persistió, false si falló (el llamador decide reintentar).
+ *
+ * Solo INSERT: nunca update/delete sobre una celda compartida. Dos clientes
+ * escribiendo a la vez producen dos filas con ids distintos — imposible perder
+ * o pisar datos. La consolidación en snapshot la hace el compactador server-side
+ * (Fase 4); el cliente jamás vuelve a escribir yjs_documents.state.
+ */
+export async function appendYjsUpdate(diagramId: string, updateB64: string): Promise<boolean> {
+  if (!supabase) return false
+  const { error } = await supabase
+    .from('yjs_updates')
+    .insert({ diagram_id: diagramId, update: updateB64 })
+  return !error
 }
