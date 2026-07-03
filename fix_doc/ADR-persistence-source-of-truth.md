@@ -165,7 +165,7 @@ Decisiones #1/#4 del ADR, materializadas **sin migración** (prod-safe):
      - **RLS:** SELECT `can_access_diagram(diagram_id)`; INSERT `can_access_diagram` (o `can_edit` si solo editores comentan).
      - `orphaned` se detecta client-side (contra el registry) pero **persiste** en la tabla.
      - **Beneficio doble:** hogar limpio/auditable/consultable **y** desacopla comentarios de Yjs → elimina la mina 1 del pivote.
-   - **2b. Backfill `current_xml` desde Yjs.** ~23+ diagramas tienen su pool SOLO en Yjs (XML solo-proceso; ver escaneo en `pool-overlay-yjs-poison-fix.md`). Antes de dejar de cargar Yjs hay que serializar su estado Yjs → XML → guardar en `current_xml`, o esos diagramas pierden su contenido.
+   - ~~**2b. Backfill `current_xml` desde Yjs.**~~ **NO necesario** (ver §6bis): verificado que los 103 diagramas ya tienen su pool en `current_xml`. El "72 en Yjs" fue un bug de regex de Postgres. No hay migración de datos.
    - 2c. Cambiar `useCollab`: dejar de cargar/reconciliar Yjs persistido en el canvas (canvas = `current_xml`); mantener Yjs solo para sync en vivo (broadcast) + handshake de late-joiner.
    - 2d. Pruebas multiusuario reales.
 3. (Escala) Servidor autoritativo de CRDT con validación de ops + snapshot XML canónico.
@@ -174,18 +174,18 @@ Decisiones #1/#4 del ADR, materializadas **sin migración** (prod-safe):
 
 ---
 
-## 6bis. Hallazgo crítico (2026-07-02): `current_xml` NO es hoy la verdad
+## 6bis. Verificación (2026-07-02): `current_xml` SÍ es completo — no hay backfill
 
-Al mapear el backfill se descubrió que **72 de 78 diagramas con Yjs tienen su pool SOLO en Yjs**, no en `current_xml` (que es solo-proceso). Se ven bien porque el reconcile de Yjs añade el pool al abrir; pero **el XML solo está incompleto**. Reparto: jynojosa 22, **jredondo 13**, fmtovar 12, jhosberynojosa 7, otros ~18.
+**Corrección de un falso hallazgo.** Un escaneo intermedio (vía SQL/MCP) reportó "72 de 78 diagramas con pool solo en Yjs". **Era un bug de regex**: se usó `\b` en el regex de Postgres, y Postgres ARE **no** interpreta `\b` como límite de palabra → el regex de `participant` fallaba → falsos "0 pools en XML".
 
-**Implicación:** en la práctica, **Yjs es hoy la fuente de verdad del contenido**, no el XML. Esto reabre la decisión del pivote:
+**Realidad (verificada con el script `scripts/scan-pool-location.mjs`, regex de JS correcto + chequeo directo por substring):**
+- **Los 103 diagramas tienen su pool en `current_xml`.** `current_xml` **es** la fuente de verdad completa.
+- **0 diagramas necesitan backfill.**
+- **0 casos "XML+Yjs"** → sin contaminación residual (los corruptos fueron saneados).
 
-- **Camino 1 — XML como verdad:** exige backfillear los 72 (pasada headless bpmn-js: importar current_xml + aplicar Yjs → exportar → escribir current_xml) ANTES de degradar Yjs. Migración masiva.
-- **Camino 2 — Yjs como verdad + servidor autoritativo:** aceptar que Yjs ES la verdad, y blindarlo con validación server-side (opción 7) en vez de migrar 72 diagramas. Menos disruptivo, ataca la seguridad donde está.
+**Implicación (a favor del pivote):** la **mina 2 (backfill masivo) NO existe**. Migrar a "XML como verdad" no requiere migración de datos — el XML ya está completo. Solo queda la **mina 1** (comentarios en Yjs → tablas Supabase, §2a).
 
-**Backfill (si Camino 1):** el método correcto por diagrama es **abrir + Guardar** (escribe el canvas fusionado a current_xml, mismo id, conserva enlaces/compartición). NO reimportar (.bpm) — pierde id/enlaces/compartición. A escala de 72, hacerlo con service-role headless, no a mano.
-
-**Decisión de dirección: PENDIENTE** (informada por este hallazgo, en la conversación de logs).
+**Nota de dialectos:** el XML aparece en dos formas (`<bpmn:participant>` y `<participant>` sin prefijo). Ambas son válidas y contienen el pool; cualquier detección debe ser agnóstica al prefijo (regex `<(?:\w+:)?participant\b…` en JS, o substring en SQL — nunca `\b` en Postgres).
 
 ## 7. Resumen en una frase
 
