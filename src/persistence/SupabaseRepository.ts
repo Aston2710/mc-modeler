@@ -77,6 +77,11 @@ export class SupabaseRepository implements IDiagramRepository {
   // Cache de thumbnail_path por diagrama: evita pedir a Storage (GET 400)
   // los thumbnails de diagramas que aún no tienen ninguno.
   private thumbPaths = new Map<string, string | null>()
+  // Cache del dataURL del thumbnail por diagrama. Clave para el rendimiento Y el
+  // parpadeo: getThumbnail devuelve SIEMPRE el mismo string por id (identidad
+  // estable) → el <img> no recarga; y no se re-descarga de Storage en cada carga.
+  // Se invalida en saveThumbnail (nuevo dataURL) y al borrar.
+  private thumbCache = new Map<string, string | null>()
 
   private get sb(): SupabaseClient {
     if (!supabase) throw new Error('Supabase no configurado')
@@ -217,21 +222,31 @@ export class SupabaseRepository implements IDiagramRepository {
   }
 
   async getThumbnail(id: string): Promise<string | null> {
+    // Identidad estable + sin re-descarga: si ya lo resolvimos, devolver el MISMO
+    // string (evita recargar el <img> = parpadeo, y evita el GET a Storage).
+    if (this.thumbCache.has(id)) return this.thumbCache.get(id) ?? null
     // Si sabemos que este diagrama no tiene thumbnail, no llamamos a Storage
     // (evita el GET 400 "Object not found" y su ruido en consola).
-    if (this.thumbPaths.has(id) && !this.thumbPaths.get(id)) return null
+    if (this.thumbPaths.has(id) && !this.thumbPaths.get(id)) {
+      this.thumbCache.set(id, null)
+      return null
+    }
     const { data, error } = await this.sb.storage.from(THUMB_BUCKET).download(thumbPath(id))
     if (error || !data) {
       // BD decía que había thumbnail pero el objeto no existe (inconsistencia
       // BD↔Storage → GET 400). Cacheamos el negativo para no reintentar y
       // limpiamos el thumbnail_path huérfano (best-effort; cosmético).
       this.thumbPaths.set(id, null)
+      this.thumbCache.set(id, null)
       void this.sb.from('diagrams').update({ thumbnail_path: null }).eq('id', id)
       return null
     }
     try {
-      return await blobToDataUrl(data)
+      const url = await blobToDataUrl(data)
+      this.thumbCache.set(id, url)
+      return url
     } catch {
+      this.thumbCache.set(id, null)
       return null
     }
   }
@@ -242,6 +257,7 @@ export class SupabaseRepository implements IDiagramRepository {
       await this.sb.storage.from(THUMB_BUCKET).remove([thumbPath(id)])
       await this.sb.from('diagrams').update({ thumbnail_path: null }).eq('id', id)
       this.thumbPaths.set(id, null)
+      this.thumbCache.set(id, null)
       return
     }
     const blob = dataUrlToBlob(dataUrl)
@@ -251,6 +267,8 @@ export class SupabaseRepository implements IDiagramRepository {
     if (error) throw error
     await this.sb.from('diagrams').update({ thumbnail_path: thumbPath(id) }).eq('id', id)
     this.thumbPaths.set(id, thumbPath(id))
+    // Actualizar el cache con el dataURL recién guardado (identidad estable nueva).
+    this.thumbCache.set(id, dataUrl)
   }
 
   // ── Thumbnails de subprocesos (overlay) ──
