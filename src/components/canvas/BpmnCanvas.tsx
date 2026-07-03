@@ -2,6 +2,7 @@ import { useRef, forwardRef, useImperativeHandle, useEffect, useCallback, useSta
 import { useBpmnModeler } from '@/hooks/useBpmnModeler'
 import { useCollab } from '@/hooks/useCollab'
 import { useCommentSetup } from '@/hooks/useCommentSetup'
+import { useComments } from '@/hooks/useComments'
 import { RemoteCursors } from '@/components/collab/RemoteCursors'
 import { CommentsOverlay } from '@/components/comments/CommentsOverlay'
 import { CommentsPanel } from '@/components/comments/CommentsPanel'
@@ -63,8 +64,10 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
     // Colaboración en tiempo real (presencia + cursores + CRDT). No-op en modo local / sin sesión.
     useCollab(modeler.modelerRef, wrapRef)
 
-    // Comentarios — siempre activo, persiste en localforage por diagrama.
+    // Comentarios modo local (sin Supabase) — persiste en localforage por diagrama.
     useCommentSetup(modeler.modelerRef)
+    // Comentarios modo colaborativo — tablas Supabase + Realtime (fuera de Yjs).
+    useComments(modeler.modelerRef)
 
     // Escuchar el evento del context pad para abrir el composer de comentarios.
     useEffect(() => {

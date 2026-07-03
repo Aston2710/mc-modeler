@@ -8,8 +8,6 @@ import { CollabChannel } from '@/collab/SupabaseProvider'
 import { colorForUser, type CursorState } from '@/collab/presence'
 import { uint8ToBase64, base64ToUint8 } from '@/collab/yBpmnModel'
 import { YjsBpmnBinding, REMOTE_ORIGIN } from '@/collab/YjsBpmnBinding'
-import { YjsCommentBinding } from '@/collab/YjsCommentBinding'
-import { setCommentBinding, useCommentStore } from '@/store/commentStore'
 import { loadYjsState, appendYjsUpdate } from '@/collab/yjsPersistence'
 import { isCanvasReadyFor } from '@/collab/canvasSession'
 
@@ -75,10 +73,7 @@ export function useCollab(
       if (pendingRetryTimer) { clearTimeout(pendingRetryTimer); pendingRetryTimer = null }
     }
 
-    // Comment binding shares the same Y.Doc → sync is automatic via existing channel
-    const commentBinding = new YjsCommentBinding(doc)
-    setCommentBinding(commentBinding)
-    useCommentStore.getState().syncFromYjs([])
+    // Comentarios: ya NO viven en el Y.Doc — ver useComments (tablas Supabase + Realtime).
 
     const { setParticipants, setCursor, reset } = usePresenceStore.getState()
 
@@ -139,8 +134,6 @@ export function useCollab(
       if (!isCanvasReadyFor(diagramId)) return
       binding = new YjsBpmnBinding(modeler, doc)
       binding.start()
-      // Attach modeler for orphan detection once it's available
-      commentBinding.attachModeler(modeler)
     }
 
     // No inferimos "listo" de heurísticas sobre el contenido del canvas
@@ -186,7 +179,6 @@ export function useCollab(
         try { Y.applyUpdate(doc, base64ToUint8(b64), REMOTE_ORIGIN) } catch { /* fila corrupta: ignorar */ }
       }
       doc.on('update', onDocUpdate)
-      commentBinding.start()
       channel.connect({
         onPresence: setParticipants,
         onCursor: setCursor,
@@ -233,8 +225,6 @@ export function useCollab(
       // de destruirlo — checkpoint natural al cerrar/cambiar de diagrama.
       void appendYjsUpdate(diagramId, uint8ToBase64(Y.encodeStateAsUpdate(doc)))
       doc.off('update', onDocUpdate)
-      commentBinding.destroy()
-      setCommentBinding(null)
       binding?.destroy()
       void channel.disconnect()
       reset()
