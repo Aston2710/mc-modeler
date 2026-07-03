@@ -89,15 +89,22 @@ export class SupabaseRepository implements IDiagramRepository {
     return data.user.id
   }
 
+  // Columnas de la LISTA — NUNCA current_xml (puede pesar cientos de KB por
+  // diagrama; con 100+ diagramas eran MBs en cada carga de la lista). El XML se
+  // trae bajo demanda al abrir un diagrama (getById). Ver diagramStore.ensureXml.
+  private static readonly LIST_COLUMNS =
+    'id, owner_id, folder_id, name, element_count, thumbnail_path, schema_version, parent_diagram_id, sub_process_element_id, project_id, created_at, updated_at'
+
   async getAll(): Promise<Diagram[]> {
     const { data, error } = await this.sb
       .from('diagrams')
-      .select('*')
+      .select(SupabaseRepository.LIST_COLUMNS)
       .order('updated_at', { ascending: false })
     if (error) throw error
-    const rows = data as DiagramRow[]
+    const rows = data as unknown as Omit<DiagramRow, 'current_xml'>[]
     rows.forEach((r) => this.thumbPaths.set(r.id, r.thumbnail_path ?? null))
-    return rows.map(rowToDiagram)
+    // xml queda vacío en la lista; se hidrata al abrir (getById).
+    return rows.map((r) => rowToDiagram({ ...r, current_xml: '' } as DiagramRow))
   }
 
   async getById(id: string): Promise<Diagram | null> {

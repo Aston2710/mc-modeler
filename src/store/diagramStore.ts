@@ -63,6 +63,8 @@ interface DiagramState {
   createDiagram: (name: string, projectId?: string | null) => Promise<string>
   createSubDiagram: (name: string, parentDiagramId: string, subProcessElementId: string) => Promise<string>
   openDiagram: (id: string) => void
+  /** Trae el XML del diagrama bajo demanda (la lista no lo carga). Cachea en memoria. */
+  ensureXml: (id: string) => Promise<string>
   closeTab: (id: string) => void
   setActiveTab: (id: string) => void
   saveDiagram: (id: string, xml: string, elementCount?: number, thumbnail?: string | null) => Promise<void>
@@ -97,19 +99,39 @@ export const useDiagramStore = create<DiagramState>()(
 
     loadAll: async () => {
       set((s) => { s.isLoading = true })
+      // getAll trae SOLO metadata (sin current_xml) → carga liviana y rápida.
       const diagrams = await diagramRepository.getAll()
-      // Hidratar thumbnails desde el store separado (thumbnails no se guardan
-      // en el array principal de diagramas para mantenerlo ligero)
-      const withThumbs = await Promise.all(
-        diagrams.map(async (d) => ({
-          ...d,
-          thumbnail: await diagramRepository.getThumbnail(d.id),
-        }))
-      )
+      // Mostrar las tarjetas de inmediato; NO bloquear la lista esperando thumbnails.
       set((s) => {
-        s.diagrams = withThumbs
+        s.diagrams = diagrams
         s.isLoading = false
       })
+      // Hidratar thumbnails en segundo plano; cada tarjeta se actualiza al llegar.
+      void Promise.all(
+        diagrams.map(async (d) => {
+          const thumbnail = await diagramRepository.getThumbnail(d.id).catch(() => null)
+          if (thumbnail == null) return
+          set((s) => {
+            const x = s.diagrams.find((z) => z.id === d.id)
+            if (x) x.thumbnail = thumbnail
+          })
+        })
+      )
+    },
+
+    ensureXml: async (id) => {
+      const existing = get().diagrams.find((d) => d.id === id)
+      if (existing && existing.xml) return existing.xml
+      // La lista no trae el XML; se pide el diagrama completo la primera vez y se cachea.
+      const full = await diagramRepository.getById(id)
+      const xml = full?.xml ?? ''
+      if (xml) {
+        set((s) => {
+          const d = s.diagrams.find((d) => d.id === id)
+          if (d) d.xml = xml
+        })
+      }
+      return xml
     },
 
     createDiagram: async (name, projectId = null) => {
@@ -246,10 +268,13 @@ export const useDiagramStore = create<DiagramState>()(
     duplicateDiagram: async (id) => {
       const source = get().diagrams.find((d) => d.id === id)
       if (!source) throw new Error('Diagram not found')
+      // El XML puede no estar en memoria (la lista no lo carga) → traerlo.
+      const xml = source.xml || (await get().ensureXml(id))
       const newId = generateDiagramId()
       const now = new Date().toISOString()
       const copy: Diagram = {
         ...source,
+        xml,
         id: newId,
         name: `${source.name} (copia)`,
         thumbnail: null,

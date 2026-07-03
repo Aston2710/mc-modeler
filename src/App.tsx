@@ -152,25 +152,30 @@ export default function App() {
 
   // Import current diagram XML — called both from onReady (first mount) and tab switches
   const importActiveDiagram = useCallback(() => {
-    const { activeTabId: id, diagrams: all } = useDiagramStore.getState()
-    const diagram = all.find((d) => d.id === id)
-    if (diagram && canvasRef.current) {
-      // Resetear antes: evita que el evento commandStack.changed de importXML
-      // marque el diagrama como "con cambios" al simplemente abrirlo.
-      useUIStore.getState().setUnsavedChanges(false)
-      canvasRef.current.importXml(diagram.xml, diagram.id)
-        .then(() => {
+    const { activeTabId: id } = useDiagramStore.getState()
+    const canvas = canvasRef.current
+    if (!id || !canvas) return
+    // Resetear antes: evita que el evento commandStack.changed de importXML
+    // marque el diagrama como "con cambios" al simplemente abrirlo.
+    useUIStore.getState().setUnsavedChanges(false)
+    // La lista no trae el XML (carga liviana); se pide bajo demanda al abrir.
+    void useDiagramStore.getState().ensureXml(id)
+      .then((xml) => {
+        if (!xml) return
+        // Si el usuario cambió de pestaña mientras cargaba el XML, no importar el obsoleto.
+        if (useDiagramStore.getState().activeTabId !== id) return
+        return canvas.importXml(xml, id).then(() => {
           // Resetear después también: bpmn-js puede disparar commandStack.changed
           // de forma asíncrona al terminar de procesar el XML.
           useUIStore.getState().setUnsavedChanges(false)
-          currentCanvasTabRef.current = id ?? null
+          currentCanvasTabRef.current = id
           syncSubProcessLabelsRef.current?.()
         })
-        .catch((err: unknown) => {
-          console.error('[Flujo] importXml failed:', err)
-          addToast({ type: 'error', title: t('errors.loadFailed') })
-        })
-    }
+      })
+      .catch((err: unknown) => {
+        console.error('[Flujo] importXml failed:', err)
+        addToast({ type: 'error', title: t('errors.loadFailed') })
+      })
   }, [addToast, t])
 
   // Fires once bpmn-js modeler is initialized and safe to call importXml
