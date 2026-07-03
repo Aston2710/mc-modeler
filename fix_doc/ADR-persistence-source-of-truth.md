@@ -142,13 +142,50 @@ Decisiones #1/#4 del ADR, materializadas **sin migración** (prod-safe):
 
 ### ⏳ Pendiente (por etapas, futuras conversaciones)
 
-1. Imágenes embebidas base64 → Storage (URLs en el XML).
-2. Fuente de verdad única: degradar Yjs a solo-transporte-en-vivo (el pivote grande, su propio ciclo). **Requiere decisión explícita** — parcialmente deshace el append-log desplegado.
+1. Imágenes embebidas base64 → Storage (URLs en el XML). *(otra conversación)*
+2. **Fuente de verdad única: degradar Yjs a solo-transporte-en-vivo** (el pivote grande). Va con la conversación de "logs" porque está entrelazado con el append-log. **Prerequisitos obligatorios (minas de pérdida de datos):**
+   - **2a. Rediseñar persistencia de comentarios → tablas en Supabase (diseño acordado).** Hoy los comentarios viven en el Y.Doc (`getMap('comments')`), persistidos vía `yjs_documents`/log. **No van en el XML** (es la verdad *estructural* del diagrama) ni deben seguir en Yjs (son metadata colaborativa, **append-mostly**: nuevo hilo / nueva respuesta / resolver — CRDT es overkill). Hogar correcto: **tablas propias + Realtime.**
+     ```sql
+     comment_threads (
+       id uuid pk, diagram_id uuid references diagrams(id) on delete cascade,
+       anchor jsonb,            -- {type:'element',elementId} | {type:'selection',elementIds}
+       status text,             -- 'open' | 'resolved'
+       orphaned boolean default false,
+       created_by uuid references auth.users, created_by_name text,
+       created_at timestamptz default now()
+     )
+     comment_replies (
+       id uuid pk, thread_id uuid references comment_threads(id) on delete cascade,
+       author_id uuid references auth.users, author_name text,
+       content text, created_at timestamptz default now()
+     )
+     ```
+     - **Mapea 1:1** con el `CommentThread` + `replies` actual del `commentStore`.
+     - **Sync en vivo:** Supabase Realtime `postgres_changes` suscrito por `diagram_id` → colaboradores ven hilos/respuestas/resueltos al instante, **sin Yjs**.
+     - **RLS:** SELECT `can_access_diagram(diagram_id)`; INSERT `can_access_diagram` (o `can_edit` si solo editores comentan).
+     - `orphaned` se detecta client-side (contra el registry) pero **persiste** en la tabla.
+     - **Beneficio doble:** hogar limpio/auditable/consultable **y** desacopla comentarios de Yjs → elimina la mina 1 del pivote.
+   - **2b. Backfill `current_xml` desde Yjs.** ~23+ diagramas tienen su pool SOLO en Yjs (XML solo-proceso; ver escaneo en `pool-overlay-yjs-poison-fix.md`). Antes de dejar de cargar Yjs hay que serializar su estado Yjs → XML → guardar en `current_xml`, o esos diagramas pierden su contenido.
+   - 2c. Cambiar `useCollab`: dejar de cargar/reconciliar Yjs persistido en el canvas (canvas = `current_xml`); mantener Yjs solo para sync en vivo (broadcast) + handshake de late-joiner.
+   - 2d. Pruebas multiusuario reales.
 3. (Escala) Servidor autoritativo de CRDT con validación de ops + snapshot XML canónico.
 4. Forzar serialización canónica única en cada guardado (cerrar el "dos dialectos de XML" y el "pool solo en Yjs").
 5. Confirmación explícita de conflicto en UI (caso mal-uso).
 
 ---
+
+## 6bis. Hallazgo crítico (2026-07-02): `current_xml` NO es hoy la verdad
+
+Al mapear el backfill se descubrió que **72 de 78 diagramas con Yjs tienen su pool SOLO en Yjs**, no en `current_xml` (que es solo-proceso). Se ven bien porque el reconcile de Yjs añade el pool al abrir; pero **el XML solo está incompleto**. Reparto: jynojosa 22, **jredondo 13**, fmtovar 12, jhosberynojosa 7, otros ~18.
+
+**Implicación:** en la práctica, **Yjs es hoy la fuente de verdad del contenido**, no el XML. Esto reabre la decisión del pivote:
+
+- **Camino 1 — XML como verdad:** exige backfillear los 72 (pasada headless bpmn-js: importar current_xml + aplicar Yjs → exportar → escribir current_xml) ANTES de degradar Yjs. Migración masiva.
+- **Camino 2 — Yjs como verdad + servidor autoritativo:** aceptar que Yjs ES la verdad, y blindarlo con validación server-side (opción 7) en vez de migrar 72 diagramas. Menos disruptivo, ataca la seguridad donde está.
+
+**Backfill (si Camino 1):** el método correcto por diagrama es **abrir + Guardar** (escribe el canvas fusionado a current_xml, mismo id, conserva enlaces/compartición). NO reimportar (.bpm) — pierde id/enlaces/compartición. A escala de 72, hacerlo con service-role headless, no a mano.
+
+**Decisión de dirección: PENDIENTE** (informada por este hallazgo, en la conversación de logs).
 
 ## 7. Resumen en una frase
 
