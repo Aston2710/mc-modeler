@@ -79,6 +79,10 @@ web_modules/
 .env.production.local
 .env.local
 
+# Backups locales de diagramas (contienen TODO el contenido de la org — nunca a git)
+backups/
+scan-pool-location.csv
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache
@@ -144,3 +148,4 @@ referencias_csharp/
 *.zip
 .syntesis/
 docs/
+scripts/
