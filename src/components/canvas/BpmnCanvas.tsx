@@ -9,6 +9,8 @@ import { CommentsPanel } from '@/components/comments/CommentsPanel'
 import { SelectionCommentTrigger } from '@/components/comments/SelectionCommentTrigger'
 import { useCommentStore } from '@/store/commentStore'
 import type { Anchor } from '@/store/commentStore'
+import { useDiagramStore } from '@/store/diagramStore'
+import { uploadImageDataUrl } from '@/utils/imageStorage'
 
 export interface BpmnCanvasHandle {
   importXml: (xml: string, diagramId: string) => Promise<void>
@@ -269,10 +271,14 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
               ctx?.drawImage(img, 0, 0, width, height)
               
               const dataUrl = tempCanvas.toDataURL('image/webp', 0.90)
-              
-              const bo = m.get('bpmnFactory').create('bpmn:TextAnnotation', { text: '[IMAGE:' + dataUrl + ']' })
-              const newShape = m.get('elementFactory').createShape({ type: 'bpmn:TextAnnotation', businessObject: bo })
-              m.get('modeling').createShape(newShape, position, target)
+
+              // Subir a Storage (ADR Etapa 4); fallback interno → dataURL embebido.
+              const diagramId = useDiagramStore.getState().activeTabId ?? ''
+              void uploadImageDataUrl(diagramId, dataUrl).then((url) => {
+                const bo = m.get('bpmnFactory').create('bpmn:TextAnnotation', { text: '[IMAGE:' + url + ']' })
+                const newShape = m.get('elementFactory').createShape({ type: 'bpmn:TextAnnotation', businessObject: bo })
+                m.get('modeling').createShape(newShape, position, target)
+              })
             }
             img.src = event.target?.result as string
           }

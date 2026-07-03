@@ -1,10 +1,13 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { X, Upload } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'
+import { useDiagramStore } from '@/store/diagramStore'
+import { uploadImageDataUrl } from '@/utils/imageStorage'
 
 export function ImageUploadModal() {
   const { imageUploadContext, closeModal, setImageUploadContext } = useUIStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
 
   if (!imageUploadContext) return null
 
@@ -47,8 +50,15 @@ export function ImageUploadModal() {
         
         // Comprimir como WebP a 90% en alta resolución (hasta 2K)
         const dataUrl = canvas.toDataURL('image/webp', 0.90)
-        imageUploadContext.onConfirm(dataUrl)
-        handleClose()
+        // Subir a Storage (ADR Etapa 4): el XML guarda una referencia ligera.
+        // Fallback interno: si falla, devuelve el dataURL y queda embebida.
+        setUploading(true)
+        const diagramId = useDiagramStore.getState().activeTabId ?? ''
+        void uploadImageDataUrl(diagramId, dataUrl).then((url) => {
+          imageUploadContext.onConfirm(url)
+          setUploading(false)
+          handleClose()
+        })
       }
       img.src = event.target?.result as string
     }
@@ -77,16 +87,17 @@ export function ImageUploadModal() {
               style={{ display: 'none' }}
               onChange={handleFileChange}
             />
-            <button 
-              className="btn-primary" 
+            <button
+              className="btn-primary"
+              disabled={uploading}
               onClick={(e) => { e.preventDefault(); fileInputRef.current?.click(); }}
               style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: '14px' }}
             >
               <Upload size={16} style={{ marginRight: 8 }} />
-              Seleccionar o Arrastrar archivo aquí
+              {uploading ? 'Subiendo…' : 'Seleccionar o Arrastrar archivo aquí'}
             </button>
             <p style={{ marginTop: 12, fontSize: 12, color: 'var(--text-3)' }}>
-              La imagen se guardará incrustada en tu diagrama en alta calidad (WebP).
+              La imagen se guardará en alta calidad (WebP).
             </p>
           </div>
 

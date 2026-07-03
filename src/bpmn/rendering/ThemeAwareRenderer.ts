@@ -35,6 +35,7 @@ import {
   cssVar,
 } from './ThemeColors'
 import { isPhase, getPhaseName, getPhaseColor } from '../elements/phaseUtil'
+import { isStorageImageRef, getResolvedImage, resolveImageRef } from '@/utils/imageStorage'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const PHASE_HEADER = 30 // alto de la banda de nombre (const int TextHeight = 30 en Bizagi)
@@ -191,6 +192,8 @@ function ThemeAwareRenderer(
 ) {
   // Prioridad > 1000 para que se ejecute ANTES del BpmnRenderer por defecto
   BpmnRenderer.call(this, config, eventBus, styles, pathMap, canvas, textRenderer, 1500)
+  // Para re-renderizar una imagen cuando su referencia de Storage se resuelve async.
+  this._imgEventBus = eventBus
 }
 
 inherits(ThemeAwareRenderer, BpmnRenderer)
@@ -304,13 +307,29 @@ ThemeAwareRenderer.prototype.drawShape = function (
 
   // Interceptar la imagen simulada en TextAnnotation
   if (isType(element, 'bpmn:TextAnnotation') && element.businessObject.text?.startsWith('[IMAGE:')) {
-    const url = element.businessObject.text.replace('[IMAGE:', '').replace(']', '')
+    let url = element.businessObject.text.replace('[IMAGE:', '').replace(']', '')
+    // Referencia de Storage (storage://diagram-images/...): resolver a objectURL.
+    // El renderer es síncrono → si aún no está en caché, se dispara la descarga
+    // y al resolverse se fuerza el re-render de ESTE elemento; mientras tanto se
+    // muestra solo el rect punteado (placeholder ya existente).
+    if (isStorageImageRef(url)) {
+      const cached = getResolvedImage(url)
+      if (cached) {
+        url = cached
+      } else {
+        const bus = this._imgEventBus
+        void resolveImageRef(url).then((ok) => {
+          if (ok) { try { bus?.fire('element.changed', { element }) } catch { /* noop */ } }
+        })
+        url = ''
+      }
+    }
     const w = element.width
     const h = element.height
-    
+
     // Crear la imagen SVG
     const image = document.createElementNS('http://www.w3.org/2000/svg', 'image')
-    image.setAttribute('href', url)
+    if (url) image.setAttribute('href', url)
     image.setAttribute('width', w.toString())
     image.setAttribute('height', h.toString())
     image.setAttribute('preserveAspectRatio', 'none')

@@ -5,6 +5,7 @@ import { diagramRepository } from '@/persistence'
 import { DiagramConflictError } from '@/persistence/IDiagramRepository'
 import { generateDiagramId } from '@/utils/idGenerator'
 import { normalizeBpmnXml } from '@/utils/normalizeBpmnXml'
+import { externalizeImages, rehomeImages, deleteDiagramImages } from '@/utils/imageStorage'
 
 /**
  * Validación mínima antes de persistir: no guardar XML vacío o que no parezca
@@ -346,8 +347,11 @@ export const useDiagramStore = create<DiagramState>()(
       const source = get().diagrams.find((d) => d.id === id)
       if (!source) throw new Error('Diagram not found')
       // El XML puede no estar en memoria (la lista no lo carga) → traerlo.
-      const xml = source.xml || (await get().ensureXml(id))
+      let xml = source.xml || (await get().ensureXml(id))
       const newId = generateDiagramId()
+      // Copiar las imágenes de Storage a la carpeta del duplicado (sin esto,
+      // la copia apuntaría a objetos del original — se romperían al borrarlo).
+      xml = await rehomeImages(xml, newId)
       const now = new Date().toISOString()
       const copy: Diagram = {
         ...source,
@@ -367,6 +371,7 @@ export const useDiagramStore = create<DiagramState>()(
 
     deleteDiagram: async (id) => {
       await diagramRepository.delete(id)
+      void deleteDiagramImages(id) // best-effort; los duplicados ya tienen copia propia
       set((s) => {
         s.diagrams = s.diagrams.filter((d) => d.id !== id)
         const idx = s.tabs.findIndex((t) => t.id === id)
@@ -383,8 +388,11 @@ export const useDiagramStore = create<DiagramState>()(
       // Serialización canónica (ADR §6.4): nunca persistir el XML crudo del
       // archivo — re-serializar con el mismo serializer que usa el autosave
       // (un solo dialecto). Si no parsea, lanza y el import se rechaza.
-      const canonicalXml = await normalizeBpmnXml(xml)
+      let canonicalXml = await normalizeBpmnXml(xml)
       const id = generateDiagramId()
+      // Imágenes embebidas del archivo → Storage (ADR Etapa 4): el XML
+      // persistido guarda referencias ligeras, nunca base64 de MBs.
+      canonicalXml = await externalizeImages(canonicalXml, id)
       const now = new Date().toISOString()
       const diagram: Diagram = {
         id,
@@ -438,6 +446,7 @@ export const useDiagramStore = create<DiagramState>()(
       }
       const idsToDelete = collectIds(id)
       await diagramRepository.deleteWithChildren(id)
+      for (const did of idsToDelete) void deleteDiagramImages(did) // best-effort
       set((s) => {
         s.diagrams = s.diagrams.filter((d) => !idsToDelete.includes(d.id))
         for (const did of idsToDelete) {

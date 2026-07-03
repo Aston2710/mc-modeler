@@ -108,7 +108,7 @@ describe('SupabaseCommentBinding', () => {
     await b.start()
     b.addReply('t1', 'respuesta', 'u2', 'Beto')
     const t = useCommentStore.getState().threads[0]
-    expect(t.replies.at(-1)!.content).toBe('respuesta')
+    expect(t.replies[t.replies.length - 1].content).toBe('respuesta')
     await flush()
     expect(state.inserts.some((i) => i.table === 'comment_replies')).toBe(true)
     b.destroy()
