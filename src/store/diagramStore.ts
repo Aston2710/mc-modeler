@@ -2,7 +2,17 @@ import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import type { Diagram, DiagramTab, Project } from '@/domain/types'
 import { diagramRepository } from '@/persistence'
+import { DiagramConflictError } from '@/persistence/IDiagramRepository'
 import { generateDiagramId } from '@/utils/idGenerator'
+
+/**
+ * Validación mínima antes de persistir: no guardar XML vacío o que no parezca
+ * BPMN (evita pisar datos buenos con un canvas roto/vacío). No pretende validar
+ * el modelo completo, solo descartar basura evidente.
+ */
+function looksLikeBpmn(xml: string): boolean {
+  return !!xml && xml.length > 50 && /<(?:\w+:)?definitions[\s>]/.test(xml)
+}
 
 const EMPTY_BPMN = `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
@@ -222,16 +232,46 @@ export const useDiagramStore = create<DiagramState>()(
       const now = new Date().toISOString()
       const diagram = get().diagrams.find((d) => d.id === id)
       if (!diagram) return
+      // Validación: no persistir XML vacío/roto → no pisar datos buenos con basura.
+      if (!looksLikeBpmn(xml)) {
+        console.warn('[Flujo] guardado omitido: XML inválido/vacío para', id)
+        return
+      }
       const updated: Diagram = { ...diagram, xml, elementCount, updatedAt: now }
-      // El XML es lo crítico. El thumbnail es best-effort: si falla su subida
-      // (p. ej. Storage), NO debe hacer fallar el guardado del diagrama.
-      await diagramRepository.save(updated)
+
+      // Control optimista (CAS): esperado = el updated_at que teníamos en memoria.
+      // Si otro escritor guardó antes, DiagramConflictError. En tiempo real todos
+      // tienen ~el mismo estado, así que re-sincronizamos y reintentamos UNA vez
+      // (último-gana seguro, sin torn-write). Si vuelve a chocar, aceptamos el
+      // estado del otro (ya persistió lo acordado) y refrescamos la versión local.
+      let persistedUpdatedAt: string
+      try {
+        persistedUpdatedAt = await diagramRepository.save(updated, diagram.updatedAt)
+      } catch (e) {
+        if (!(e instanceof DiagramConflictError)) throw e
+        const fresh = await diagramRepository.getById(id)
+        if (!fresh) return // borrado por otro → nada que guardar
+        try {
+          persistedUpdatedAt = await diagramRepository.save(updated, fresh.updatedAt)
+        } catch (e2) {
+          if (!(e2 instanceof DiagramConflictError)) throw e2
+          console.warn('[Flujo] conflicto de guardado persistente; se acepta el estado del otro escritor para', id)
+          set((s) => {
+            const d = s.diagrams.find((d) => d.id === id)
+            if (d) d.updatedAt = fresh.updatedAt
+            const tab = s.tabs.find((t) => t.id === id)
+            if (tab) tab.dirty = false
+          })
+          return
+        }
+      }
+
+      // El thumbnail es best-effort: si falla su subida (p. ej. Storage), NO debe
+      // hacer fallar el guardado del diagrama.
       try {
         if (thumbnail !== undefined) {
           await diagramRepository.saveThumbnail(id, thumbnail ?? '')
         }
-        // El thumbnail del subproceso ya es el del diagrama hijo (saveThumbnail
-        // de arriba); no se guarda por separado para evitar objetos/errores extra.
       } catch (err) {
         console.warn('[Flujo] thumbnail no se pudo guardar (no crítico):', err)
       }
@@ -239,12 +279,13 @@ export const useDiagramStore = create<DiagramState>()(
       set((s) => {
         const idx = s.diagrams.findIndex((d) => d.id === id)
         if (idx >= 0) {
-          s.diagrams[idx] = updated
+          // Guardar el updated_at persistido (server-authoritative) para el próximo CAS.
+          s.diagrams[idx] = { ...updated, updatedAt: persistedUpdatedAt }
           if (thumbnail !== undefined) s.diagrams[idx].thumbnail = thumbnail ?? null
         }
         const tab = s.tabs.find((t) => t.id === id)
         if (tab) tab.dirty = false
-        s.lastSavedAt = now
+        s.lastSavedAt = persistedUpdatedAt
       })
     },
 

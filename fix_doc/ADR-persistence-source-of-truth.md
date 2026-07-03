@@ -125,12 +125,28 @@ draw.io usa Drive para **desplazar el costo de almacenamiento al usuario** + mod
 
 ---
 
-## 6. Pendiente (por etapas, futuras conversaciones)
+## 6. Estado de implementación
 
-1. Columna `version` + guardado con CAS + UI de conflicto (re-sync/confirmar).
-2. Imágenes embebidas → Storage.
+### ✅ Implementado — Control optimista (CAS) + validación (rama `ADR-persistence-source`, 2026-07-02)
+
+Decisiones #1/#4 del ADR, materializadas **sin migración** (prod-safe):
+
+- **Token de versión = `updated_at`** (no columna nueva). El trigger `diagrams_set_updated_at` (BEFORE UPDATE) ya mueve `updated_at=now()` server-side en cada update → sirve de versión. Cero cambios de esquema en prod.
+- **CAS en el guardado** (`SupabaseRepository.save(diagram, expectedUpdatedAt?)`): el UPDATE lleva `.eq('updated_at', expectedUpdatedAt)` y lee de vuelta el nuevo `updated_at` (`.select('updated_at')`). Si 0 filas → `DiagramConflictError`.
+- **Modelo de conflicto (tiempo real, buen uso)** en `diagramStore.saveDiagram`: en conflicto, re-sincroniza (`getById`) y **reintenta una vez** con la versión fresca (último-gana seguro, sin torn-write). Si vuelve a chocar, **acepta el estado del otro** y refresca la versión local — nunca clobber silencioso, nunca error molesto.
+- **Validación previa** (`looksLikeBpmn`): no persiste XML vacío/no-BPMN → no pisa datos buenos con basura.
+- **Tests**: `diagramStore.cas.test.ts` (5) — normal, conflicto→reintento, doble-conflicto→acepta, XML inválido, borrado-por-otro.
+- **Interfaz**: `IDiagramRepository.save` ahora `(diagram, expectedUpdatedAt?) => Promise<string>` (devuelve el `updated_at` persistido). `LocalRepository` lo ignora (sin concurrencia).
+
+**Nota:** el modelo aplicado es "último-gana con reintento" (buen uso, tiempo real). La **confirmación explícita de conflicto en UI** (vista muy stale / edición offline larga = mal uso) queda diferida.
+
+### ⏳ Pendiente (por etapas, futuras conversaciones)
+
+1. Imágenes embebidas base64 → Storage (URLs en el XML).
+2. Fuente de verdad única: degradar Yjs a solo-transporte-en-vivo (el pivote grande, su propio ciclo). **Requiere decisión explícita** — parcialmente deshace el append-log desplegado.
 3. (Escala) Servidor autoritativo de CRDT con validación de ops + snapshot XML canónico.
 4. Forzar serialización canónica única en cada guardado (cerrar el "dos dialectos de XML" y el "pool solo en Yjs").
+5. Confirmación explícita de conflicto en UI (caso mal-uso).
 
 ---
 
