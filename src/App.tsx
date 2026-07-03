@@ -188,6 +188,55 @@ export default function App() {
     importActiveDiagram()
   }, [importActiveDiagram])
 
+  // Conflicto de guardado persistente (vista stale / offline largo — mal uso):
+  // diagramStore ya aceptó el estado del servidor; aquí se notifica y se ofrece
+  // recargar o preservar la copia local como duplicado. Nunca sobreescritura forzada.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { id } = (e as CustomEvent<{ id: string }>).detail
+      const name = useDiagramStore.getState().diagrams.find((d) => d.id === id)?.name ?? ''
+      addToast({
+        type: 'warning',
+        title: t('conflict.title'),
+        message: t('conflict.message', { name }),
+        duration: 0, // persistente: decisión del usuario
+        actions: [
+          {
+            label: t('conflict.reload'),
+            onClick: () => {
+              void useDiagramStore.getState().refreshXml(id).then((xml) => {
+                if (!xml || useDiagramStore.getState().activeTabId !== id) return
+                void canvasRef.current?.importXml(xml, id).then(() => {
+                  useUIStore.getState().setUnsavedChanges(false)
+                })
+              })
+            },
+          },
+          {
+            label: t('conflict.saveCopy'),
+            onClick: () => {
+              void (async () => {
+                try {
+                  const xml = await canvasRef.current?.exportXml()
+                  if (!xml) return
+                  const copyId = await useDiagramStore.getState().importDiagram(
+                    xml, t('conflict.copyName', { name }),
+                    useDiagramStore.getState().diagrams.find((d) => d.id === id)?.projectId ?? null
+                  )
+                  openDiagram(copyId)
+                } catch {
+                  addToast({ type: 'error', title: t('errors.saveFailed') })
+                }
+              })()
+            },
+          },
+        ],
+      })
+    }
+    document.addEventListener('flujo:save-conflict', handler)
+    return () => document.removeEventListener('flujo:save-conflict', handler)
+  }, [addToast, t, openDiagram])
+
   // Load diagram XML when user switches tabs (canvas already ready).
   // Antes de cargar la nueva pestaña, persistir la que estaba en el canvas.
   useEffect(() => {

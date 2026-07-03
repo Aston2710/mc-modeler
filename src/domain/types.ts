@@ -47,12 +47,20 @@ export interface ValidationResult {
   message: string
 }
 
+export interface ToastAction {
+  label: string
+  onClick: () => void
+}
+
 export interface Toast {
   id: string
   type: 'success' | 'error' | 'warning' | 'info'
   title: string
   message?: string
+  /** ms; 0 = persistente (no se auto-descarta) */
   duration?: number
+  /** Botones de acción; al pulsar uno, el toast se descarta. */
+  actions?: ToastAction[]
 }
 
 export type ActiveModal =

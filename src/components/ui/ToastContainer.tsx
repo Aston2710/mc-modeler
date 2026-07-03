@@ -16,6 +16,7 @@ function ToastItem({ toast }: { toast: Toast }) {
 
   useEffect(() => {
     const duration = toast.duration ?? 4000
+    if (duration === 0) return // persistente: solo se cierra manualmente o por acción
     const t = setTimeout(() => removeToast(toast.id), duration)
     return () => clearTimeout(t)
   }, [toast.id, toast.duration, removeToast])
@@ -28,6 +29,20 @@ function ToastItem({ toast }: { toast: Toast }) {
       <div style={{ flex: 1 }}>
         <div className="toast-title">{toast.title}</div>
         {toast.message && <div className="toast-msg">{toast.message}</div>}
+        {toast.actions && toast.actions.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            {toast.actions.map((a) => (
+              <button
+                key={a.label}
+                className="btn-ghost"
+                style={{ fontSize: 12, padding: '4px 10px' }}
+                onClick={() => { a.onClick(); removeToast(toast.id) }}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <button className="icon-btn" style={{ flexShrink: 0, marginLeft: 4 }} onClick={() => removeToast(toast.id)}>
         <X size={14} />

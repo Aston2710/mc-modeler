@@ -68,6 +68,46 @@ describe('saveDiagram — control optimista (CAS)', () => {
     expect(st.tabs[0].dirty).toBe(false)
   })
 
+  it('conflicto persistente (doble) → notifica a la UI (evento flujo:save-conflict)', async () => {
+    // Entorno node: sin DOM. Simular `document` para capturar el CustomEvent.
+    const dispatched: { type: string; detail: unknown }[] = []
+    class FakeCustomEvent {
+      type: string
+      detail: unknown
+      constructor(type: string, init?: { detail?: unknown }) {
+        this.type = type
+        this.detail = init?.detail
+      }
+    }
+    vi.stubGlobal('CustomEvent', FakeCustomEvent)
+    vi.stubGlobal('document', {
+      dispatchEvent: (e: FakeCustomEvent) => { dispatched.push({ type: e.type, detail: e.detail }); return true },
+    })
+    try {
+      save.mockRejectedValueOnce(new DiagramConflictError('d1'))
+      getById.mockResolvedValueOnce({ ...seedDiagram(), updatedAt: 'v9' })
+      save.mockRejectedValueOnce(new DiagramConflictError('d1'))
+      await useDiagramStore.getState().saveDiagram('d1', VALID_XML)
+      expect(dispatched).toEqual([{ type: 'flujo:save-conflict', detail: { id: 'd1' } }])
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('conflicto resuelto al primer reintento → NO notifica a la UI', async () => {
+    const dispatchEvent = vi.fn()
+    vi.stubGlobal('document', { dispatchEvent })
+    try {
+      save.mockRejectedValueOnce(new DiagramConflictError('d1'))
+      getById.mockResolvedValueOnce({ ...seedDiagram(), updatedAt: 'v9' })
+      save.mockResolvedValueOnce('v10')
+      await useDiagramStore.getState().saveDiagram('d1', VALID_XML)
+      expect(dispatchEvent).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('XML inválido/vacío → NO llama a save (no pisa datos buenos)', async () => {
     await useDiagramStore.getState().saveDiagram('d1', '')
     await useDiagramStore.getState().saveDiagram('d1', '<xml>no bpmn</xml>')

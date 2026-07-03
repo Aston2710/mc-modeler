@@ -324,6 +324,13 @@
       "BOUNDARY_EVENT_INVALID": "Boundary event attached to invalid element"
     }
   },
+  "conflict": {
+    "title": "Diagram changed on the server",
+    "message": "Another user saved \"{{name}}\" while you were editing an outdated version. The server version was kept.",
+    "reload": "Load server version",
+    "saveCopy": "Save my copy as duplicate",
+    "copyName": "{{name}} (my copy)"
+  },
   "errors": {
     "importFailed": "Failed to import file",
     "exportFailed": "Failed to export diagram",

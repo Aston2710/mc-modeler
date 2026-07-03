@@ -84,6 +84,8 @@ interface DiagramState {
   openDiagram: (id: string) => void
   /** Trae el XML del diagrama bajo demanda (la lista no lo carga). Cachea en memoria. */
   ensureXml: (id: string) => Promise<string>
+  /** Fuerza re-fetch del XML desde el servidor (ignora el caché) y actualiza el store. */
+  refreshXml: (id: string) => Promise<string>
   closeTab: (id: string) => void
   setActiveTab: (id: string) => void
   saveDiagram: (id: string, xml: string, elementCount?: number, thumbnail?: string | null) => Promise<void>
@@ -155,6 +157,19 @@ export const useDiagramStore = create<DiagramState>()(
         })
       }
       return xml
+    },
+
+    refreshXml: async (id) => {
+      const full = await diagramRepository.getById(id)
+      if (!full) return ''
+      set((s) => {
+        const d = s.diagrams.find((d) => d.id === id)
+        if (d) {
+          d.xml = full.xml
+          d.updatedAt = full.updatedAt
+        }
+      })
+      return full.xml
     },
 
     createDiagram: async (name, projectId = null) => {
@@ -271,6 +286,14 @@ export const useDiagramStore = create<DiagramState>()(
             const tab = s.tabs.find((t) => t.id === id)
             if (tab) tab.dirty = false
           })
+          // Caso mal-uso (vista muy stale / edición offline larga): notificar
+          // explícitamente — nunca clobber ni descarte silencioso. La UI (App)
+          // ofrece recargar la versión del servidor o guardar la copia local
+          // como duplicado. En buen uso (tiempo real) esto casi nunca dispara:
+          // el primer reintento resuelve.
+          if (typeof document !== 'undefined') {
+            document.dispatchEvent(new CustomEvent('flujo:save-conflict', { detail: { id } }))
+          }
           return
         }
       }
