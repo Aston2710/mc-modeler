@@ -102,18 +102,22 @@ export const useDiagramStore = create<DiagramState>()(
       // getAll trae SOLO metadata (sin current_xml) → carga liviana y rápida.
       const diagrams = await diagramRepository.getAll()
       // Mostrar las tarjetas de inmediato; NO bloquear la lista esperando thumbnails.
+      // Conservar los thumbnails ya cargados: si loadAll se re-ejecuta (p. ej. al
+      // refrescarse la sesión), NO blanquear lo que ya se mostraba → sin parpadeo.
       set((s) => {
-        s.diagrams = diagrams
+        const prevThumbs = new Map(s.diagrams.map((d) => [d.id, d.thumbnail]))
+        s.diagrams = diagrams.map((d) => ({ ...d, thumbnail: prevThumbs.get(d.id) ?? null }))
         s.isLoading = false
       })
-      // Hidratar thumbnails en segundo plano; cada tarjeta se actualiza al llegar.
+      // Hidratar en segundo plano SOLO los thumbnails que aún no tenemos.
       void Promise.all(
         diagrams.map(async (d) => {
+          if (get().diagrams.find((z) => z.id === d.id)?.thumbnail) return
           const thumbnail = await diagramRepository.getThumbnail(d.id).catch(() => null)
           if (thumbnail == null) return
           set((s) => {
             const x = s.diagrams.find((z) => z.id === d.id)
-            if (x) x.thumbnail = thumbnail
+            if (x && !x.thumbnail) x.thumbnail = thumbnail
           })
         })
       )

@@ -88,13 +88,17 @@ export default function App() {
 
   // Lista de diagramas + roles: solo cuando hay acceso real —
   // modo local, o modo nube con sesión iniciada. Nunca como anónimo.
+  // Dep en el id de usuario (no en el objeto session completo): Supabase emite
+  // un session nuevo en cada refresh de token / focus de pestaña; si dependiéramos
+  // de `session` re-cargaríamos todo (y parpadearían los thumbnails) sin necesidad.
+  const sessionUserId = session?.user?.id ?? null
   useEffect(() => {
-    if (!isSupabaseConfigured || session) {
+    if (!isSupabaseConfigured || sessionUserId) {
       void loadAll()
       void loadProjects()
       void useCollabStore.getState().loadRoles()
     }
-  }, [session, loadAll, loadProjects])
+  }, [sessionUserId, loadAll, loadProjects])
 
   // Estado del proyecto que se está compartiendo (modal shareProject).
   const [shareProjectInfo, setShareProjectInfo] = useState<{ id: string; name: string } | null>(null)
