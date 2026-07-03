@@ -4,6 +4,11 @@
 **Fecha:** 2026-07-03
 **Base:** `ADR-persistence-source-of-truth.md` (decisiones #1–#7, pendientes §6)
 **Rama:** continúa sobre `ADR-persistence-source`
+
+> **ESTADO (2026-07-03): Etapas 0–5 IMPLEMENTADAS** (commits `6d3e77c`…`94c944a`, 39 tests verdes, build OK).
+> - Migraciones aplicadas en prod: `comment_threads_and_replies`, `diagram_images_bucket` (aditivas, sin efecto en cliente viejo).
+> - Datos migrados: comentarios (2 hilos, 2 respuestas, idempotente).
+> - **Pendiente del usuario:** deploy del cliente, checklist multiusuario (§2.5), `scripts/migrate-images.mjs --yes` (con usuarios en pausa), y Etapa 6 (limpieza, ≥2 semanas después).
 **Estado previo ya en prod:** CAS por `updated_at` + `looksLikeBpmn` + reintento (diagramStore), fencing `canvasSession`, append-only log Yjs, candado `createShape`/`resolveParentOrSkip`.
 
 ---

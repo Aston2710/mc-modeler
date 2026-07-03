@@ -137,6 +137,34 @@ node scripts/diagram-restore.mjs <archivo> --all --yes          # aplica todo el
 
 ---
 
+## 7bis. Scripts del pivote ADR (2026-07-03)
+
+### `migrate-comments.mjs` — comentarios Yjs → tablas (Etapa 1) ✅ ejecutado
+Lee el `getMap('comments')` de cada Y.Doc (snapshot + log completo; updates idempotentes,
+sin filtrar por `last_seq`) y hace upsert en `comment_threads`/`comment_replies`.
+**Idempotente:** ids = UUID v5 deterministas de `(diagram_id + id viejo)` con namespace fijo
+`c0a1e5b2-7d3f-4a86-9b21-4de60cf1a9d4` → re-correr no duplica (`ignoreDuplicates`).
+`created_by` solo si el valor viejo parsea como uuid; timestamps ms → ISO.
+```powershell
+node scripts/migrate-comments.mjs        # dry-run
+node scripts/migrate-comments.mjs --yes  # aplica (ejecutado: 2 hilos, 2 respuestas)
+```
+
+### `migrate-images.mjs` — imágenes base64 → Storage (Etapa 4) ⏳ pendiente de correr
+Escanea `current_xml` por `[IMAGE:data:...]`, sube cada imagen al bucket privado
+`diagram-images` (path `<diagram_id>/<uuid>.<ext>`), y reescribe el token como
+`[IMAGE:storage://diagram-images/<path>]` (reemplazo literal del dataURL exacto).
+⚠️ **Escribe `current_xml` SIN CAS** → usuarios en pausa + backup previo obligatorio.
+```powershell
+node scripts/diagram-backup.mjs create -m "pre-migrate-images"
+node scripts/migrate-images.mjs          # dry-run (cuántas imágenes, cuántos MB)
+node scripts/migrate-images.mjs --yes    # aplica (upload falla → diagrama se omite entero)
+```
+
+> **Nota post-pivote:** con Yjs solo-transporte, `yjs_documents`/`yjs_updates` están
+> congeladas (solo lectura histórica). Cuando se dropeen (limpieza final), `backup`,
+> `restore`, `scan` y `fix-ghost` deben perder sus ramas Yjs.
+
 ## 8. Concurrencia (importante)
 
 `fix-ghost --yes` y `restore --yes` **escriben** en prod:

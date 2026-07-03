@@ -140,7 +140,16 @@ Decisiones #1/#4 del ADR, materializadas **sin migración** (prod-safe):
 
 **Nota:** el modelo aplicado es "último-gana con reintento" (buen uso, tiempo real). La **confirmación explícita de conflicto en UI** (vista muy stale / edición offline larga = mal uso) queda diferida.
 
-### ⏳ Pendiente (por etapas, futuras conversaciones)
+### ✅ Implementado — Pivote completo Etapas 1–5 (rama `ADR-persistence-source`, 2026-07-03)
+
+Ver `plan-implementacion-pivote-ADR.md` (plan + estado). Resumen:
+- **Comentarios → tablas** `comment_threads`/`comment_replies` + Realtime (§2a): `SupabaseCommentBinding` + `useComments`; datos migrados (idempotente, UUID v5). Yjs ya no transporta comentarios.
+- **Yjs solo-transporte** (§2c): `useCollab` ya no carga ni persiste estado Yjs — doc vacío por sesión, broadcast en vivo, handshake late-joiner. `yjs_documents`/`yjs_updates` congeladas (drop en limpieza final).
+- **Serialización canónica** (pendiente 4): `normalizeBpmnXml` en import + `forceCanonicalBpmnPrefix` post-import en canvas → un solo dialecto; legacy migra solo al guardar. `looksLikeBpmn` + DOMParser.
+- **Imágenes → Storage** (pendiente 1): bucket privado `diagram-images` (RLS por diagrama), refs `storage://` en XML, inline al exportar, rehome al duplicar. Migración retroactiva: `scripts/migrate-images.mjs` (pendiente de correr con usuarios en pausa).
+- **UI de conflicto** (pendiente 5): doble conflicto CAS → toast persistente con "cargar versión del servidor" / "guardar mi copia como duplicado".
+
+### ⏳ Pendiente
 
 1. Imágenes embebidas base64 → Storage (URLs en el XML). *(otra conversación)*
 2. **Fuente de verdad única: degradar Yjs a solo-transporte-en-vivo** (el pivote grande). Va con la conversación de "logs" porque está entrelazado con el append-log. **Prerequisitos obligatorios (minas de pérdida de datos):**
