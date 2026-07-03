@@ -168,7 +168,7 @@ export class YjsBpmnBinding {
     this.suppress = true
     try {
       // Orden: shapes nuevas → conexiones nuevas → updates → bajas.
-      adds.filter((s) => !isConnectionSnap(s)).forEach((s) => this.createShape(s))
+      orderShapeAdds(adds.filter((s) => !isConnectionSnap(s))).forEach((s) => this.createShape(s))
       adds.filter((s) => isConnectionSnap(s)).forEach((s) => this.createConnection(s))
       updates.forEach((s) => this.updateElement(s))
       removes.forEach((id) => this.removeElement(id))
@@ -184,7 +184,22 @@ export class YjsBpmnBinding {
       const m = this.modeler
       const registry = m.get('elementRegistry')
       if (registry.get(snap.id)) return
-      const parent = (snap.parent && registry.get(snap.parent)) || m.get('canvas').getRootElement()
+      // CANDADO anti-superposición (defensa estructural): resolver el parent de
+      // forma estricta. Si el snapshot declara un parent que NO existe en este
+      // diagrama (p. ej. una raíz Collab_* de OTRO diagrama), el elemento es
+      // ajeno → NO se crea. Antes se caía a la raíz del canvas, lo que dibujaba
+      // pools de otros diagramas encima (contaminación). Ver resolveParentOrSkip.
+      const canvasRoot = m.get('canvas').getRootElement()
+      // ¿El canvas ya tiene alguna pool propia? Si la tiene, un elemento con parent
+      // ajeno no resoluble es contaminación de OTRO diagrama y se descarta. Si NO
+      // tiene ninguna pool (XML solo-proceso), la pool con parent no resoluble es la
+      // PROPIA del diagrama (vive en Yjs) y debe crearse bajo la raíz.
+      const canvasHasParticipants = registry.filter((el: Any) => el.type === 'bpmn:Participant').length > 0
+      const parent = resolveParentOrSkip(snap.parent, registry, canvasRoot, canvasHasParticipants)
+      if (parent === null) {
+        console.warn('[collab] elemento descartado: pool/elemento ajeno (parent no resoluble con pools ya presentes)', snap.id, 'parent=', snap.parent)
+        return
+      }
       const bpmnFactory = m.get('bpmnFactory')
       const boAttrs: Any = {}
       if (snap.name != null) boAttrs.name = snap.name
@@ -344,7 +359,7 @@ export class YjsBpmnBinding {
 
     this.suppress = true
     try {
-      adds.filter((s) => !isConnectionSnap(s)).forEach((s) => this.createShape(s))
+      orderShapeAdds(adds.filter((s) => !isConnectionSnap(s))).forEach((s) => this.createShape(s))
       adds.filter((s) => isConnectionSnap(s)).forEach((s) => this.createConnection(s))
       updates.forEach((s) => this.updateElement(s))
     } finally {
@@ -356,4 +371,51 @@ export class YjsBpmnBinding {
 
 function isConnectionSnap(snap: ElementSnapshot): boolean {
   return snap.source !== undefined || snap.target !== undefined || snap.waypoints !== undefined
+}
+
+/** Registro mínimo que necesita resolveParentOrSkip (subconjunto de elementRegistry). */
+interface RegistryLike { get(id: string): unknown }
+/** Elemento raíz mínimo (tiene id). */
+interface RootLike { id: string }
+
+/**
+ * Resuelve el parent con el que crear una shape, o devuelve null si el elemento
+ * es AJENO a este diagrama y no debe crearse.
+ *
+ * Reglas:
+ *  - Sin parent declarado → raíz del canvas (comportamiento normal).
+ *  - Parent que existe en el registro → ese elemento.
+ *  - Parent === id de la raíz actual (aunque el registro no lo devuelva) → raíz.
+ *  - Parent declarado pero NO resoluble:
+ *      · si el canvas YA tiene pools → null (DESCARTAR): es contaminación de otro
+ *        diagrama (una pool extra con su propia raíz Collab_XXX inexistente aquí).
+ *      · si el canvas NO tiene pools → raíz: es la pool propia del diagrama, que
+ *        vive en Yjs porque el current_xml es solo-proceso (patrón legítimo).
+ *
+ * El caso "descartar" es el candado que evita "un diagrama sobre otro" sin romper
+ * los diagramas cuya única pool vive en la capa Yjs (XML sin <participant>).
+ */
+export function resolveParentOrSkip(
+  snapParent: string | null | undefined,
+  registry: RegistryLike,
+  canvasRoot: RootLike | null | undefined,
+  canvasHasParticipants = false
+): unknown | null {
+  if (!snapParent) return canvasRoot ?? null
+  const p = registry.get(snapParent)
+  if (p) return p
+  if (canvasRoot && snapParent === canvasRoot.id) return canvasRoot
+  // parent declarado pero no resoluble → depende de si ya hay pools propias:
+  if (canvasHasParticipants) return null   // contaminación: pool ajena extra
+  return canvasRoot ?? null                 // pool propia (XML solo-proceso) → permitir
+}
+
+/**
+ * Ordena shapes para creación: contenedores primero (Participant → Lane → resto),
+ * para que al reconciliar un lote con dependencias intra-lote, el padre exista
+ * antes que sus hijos (evita que un hijo legítimo se descarte por orden).
+ */
+export function orderShapeAdds(snaps: ElementSnapshot[]): ElementSnapshot[] {
+  const rank = (t: string) => (t === 'bpmn:Participant' ? 0 : t === 'bpmn:Lane' ? 1 : 2)
+  return [...snaps].sort((a, b) => rank(a.type) - rank(b.type))
 }
