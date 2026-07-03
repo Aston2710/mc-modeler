@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { jsPDF } from 'jspdf'
 import { useUIStore } from '@/store/uiStore'
 import { exportToBpm } from '@/utils/bpmExport'
+import { inlineImages } from '@/utils/imageStorage'
 
 export type ExportFormat = 'bpmn' | 'png' | 'svg' | 'pdf' | 'bpm'
 export type PngScale = 1 | 2 | 3
@@ -151,12 +152,14 @@ export function useExport() {
     setExporting(true)
     try {
       if (format === 'bpm') {
-        const xml  = await getXml()
+        // inlineImages: archivo autocontenido — las referencias de Storage se
+        // vuelven a incrustar como base64 (funcionan fuera de la app).
+        const xml  = await inlineImages(await getXml())
         const blob = await exportToBpm({ diagramName, bpmnXml: xml })
         downloadBlob(blob, `${safeName}.bpm`)
 
       } else if (format === 'bpmn') {
-        const xml = await getXml()
+        const xml = await inlineImages(await getXml())
         downloadText(xml, `${safeName}.bpmn`, 'application/xml')
 
       } else if (format === 'svg') {

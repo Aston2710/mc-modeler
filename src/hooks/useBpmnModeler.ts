@@ -10,6 +10,7 @@ import { ELEMENT_SIZES } from '@/bpmn/ElementSizes'
 import { PHASE_ID_PREFIX, isPhase, setPhaseName, setPhaseColor } from '@/bpmn/elements/phaseUtil'
 import { getLinkedDiagram as readLink, setLinkedDiagram as writeLink, isSubProcessElement } from '@/bpmn/elements/subProcessLink'
 import { beginImport, completeImport } from '@/collab/canvasSession'
+import { forceCanonicalBpmnPrefix } from '@/utils/normalizeBpmnXml'
 
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -234,6 +235,11 @@ export function useBpmnModeler(
       throw err
     }
     if (modelerRef.current !== modeler) return
+    // Serialización canónica (ADR §6.4): bpmn-js preserva el dialecto del XML
+    // importado al hacer saveXML. Forzar el prefijo bpmn: una vez aquí hace
+    // que TODO guardado posterior (autosave incluido) salga canónico — los
+    // diagramas legacy "sin prefijo" migran solos en su próximo guardado.
+    try { forceCanonicalBpmnPrefix(modeler.getDefinitions()) } catch { /* noop */ }
     // Si mientras tanto se lanzó OTRA importación (cambio de pestaña más
     // rápido que esta), completeImport descarta este resultado en silencio.
     completeImport(token, diagramId)

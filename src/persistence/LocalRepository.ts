@@ -41,7 +41,8 @@ export class LocalRepository implements IDiagramRepository {
     return all.find((d) => d.id === id) ?? null
   }
 
-  async save(diagram: Diagram): Promise<void> {
+  // expectedUpdatedAt se ignora en local: un solo dispositivo, sin concurrencia.
+  async save(diagram: Diagram, _expectedUpdatedAt?: string): Promise<string> {
     const all = await this.getAll()
     const idx = all.findIndex((d) => d.id === diagram.id)
     if (idx >= 0) {
@@ -50,6 +51,7 @@ export class LocalRepository implements IDiagramRepository {
       all.push(diagram)
     }
     await store.setItem('flujo:diagrams', all)
+    return diagram.updatedAt
   }
 
   async delete(id: string): Promise<void> {

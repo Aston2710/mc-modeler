@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import type { IDiagramRepository } from './IDiagramRepository'
+import { DiagramConflictError } from './IDiagramRepository'
 import type { Diagram, Folder, Project, UserPreferences } from '@/domain/types'
 import { LocalRepository } from './LocalRepository'
 
@@ -123,7 +124,7 @@ export class SupabaseRepository implements IDiagramRepository {
     return data ? rowToDiagram(data as DiagramRow) : null
   }
 
-  async save(diagram: Diagram): Promise<void> {
+  async save(diagram: Diagram, expectedUpdatedAt?: string): Promise<string> {
     // No usamos upsert: en un UPDATE incluiría owner_id y un editor podría
     // robar la propiedad. Distinguimos insert (con owner) de update (sin owner).
     const { data: existing, error: selErr } = await this.sb
@@ -134,7 +135,7 @@ export class SupabaseRepository implements IDiagramRepository {
     if (selErr) throw selErr
 
     if (existing) {
-      const { error } = await this.sb
+      let q = this.sb
         .from('diagrams')
         .update({
           folder_id: diagram.folderId,
@@ -144,7 +145,19 @@ export class SupabaseRepository implements IDiagramRepository {
           schema_version: diagram.schemaVersion,
         })
         .eq('id', diagram.id)
+      // Control optimista (CAS): solo actualiza si el updated_at en DB coincide con
+      // el esperado. El trigger diagrams_set_updated_at pone updated_at=now() en el
+      // UPDATE, así que leemos el nuevo valor de vuelta (server-authoritative).
+      if (expectedUpdatedAt) q = q.eq('updated_at', expectedUpdatedAt)
+      const { data, error } = await q.select('updated_at').maybeSingle()
       if (error) throw error
+      if (!data) {
+        // 0 filas afectadas: con CAS = conflicto (otro escribió antes de nosotros).
+        if (expectedUpdatedAt) throw new DiagramConflictError(diagram.id)
+        // Sin CAS, 0 filas = el diagrama ya no existe (borrado) → devolver el propio.
+        return diagram.updatedAt
+      }
+      return (data as { updated_at: string }).updated_at
     } else {
       const ownerId = await this.uid()
       const { error } = await this.sb.from('diagrams').insert({
@@ -162,6 +175,7 @@ export class SupabaseRepository implements IDiagramRepository {
         updated_at: diagram.updatedAt,
       })
       if (error) throw error
+      return diagram.updatedAt
     }
   }
 

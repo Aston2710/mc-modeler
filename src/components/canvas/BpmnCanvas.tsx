@@ -2,12 +2,15 @@ import { useRef, forwardRef, useImperativeHandle, useEffect, useCallback, useSta
 import { useBpmnModeler } from '@/hooks/useBpmnModeler'
 import { useCollab } from '@/hooks/useCollab'
 import { useCommentSetup } from '@/hooks/useCommentSetup'
+import { useComments } from '@/hooks/useComments'
 import { RemoteCursors } from '@/components/collab/RemoteCursors'
 import { CommentsOverlay } from '@/components/comments/CommentsOverlay'
 import { CommentsPanel } from '@/components/comments/CommentsPanel'
 import { SelectionCommentTrigger } from '@/components/comments/SelectionCommentTrigger'
 import { useCommentStore } from '@/store/commentStore'
 import type { Anchor } from '@/store/commentStore'
+import { useDiagramStore } from '@/store/diagramStore'
+import { uploadImageDataUrl } from '@/utils/imageStorage'
 
 export interface BpmnCanvasHandle {
   importXml: (xml: string, diagramId: string) => Promise<void>
@@ -63,8 +66,10 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
     // Colaboración en tiempo real (presencia + cursores + CRDT). No-op en modo local / sin sesión.
     useCollab(modeler.modelerRef, wrapRef)
 
-    // Comentarios — siempre activo, persiste en localforage por diagrama.
+    // Comentarios modo local (sin Supabase) — persiste en localforage por diagrama.
     useCommentSetup(modeler.modelerRef)
+    // Comentarios modo colaborativo — tablas Supabase + Realtime (fuera de Yjs).
+    useComments(modeler.modelerRef)
 
     // Escuchar el evento del context pad para abrir el composer de comentarios.
     useEffect(() => {
@@ -266,10 +271,14 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
               ctx?.drawImage(img, 0, 0, width, height)
               
               const dataUrl = tempCanvas.toDataURL('image/webp', 0.90)
-              
-              const bo = m.get('bpmnFactory').create('bpmn:TextAnnotation', { text: '[IMAGE:' + dataUrl + ']' })
-              const newShape = m.get('elementFactory').createShape({ type: 'bpmn:TextAnnotation', businessObject: bo })
-              m.get('modeling').createShape(newShape, position, target)
+
+              // Subir a Storage (ADR Etapa 4); fallback interno → dataURL embebido.
+              const diagramId = useDiagramStore.getState().activeTabId ?? ''
+              void uploadImageDataUrl(diagramId, dataUrl).then((url) => {
+                const bo = m.get('bpmnFactory').create('bpmn:TextAnnotation', { text: '[IMAGE:' + url + ']' })
+                const newShape = m.get('elementFactory').createShape({ type: 'bpmn:TextAnnotation', businessObject: bo })
+                m.get('modeling').createShape(newShape, position, target)
+              })
             }
             img.src = event.target?.result as string
           }

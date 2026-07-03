@@ -2,7 +2,27 @@ import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import type { Diagram, DiagramTab, Project } from '@/domain/types'
 import { diagramRepository } from '@/persistence'
+import { DiagramConflictError } from '@/persistence/IDiagramRepository'
 import { generateDiagramId } from '@/utils/idGenerator'
+import { normalizeBpmnXml } from '@/utils/normalizeBpmnXml'
+import { externalizeImages, rehomeImages, deleteDiagramImages } from '@/utils/imageStorage'
+
+/**
+ * Validación mínima antes de persistir: no guardar XML vacío o que no parezca
+ * BPMN (evita pisar datos buenos con un canvas roto/vacío). No pretende validar
+ * el modelo completo, solo descartar basura evidente. Además del regex, verifica
+ * que el XML esté bien formado (DOMParser) — barato y ataja truncados/corruptos.
+ */
+function looksLikeBpmn(xml: string): boolean {
+  if (!xml || xml.length <= 50 || !/<(?:\w+:)?definitions[\s>]/.test(xml)) return false
+  if (typeof DOMParser !== 'undefined') {
+    try {
+      const doc = new DOMParser().parseFromString(xml, 'text/xml')
+      if (doc.getElementsByTagName('parsererror').length > 0) return false
+    } catch { /* entorno sin XML parser: caer al regex */ }
+  }
+  return true
+}
 
 const EMPTY_BPMN = `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
@@ -65,6 +85,8 @@ interface DiagramState {
   openDiagram: (id: string) => void
   /** Trae el XML del diagrama bajo demanda (la lista no lo carga). Cachea en memoria. */
   ensureXml: (id: string) => Promise<string>
+  /** Fuerza re-fetch del XML desde el servidor (ignora el caché) y actualiza el store. */
+  refreshXml: (id: string) => Promise<string>
   closeTab: (id: string) => void
   setActiveTab: (id: string) => void
   saveDiagram: (id: string, xml: string, elementCount?: number, thumbnail?: string | null) => Promise<void>
@@ -136,6 +158,19 @@ export const useDiagramStore = create<DiagramState>()(
         })
       }
       return xml
+    },
+
+    refreshXml: async (id) => {
+      const full = await diagramRepository.getById(id)
+      if (!full) return ''
+      set((s) => {
+        const d = s.diagrams.find((d) => d.id === id)
+        if (d) {
+          d.xml = full.xml
+          d.updatedAt = full.updatedAt
+        }
+      })
+      return full.xml
     },
 
     createDiagram: async (name, projectId = null) => {
@@ -222,16 +257,54 @@ export const useDiagramStore = create<DiagramState>()(
       const now = new Date().toISOString()
       const diagram = get().diagrams.find((d) => d.id === id)
       if (!diagram) return
+      // Validación: no persistir XML vacío/roto → no pisar datos buenos con basura.
+      if (!looksLikeBpmn(xml)) {
+        console.warn('[Flujo] guardado omitido: XML inválido/vacío para', id)
+        return
+      }
       const updated: Diagram = { ...diagram, xml, elementCount, updatedAt: now }
-      // El XML es lo crítico. El thumbnail es best-effort: si falla su subida
-      // (p. ej. Storage), NO debe hacer fallar el guardado del diagrama.
-      await diagramRepository.save(updated)
+
+      // Control optimista (CAS): esperado = el updated_at que teníamos en memoria.
+      // Si otro escritor guardó antes, DiagramConflictError. En tiempo real todos
+      // tienen ~el mismo estado, así que re-sincronizamos y reintentamos UNA vez
+      // (último-gana seguro, sin torn-write). Si vuelve a chocar, aceptamos el
+      // estado del otro (ya persistió lo acordado) y refrescamos la versión local.
+      let persistedUpdatedAt: string
+      try {
+        persistedUpdatedAt = await diagramRepository.save(updated, diagram.updatedAt)
+      } catch (e) {
+        if (!(e instanceof DiagramConflictError)) throw e
+        const fresh = await diagramRepository.getById(id)
+        if (!fresh) return // borrado por otro → nada que guardar
+        try {
+          persistedUpdatedAt = await diagramRepository.save(updated, fresh.updatedAt)
+        } catch (e2) {
+          if (!(e2 instanceof DiagramConflictError)) throw e2
+          console.warn('[Flujo] conflicto de guardado persistente; se acepta el estado del otro escritor para', id)
+          set((s) => {
+            const d = s.diagrams.find((d) => d.id === id)
+            if (d) d.updatedAt = fresh.updatedAt
+            const tab = s.tabs.find((t) => t.id === id)
+            if (tab) tab.dirty = false
+          })
+          // Caso mal-uso (vista muy stale / edición offline larga): notificar
+          // explícitamente — nunca clobber ni descarte silencioso. La UI (App)
+          // ofrece recargar la versión del servidor o guardar la copia local
+          // como duplicado. En buen uso (tiempo real) esto casi nunca dispara:
+          // el primer reintento resuelve.
+          if (typeof document !== 'undefined') {
+            document.dispatchEvent(new CustomEvent('flujo:save-conflict', { detail: { id } }))
+          }
+          return
+        }
+      }
+
+      // El thumbnail es best-effort: si falla su subida (p. ej. Storage), NO debe
+      // hacer fallar el guardado del diagrama.
       try {
         if (thumbnail !== undefined) {
           await diagramRepository.saveThumbnail(id, thumbnail ?? '')
         }
-        // El thumbnail del subproceso ya es el del diagrama hijo (saveThumbnail
-        // de arriba); no se guarda por separado para evitar objetos/errores extra.
       } catch (err) {
         console.warn('[Flujo] thumbnail no se pudo guardar (no crítico):', err)
       }
@@ -239,12 +312,13 @@ export const useDiagramStore = create<DiagramState>()(
       set((s) => {
         const idx = s.diagrams.findIndex((d) => d.id === id)
         if (idx >= 0) {
-          s.diagrams[idx] = updated
+          // Guardar el updated_at persistido (server-authoritative) para el próximo CAS.
+          s.diagrams[idx] = { ...updated, updatedAt: persistedUpdatedAt }
           if (thumbnail !== undefined) s.diagrams[idx].thumbnail = thumbnail ?? null
         }
         const tab = s.tabs.find((t) => t.id === id)
         if (tab) tab.dirty = false
-        s.lastSavedAt = now
+        s.lastSavedAt = persistedUpdatedAt
       })
     },
 
@@ -273,8 +347,11 @@ export const useDiagramStore = create<DiagramState>()(
       const source = get().diagrams.find((d) => d.id === id)
       if (!source) throw new Error('Diagram not found')
       // El XML puede no estar en memoria (la lista no lo carga) → traerlo.
-      const xml = source.xml || (await get().ensureXml(id))
+      let xml = source.xml || (await get().ensureXml(id))
       const newId = generateDiagramId()
+      // Copiar las imágenes de Storage a la carpeta del duplicado (sin esto,
+      // la copia apuntaría a objetos del original — se romperían al borrarlo).
+      xml = await rehomeImages(xml, newId)
       const now = new Date().toISOString()
       const copy: Diagram = {
         ...source,
@@ -294,6 +371,7 @@ export const useDiagramStore = create<DiagramState>()(
 
     deleteDiagram: async (id) => {
       await diagramRepository.delete(id)
+      void deleteDiagramImages(id) // best-effort; los duplicados ya tienen copia propia
       set((s) => {
         s.diagrams = s.diagrams.filter((d) => d.id !== id)
         const idx = s.tabs.findIndex((t) => t.id === id)
@@ -307,12 +385,19 @@ export const useDiagramStore = create<DiagramState>()(
     },
 
     importDiagram: async (xml, name, projectId = null) => {
+      // Serialización canónica (ADR §6.4): nunca persistir el XML crudo del
+      // archivo — re-serializar con el mismo serializer que usa el autosave
+      // (un solo dialecto). Si no parsea, lanza y el import se rechaza.
+      let canonicalXml = await normalizeBpmnXml(xml)
       const id = generateDiagramId()
+      // Imágenes embebidas del archivo → Storage (ADR Etapa 4): el XML
+      // persistido guarda referencias ligeras, nunca base64 de MBs.
+      canonicalXml = await externalizeImages(canonicalXml, id)
       const now = new Date().toISOString()
       const diagram: Diagram = {
         id,
         name,
-        xml,
+        xml: canonicalXml,
         thumbnail: null,
         folderId: null,
         projectId,
@@ -361,6 +446,7 @@ export const useDiagramStore = create<DiagramState>()(
       }
       const idsToDelete = collectIds(id)
       await diagramRepository.deleteWithChildren(id)
+      for (const did of idsToDelete) void deleteDiagramImages(did) // best-effort
       set((s) => {
         s.diagrams = s.diagrams.filter((d) => !idsToDelete.includes(d.id))
         for (const did of idsToDelete) {

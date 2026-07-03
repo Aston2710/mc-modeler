@@ -1,3 +1,6 @@
+import { useDiagramStore } from '@/store/diagramStore'
+import { uploadImageDataUrl } from '@/utils/imageStorage'
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObj = any
 
@@ -36,8 +39,12 @@ ImageContextPadProvider.prototype.getContextPadEntries = function(element: AnyOb
               const reader = new FileReader()
               reader.onload = (re) => {
                 const base64 = re.target?.result as string
-                modeling.updateProperties(element, {
-                  text: '[IMAGE:' + base64 + ']'
+                // Subir a Storage (ADR Etapa 4); fallback interno → dataURL embebido.
+                const diagramId = useDiagramStore.getState().activeTabId ?? ''
+                void uploadImageDataUrl(diagramId, base64).then((url) => {
+                  modeling.updateProperties(element, {
+                    text: '[IMAGE:' + url + ']'
+                  })
                 })
               }
               reader.readAsDataURL(file)

@@ -324,6 +324,13 @@
       "BOUNDARY_EVENT_INVALID": "Evento de borde adjunto a elemento inválido"
     }
   },
+  "conflict": {
+    "title": "El diagrama cambió en el servidor",
+    "message": "Otro usuario guardó \"{{name}}\" mientras editabas una versión desactualizada. Se conservó la versión del servidor.",
+    "reload": "Cargar versión del servidor",
+    "saveCopy": "Guardar mi copia como duplicado",
+    "copyName": "{{name}} (mi copia)"
+  },
   "errors": {
     "importFailed": "Error al importar el archivo",
     "exportFailed": "Error al exportar el diagrama",

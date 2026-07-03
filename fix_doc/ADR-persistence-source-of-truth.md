@@ -125,14 +125,76 @@ draw.io usa Drive para **desplazar el costo de almacenamiento al usuario** + mod
 
 ---
 
-## 6. Pendiente (por etapas, futuras conversaciones)
+## 6. Estado de implementación
 
-1. Columna `version` + guardado con CAS + UI de conflicto (re-sync/confirmar).
-2. Imágenes embebidas → Storage.
+### ✅ Implementado — Control optimista (CAS) + validación (rama `ADR-persistence-source`, 2026-07-02)
+
+Decisiones #1/#4 del ADR, materializadas **sin migración** (prod-safe):
+
+- **Token de versión = `updated_at`** (no columna nueva). El trigger `diagrams_set_updated_at` (BEFORE UPDATE) ya mueve `updated_at=now()` server-side en cada update → sirve de versión. Cero cambios de esquema en prod.
+- **CAS en el guardado** (`SupabaseRepository.save(diagram, expectedUpdatedAt?)`): el UPDATE lleva `.eq('updated_at', expectedUpdatedAt)` y lee de vuelta el nuevo `updated_at` (`.select('updated_at')`). Si 0 filas → `DiagramConflictError`.
+- **Modelo de conflicto (tiempo real, buen uso)** en `diagramStore.saveDiagram`: en conflicto, re-sincroniza (`getById`) y **reintenta una vez** con la versión fresca (último-gana seguro, sin torn-write). Si vuelve a chocar, **acepta el estado del otro** y refresca la versión local — nunca clobber silencioso, nunca error molesto.
+- **Validación previa** (`looksLikeBpmn`): no persiste XML vacío/no-BPMN → no pisa datos buenos con basura.
+- **Tests**: `diagramStore.cas.test.ts` (5) — normal, conflicto→reintento, doble-conflicto→acepta, XML inválido, borrado-por-otro.
+- **Interfaz**: `IDiagramRepository.save` ahora `(diagram, expectedUpdatedAt?) => Promise<string>` (devuelve el `updated_at` persistido). `LocalRepository` lo ignora (sin concurrencia).
+
+**Nota:** el modelo aplicado es "último-gana con reintento" (buen uso, tiempo real). La **confirmación explícita de conflicto en UI** (vista muy stale / edición offline larga = mal uso) queda diferida.
+
+### ✅ Implementado — Pivote completo Etapas 1–5 (rama `ADR-persistence-source`, 2026-07-03)
+
+Ver `plan-implementacion-pivote-ADR.md` (plan + estado). Resumen:
+- **Comentarios → tablas** `comment_threads`/`comment_replies` + Realtime (§2a): `SupabaseCommentBinding` + `useComments`; datos migrados (idempotente, UUID v5). Yjs ya no transporta comentarios.
+- **Yjs solo-transporte** (§2c): `useCollab` ya no carga ni persiste estado Yjs — doc vacío por sesión, broadcast en vivo, handshake late-joiner. `yjs_documents`/`yjs_updates` congeladas (drop en limpieza final).
+- **Serialización canónica** (pendiente 4): `normalizeBpmnXml` en import + `forceCanonicalBpmnPrefix` post-import en canvas → un solo dialecto; legacy migra solo al guardar. `looksLikeBpmn` + DOMParser.
+- **Imágenes → Storage** (pendiente 1): bucket privado `diagram-images` (RLS por diagrama), refs `storage://` en XML, inline al exportar, rehome al duplicar. Migración retroactiva: `scripts/migrate-images.mjs` (pendiente de correr con usuarios en pausa).
+- **UI de conflicto** (pendiente 5): doble conflicto CAS → toast persistente con "cargar versión del servidor" / "guardar mi copia como duplicado".
+
+### ⏳ Pendiente
+
+1. Imágenes embebidas base64 → Storage (URLs en el XML). *(otra conversación)*
+2. **Fuente de verdad única: degradar Yjs a solo-transporte-en-vivo** (el pivote grande). Va con la conversación de "logs" porque está entrelazado con el append-log. **Prerequisitos obligatorios (minas de pérdida de datos):**
+   - **2a. Rediseñar persistencia de comentarios → tablas en Supabase (diseño acordado).** Hoy los comentarios viven en el Y.Doc (`getMap('comments')`), persistidos vía `yjs_documents`/log. **No van en el XML** (es la verdad *estructural* del diagrama) ni deben seguir en Yjs (son metadata colaborativa, **append-mostly**: nuevo hilo / nueva respuesta / resolver — CRDT es overkill). Hogar correcto: **tablas propias + Realtime.**
+     ```sql
+     comment_threads (
+       id uuid pk, diagram_id uuid references diagrams(id) on delete cascade,
+       anchor jsonb,            -- {type:'element',elementId} | {type:'selection',elementIds}
+       status text,             -- 'open' | 'resolved'
+       orphaned boolean default false,
+       created_by uuid references auth.users, created_by_name text,
+       created_at timestamptz default now()
+     )
+     comment_replies (
+       id uuid pk, thread_id uuid references comment_threads(id) on delete cascade,
+       author_id uuid references auth.users, author_name text,
+       content text, created_at timestamptz default now()
+     )
+     ```
+     - **Mapea 1:1** con el `CommentThread` + `replies` actual del `commentStore`.
+     - **Sync en vivo:** Supabase Realtime `postgres_changes` suscrito por `diagram_id` → colaboradores ven hilos/respuestas/resueltos al instante, **sin Yjs**.
+     - **RLS:** SELECT `can_access_diagram(diagram_id)`; INSERT `can_access_diagram` (o `can_edit` si solo editores comentan).
+     - `orphaned` se detecta client-side (contra el registry) pero **persiste** en la tabla.
+     - **Beneficio doble:** hogar limpio/auditable/consultable **y** desacopla comentarios de Yjs → elimina la mina 1 del pivote.
+   - ~~**2b. Backfill `current_xml` desde Yjs.**~~ **NO necesario** (ver §6bis): verificado que los 103 diagramas ya tienen su pool en `current_xml`. El "72 en Yjs" fue un bug de regex de Postgres. No hay migración de datos.
+   - 2c. Cambiar `useCollab`: dejar de cargar/reconciliar Yjs persistido en el canvas (canvas = `current_xml`); mantener Yjs solo para sync en vivo (broadcast) + handshake de late-joiner.
+   - 2d. Pruebas multiusuario reales.
 3. (Escala) Servidor autoritativo de CRDT con validación de ops + snapshot XML canónico.
 4. Forzar serialización canónica única en cada guardado (cerrar el "dos dialectos de XML" y el "pool solo en Yjs").
+5. Confirmación explícita de conflicto en UI (caso mal-uso).
 
 ---
+
+## 6bis. Verificación (2026-07-02): `current_xml` SÍ es completo — no hay backfill
+
+**Corrección de un falso hallazgo.** Un escaneo intermedio (vía SQL/MCP) reportó "72 de 78 diagramas con pool solo en Yjs". **Era un bug de regex**: se usó `\b` en el regex de Postgres, y Postgres ARE **no** interpreta `\b` como límite de palabra → el regex de `participant` fallaba → falsos "0 pools en XML".
+
+**Realidad (verificada con el script `scripts/scan-pool-location.mjs`, regex de JS correcto + chequeo directo por substring):**
+- **Los 103 diagramas tienen su pool en `current_xml`.** `current_xml` **es** la fuente de verdad completa.
+- **0 diagramas necesitan backfill.**
+- **0 casos "XML+Yjs"** → sin contaminación residual (los corruptos fueron saneados).
+
+**Implicación (a favor del pivote):** la **mina 2 (backfill masivo) NO existe**. Migrar a "XML como verdad" no requiere migración de datos — el XML ya está completo. Solo queda la **mina 1** (comentarios en Yjs → tablas Supabase, §2a).
+
+**Nota de dialectos:** el XML aparece en dos formas (`<bpmn:participant>` y `<participant>` sin prefijo). Ambas son válidas y contienen el pool; cualquier detección debe ser agnóstica al prefijo (regex `<(?:\w+:)?participant\b…` en JS, o substring en SQL — nunca `\b` en Postgres).
 
 ## 7. Resumen en una frase
 
