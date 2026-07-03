@@ -8,17 +8,9 @@ import { CollabChannel } from '@/collab/SupabaseProvider'
 import { colorForUser, type CursorState } from '@/collab/presence'
 import { uint8ToBase64, base64ToUint8 } from '@/collab/yBpmnModel'
 import { YjsBpmnBinding, REMOTE_ORIGIN } from '@/collab/YjsBpmnBinding'
-import { loadYjsState, appendYjsUpdate } from '@/collab/yjsPersistence'
 import { isCanvasReadyFor } from '@/collab/canvasSession'
 
 const CURSOR_THROTTLE_MS = 50
-const PERSIST_DEBOUNCE_MS = 1500
-// Keyframe periódico: si hubo cambios, añade un snapshot de estado completo al log
-// como red de seguridad ante deltas que fallaran al persistir. Acota la pérdida
-// máxima (ante desconexión total) a la ventana entre keyframes.
-const KEYFRAME_MS = 30000
-// Backoff base para reintentar un append fallido por red.
-const APPEND_RETRY_MS = 2000
 // Tope máximo esperando confirmación de que el canvas muestra este diagrama.
 // Si nunca llega (import falló, XML corrupto), no forzamos el binding —
 // preferible perder colaboración en esta sesión que mezclar contenido ajeno.
@@ -27,7 +19,13 @@ const BIND_CONFIRM_TIMEOUT_MS = 10000
 /**
  * Colaboración en tiempo real para el diagrama activo:
  * presencia + cursores + co-edición CRDT (Yjs) sobre un canal de Supabase.
- * Incluye comentarios colaborativos en el mismo Y.Doc.
+ *
+ * PIVOTE ADR (fuente de verdad única): el Y.Doc es SOLO transporte de sesión.
+ * Nace vacío en cada sesión, transporta los cambios en vivo (broadcast) y
+ * muere con la sesión — NO se carga ni se persiste estado Yjs. La única
+ * persistencia del diagrama es current_xml (autosave + CAS). El handshake
+ * onSubscribed/onJoin cubre al late-joiner con el estado de la sesión en curso.
+ *
  * No hace nada en modo local (sin Supabase) o sin sesión.
  */
 export function useCollab(
@@ -55,14 +53,8 @@ export function useCollab(
     const doc = new Y.Doc()
     let binding: YjsBpmnBinding | null = null
     let disposed = false
-    let persistTimer: ReturnType<typeof setTimeout> | null = null
-    let keyframeTimer: ReturnType<typeof setTimeout> | null = null
     let pendingImportHandler: (() => void) | null = null
     let pendingRetryTimer: ReturnType<typeof setTimeout> | null = null
-    // Deltas acumulados en la ventana de debounce, pendientes de append al log.
-    let pendingDeltas: Uint8Array[] = []
-    // Marca si hubo cambios desde el último keyframe (evita keyframes vacíos).
-    let dirtySinceKeyframe = false
     const bindWaitStartedAt = Date.now()
 
     const clearPendingImportWait = () => {
@@ -77,45 +69,12 @@ export function useCollab(
 
     const { setParticipants, setCursor, reset } = usePresenceStore.getState()
 
-    // Fusiona los deltas de la ventana en un solo update y lo añade al log.
-    // Si el append falla (red), reencola el merge al frente y reintenta con backoff
-    // — nunca se descarta un cambio silenciosamente.
-    const flushDeltas = async () => {
-      if (disposed || pendingDeltas.length === 0) return
-      const merged = Y.mergeUpdates(pendingDeltas)
-      pendingDeltas = []
-      const ok = await appendYjsUpdate(diagramId, uint8ToBase64(merged))
-      if (!ok && !disposed) {
-        pendingDeltas.unshift(merged)
-        setTimeout(() => { void flushDeltas() }, APPEND_RETRY_MS)
-      }
-    }
-
-    const schedulePersist = () => {
-      if (persistTimer) clearTimeout(persistTimer)
-      persistTimer = setTimeout(() => { void flushDeltas() }, PERSIST_DEBOUNCE_MS)
-    }
-
+    // Transporte puro: cada cambio local sale por broadcast. Nada se persiste
+    // aquí — la persistencia del diagrama es SOLO current_xml (useAutoSave + CAS).
     const onDocUpdate = (update: Uint8Array, origin: unknown) => {
       if (origin === REMOTE_ORIGIN) return
       channel.sendYjsUpdate(uint8ToBase64(update))
-      // Persistencia append-only: acumular el delta y volcarlo (fusionado) al log.
-      pendingDeltas.push(update)
-      dirtySinceKeyframe = true
-      schedulePersist()
     }
-
-    // Keyframe periódico (solo si hubo cambios): snapshot completo al log como
-    // checkpoint. Best-effort; no bloquea ni reintenta (el próximo tick reintenta).
-    const keyframeTick = () => {
-      if (disposed) return
-      if (dirtySinceKeyframe) {
-        dirtySinceKeyframe = false
-        void appendYjsUpdate(diagramId, uint8ToBase64(Y.encodeStateAsUpdate(doc)))
-      }
-      keyframeTimer = setTimeout(keyframeTick, KEYFRAME_MS)
-    }
-    keyframeTimer = setTimeout(keyframeTick, KEYFRAME_MS)
 
     const sendFullState = () => {
       try {
@@ -170,26 +129,20 @@ export function useCollab(
       pendingRetryTimer = setTimeout(startBindingWhenReady, 300)
     }
 
-    void (async () => {
-      const blobs = await loadYjsState(diagramId)
-      if (disposed) return
-      // Aplicar snapshot + tail en orden. Cada blob con su propio guard: una fila
-      // corrupta puntual no invalida el resto — el doc converge con lo aplicable.
-      for (const b64 of blobs) {
-        try { Y.applyUpdate(doc, base64ToUint8(b64), REMOTE_ORIGIN) } catch { /* fila corrupta: ignorar */ }
-      }
-      doc.on('update', onDocUpdate)
-      channel.connect({
-        onPresence: setParticipants,
-        onCursor: setCursor,
-        onYjsUpdate: (incoming: string) => {
-          try { Y.applyUpdate(doc, base64ToUint8(incoming), REMOTE_ORIGIN) } catch { /* noop */ }
-        },
-        onSubscribed: sendFullState,
-        onJoin: () => sendFullState(),
-      })
-      startBindingWhenReady()
-    })()
+    // El doc nace VACÍO: no se carga estado Yjs persistido. El canvas se pobló
+    // desde current_xml (única fuente de verdad); el doc solo acumulará los
+    // cambios de ESTA sesión (propios y de peers, vía broadcast).
+    doc.on('update', onDocUpdate)
+    channel.connect({
+      onPresence: setParticipants,
+      onCursor: setCursor,
+      onYjsUpdate: (incoming: string) => {
+        try { Y.applyUpdate(doc, base64ToUint8(incoming), REMOTE_ORIGIN) } catch { /* noop */ }
+      },
+      onSubscribed: sendFullState,
+      onJoin: () => sendFullState(),
+    })
+    startBindingWhenReady()
 
     // ── Cursor local (throttled, en coords de diagrama) ──
     let lastSent = 0
@@ -218,12 +171,6 @@ export function useCollab(
       clearPendingImportWait()
       wrap.removeEventListener('mousemove', onMove)
       wrap.removeEventListener('mouseleave', onLeave)
-      if (persistTimer) clearTimeout(persistTimer)
-      if (keyframeTimer) clearTimeout(keyframeTimer)
-      // Keyframe de cierre: snapshot completo al log. Captura TODO el estado del doc
-      // (incluidos deltas pendientes sin volcar, que ya están aplicados al doc) antes
-      // de destruirlo — checkpoint natural al cerrar/cambiar de diagrama.
-      void appendYjsUpdate(diagramId, uint8ToBase64(Y.encodeStateAsUpdate(doc)))
       doc.off('update', onDocUpdate)
       binding?.destroy()
       void channel.disconnect()
