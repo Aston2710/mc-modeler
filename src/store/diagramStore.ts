@@ -4,14 +4,23 @@ import type { Diagram, DiagramTab, Project } from '@/domain/types'
 import { diagramRepository } from '@/persistence'
 import { DiagramConflictError } from '@/persistence/IDiagramRepository'
 import { generateDiagramId } from '@/utils/idGenerator'
+import { normalizeBpmnXml } from '@/utils/normalizeBpmnXml'
 
 /**
  * Validación mínima antes de persistir: no guardar XML vacío o que no parezca
  * BPMN (evita pisar datos buenos con un canvas roto/vacío). No pretende validar
- * el modelo completo, solo descartar basura evidente.
+ * el modelo completo, solo descartar basura evidente. Además del regex, verifica
+ * que el XML esté bien formado (DOMParser) — barato y ataja truncados/corruptos.
  */
 function looksLikeBpmn(xml: string): boolean {
-  return !!xml && xml.length > 50 && /<(?:\w+:)?definitions[\s>]/.test(xml)
+  if (!xml || xml.length <= 50 || !/<(?:\w+:)?definitions[\s>]/.test(xml)) return false
+  if (typeof DOMParser !== 'undefined') {
+    try {
+      const doc = new DOMParser().parseFromString(xml, 'text/xml')
+      if (doc.getElementsByTagName('parsererror').length > 0) return false
+    } catch { /* entorno sin XML parser: caer al regex */ }
+  }
+  return true
 }
 
 const EMPTY_BPMN = `<?xml version="1.0" encoding="UTF-8"?>
@@ -348,12 +357,16 @@ export const useDiagramStore = create<DiagramState>()(
     },
 
     importDiagram: async (xml, name, projectId = null) => {
+      // Serialización canónica (ADR §6.4): nunca persistir el XML crudo del
+      // archivo — re-serializar con el mismo serializer que usa el autosave
+      // (un solo dialecto). Si no parsea, lanza y el import se rechaza.
+      const canonicalXml = await normalizeBpmnXml(xml)
       const id = generateDiagramId()
       const now = new Date().toISOString()
       const diagram: Diagram = {
         id,
         name,
-        xml,
+        xml: canonicalXml,
         thumbnail: null,
         folderId: null,
         projectId,
