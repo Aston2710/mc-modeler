@@ -24,15 +24,30 @@ export interface IDiagramRepository {
   save(diagram: Diagram, expectedUpdatedAt?: string): Promise<string>
   delete(id: string): Promise<void>
 
+  /**
+   * Renombra SIN tocar current_xml (update dirigido a la columna name).
+   * Nunca usar save() para renombrar: escribiría el XML en memoria (posiblemente
+   * stale) sin CAS → clobber silencioso del trabajo de otro usuario.
+   * Devuelve el nuevo updated_at si la fila cambió (el trigger lo mueve), o null.
+   */
+  setDiagramName(id: string, name: string): Promise<string | null>
+
   // Projects (agrupan diagramas; colaboración a nivel proyecto)
   getProjects(): Promise<Project[]>
   saveProject(project: Project): Promise<void>
   deleteProject(id: string): Promise<void>
-  setDiagramProject(diagramId: string, projectId: string | null): Promise<void>
+  /** Devuelve el nuevo updated_at si la fila cambió, o null (ver setDiagramName). */
+  setDiagramProject(diagramId: string, projectId: string | null): Promise<string | null>
 
   // Thumbnails stored separately to keep main list lean
   getThumbnail(id: string): Promise<string | null>
-  saveThumbnail(id: string, dataUrl: string): Promise<void>
+  /**
+   * Devuelve el nuevo updated_at si tuvo que tocar la fila diagrams (cambio de
+   * thumbnail_path — el trigger bumpea updated_at), o null si solo subió el blob.
+   * El llamador DEBE adoptar ese updated_at como su versión CAS; ignorarlo deja
+   * al cliente stale tras su propio guardado (conflictos fantasma).
+   */
+  saveThumbnail(id: string, dataUrl: string): Promise<string | null>
 
   // Sub-process overlay thumbnails — keyed separately from diagram thumbnails
   getSubProcessThumbnail(parentId: string, elementId: string): Promise<string | null>

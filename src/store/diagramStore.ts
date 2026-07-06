@@ -264,11 +264,26 @@ export const useDiagramStore = create<DiagramState>()(
       }
       const updated: Diagram = { ...diagram, xml, elementCount, updatedAt: now }
 
+      // Adopta el estado ya persistido por otro escritor (idempotencia, ADR §3.4):
+      // en tiempo real todos guardan el MISMO estado acordado — si el servidor ya
+      // tiene exactamente este XML, no hay nada que escribir ni que avisar.
+      const adoptPersisted = (freshUpdatedAt: string) => {
+        set((s) => {
+          const d = s.diagrams.find((d) => d.id === id)
+          if (d) { d.updatedAt = freshUpdatedAt; d.xml = xml; d.elementCount = elementCount }
+          const tab = s.tabs.find((t) => t.id === id)
+          if (tab) tab.dirty = false
+          s.lastSavedAt = freshUpdatedAt
+        })
+      }
+
       // Control optimista (CAS): esperado = el updated_at que teníamos en memoria.
-      // Si otro escritor guardó antes, DiagramConflictError. En tiempo real todos
-      // tienen ~el mismo estado, así que re-sincronizamos y reintentamos UNA vez
-      // (último-gana seguro, sin torn-write). Si vuelve a chocar, aceptamos el
-      // estado del otro (ya persistió lo acordado) y refrescamos la versión local.
+      // Si otro escritor guardó antes, DiagramConflictError. Resolución:
+      //   1. re-sync; si el server ya tiene ESTE contenido → adoptar, listo.
+      //   2. si difiere → reintentar UNA vez con la versión fresca (último-gana
+      //      seguro, sin torn-write).
+      //   3. si vuelve a chocar → mismo chequeo de contenido; solo si REALMENTE
+      //      diverge se acepta el estado del otro y se notifica a la UI.
       let persistedUpdatedAt: string
       try {
         persistedUpdatedAt = await diagramRepository.save(updated, diagram.updatedAt)
@@ -276,22 +291,25 @@ export const useDiagramStore = create<DiagramState>()(
         if (!(e instanceof DiagramConflictError)) throw e
         const fresh = await diagramRepository.getById(id)
         if (!fresh) return // borrado por otro → nada que guardar
+        if (fresh.xml === xml) { adoptPersisted(fresh.updatedAt); return }
         try {
           persistedUpdatedAt = await diagramRepository.save(updated, fresh.updatedAt)
         } catch (e2) {
           if (!(e2 instanceof DiagramConflictError)) throw e2
+          const fresh2 = await diagramRepository.getById(id)
+          if (!fresh2) return
+          if (fresh2.xml === xml) { adoptPersisted(fresh2.updatedAt); return }
           console.warn('[Flujo] conflicto de guardado persistente; se acepta el estado del otro escritor para', id)
           set((s) => {
             const d = s.diagrams.find((d) => d.id === id)
-            if (d) d.updatedAt = fresh.updatedAt
+            if (d) d.updatedAt = fresh2.updatedAt
             const tab = s.tabs.find((t) => t.id === id)
             if (tab) tab.dirty = false
           })
-          // Caso mal-uso (vista muy stale / edición offline larga): notificar
-          // explícitamente — nunca clobber ni descarte silencioso. La UI (App)
-          // ofrece recargar la versión del servidor o guardar la copia local
-          // como duplicado. En buen uso (tiempo real) esto casi nunca dispara:
-          // el primer reintento resuelve.
+          // Caso mal-uso (vista muy stale / edición offline larga) CON divergencia
+          // real de contenido: notificar explícitamente — nunca clobber ni
+          // descarte silencioso. La UI (App) ofrece recargar la versión del
+          // servidor o guardar la copia local como duplicado.
           if (typeof document !== 'undefined') {
             document.dispatchEvent(new CustomEvent('flujo:save-conflict', { detail: { id } }))
           }
@@ -300,10 +318,13 @@ export const useDiagramStore = create<DiagramState>()(
       }
 
       // El thumbnail es best-effort: si falla su subida (p. ej. Storage), NO debe
-      // hacer fallar el guardado del diagrama.
+      // hacer fallar el guardado del diagrama. Si tocó la fila (primera vez que
+      // el diagrama tiene thumbnail), el trigger movió updated_at → adoptar esa
+      // versión como la nuestra o quedaríamos stale tras nuestro propio guardado.
       try {
         if (thumbnail !== undefined) {
-          await diagramRepository.saveThumbnail(id, thumbnail ?? '')
+          const bumped = await diagramRepository.saveThumbnail(id, thumbnail ?? '')
+          if (bumped) persistedUpdatedAt = bumped
         }
       } catch (err) {
         console.warn('[Flujo] thumbnail no se pudo guardar (no crítico):', err)
@@ -323,21 +344,28 @@ export const useDiagramStore = create<DiagramState>()(
     },
 
     saveThumbnailOnly: async (id, thumbnail) => {
-      await diagramRepository.saveThumbnail(id, thumbnail)
+      const bumped = await diagramRepository.saveThumbnail(id, thumbnail)
       set((s) => {
         const d = s.diagrams.find((d) => d.id === id)
-        if (d) d.thumbnail = thumbnail
+        if (d) {
+          d.thumbnail = thumbnail
+          if (bumped) d.updatedAt = bumped
+        }
       })
     },
-    
+
     renameDiagram: async (id, name) => {
-      const diagram = get().diagrams.find((d) => d.id === id)
-      if (!diagram) return
-      const updated: Diagram = { ...diagram, name, updatedAt: new Date().toISOString() }
-      await diagramRepository.save(updated)
+      // Update dirigido (solo name): NUNCA save() con el diagrama completo —
+      // escribiría el current_xml en memoria (posiblemente stale) sin CAS,
+      // pisando el trabajo de otro colaborador. El trigger mueve updated_at →
+      // adoptar la versión nueva para no quedar stale.
+      const bumped = await diagramRepository.setDiagramName(id, name)
       set((s) => {
         const d = s.diagrams.find((d) => d.id === id)
-        if (d) d.name = name
+        if (d) {
+          d.name = name
+          if (bumped) d.updatedAt = bumped
+        }
         const t = s.tabs.find((t) => t.id === id)
         if (t) t.name = name
       })
@@ -507,10 +535,13 @@ export const useDiagramStore = create<DiagramState>()(
     },
 
     moveDiagramToProject: async (diagramId, projectId) => {
-      await diagramRepository.setDiagramProject(diagramId, projectId)
+      const bumped = await diagramRepository.setDiagramProject(diagramId, projectId)
       set((s) => {
         const d = s.diagrams.find((d) => d.id === diagramId)
-        if (d) d.projectId = projectId
+        if (d) {
+          d.projectId = projectId
+          if (bumped) d.updatedAt = bumped // el trigger movió la versión
+        }
       })
     },
 
