@@ -14,9 +14,24 @@ interface PreferencesState extends UserPreferences {
   setSnapToGrid: (v: boolean) => Promise<void>
   setLastOpened: (id: string | null) => Promise<void>
   setPaletteMode: (v: 'grid' | 'dropdown' | 'bizagi') => Promise<void>
+  setShowComments: (v: boolean) => Promise<void>
 }
 
-const save = async (prefs: UserPreferences) => {
+// Extraer SOLO los campos de datos: el estado de Zustand incluye las acciones
+// (funciones) y IndexedDB no puede clonarlas → DataCloneError y prefs nunca
+// persistidas. Nunca pasar get() completo a savePreferences.
+const save = async (s: PreferencesState) => {
+  const prefs: UserPreferences = {
+    language: s.language,
+    theme: s.theme,
+    gridEnabled: s.gridEnabled,
+    gridSize: s.gridSize,
+    snapToGrid: s.snapToGrid,
+    autoSaveInterval: s.autoSaveInterval,
+    lastOpenedDiagramId: s.lastOpenedDiagramId,
+    paletteMode: s.paletteMode,
+    showComments: s.showComments,
+  }
   await diagramRepository.savePreferences(prefs)
 }
 
@@ -30,6 +45,7 @@ export const usePreferencesStore = create<PreferencesState>()(
     autoSaveInterval: 30,
     lastOpenedDiagramId: null,
     paletteMode: 'grid',
+    showComments: true,
     loaded: false,
 
     load: async () => {
@@ -76,6 +92,11 @@ export const usePreferencesStore = create<PreferencesState>()(
 
     setPaletteMode: async (v) => {
       set((s) => { s.paletteMode = v })
+      await save(get())
+    },
+
+    setShowComments: async (v) => {
+      set((s) => { s.showComments = v })
       await save(get())
     },
   }))

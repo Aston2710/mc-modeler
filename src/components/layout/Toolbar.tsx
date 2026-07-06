@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import {
   Plus, Upload, Download, CheckSquare,
   Undo2, Redo2, ZoomIn, ZoomOut, Maximize2,
-  Sun, Moon, Save, Home, GitBranch, Share2, LogOut
+  Sun, Moon, Save, Home, GitBranch, Share2, LogOut,
+  MessageSquare
 } from 'lucide-react'
 import { useDiagramStore } from '@/store/diagramStore'
 import { useUIStore } from '@/store/uiStore'
@@ -48,6 +49,8 @@ export function Toolbar({
   const setLanguage = usePreferencesStore((s) => s.setLanguage)
   const theme = usePreferencesStore((s) => s.theme)
   const setTheme = usePreferencesStore((s) => s.setTheme)
+  const showComments = usePreferencesStore((s) => s.showComments)
+  const setShowComments = usePreferencesStore((s) => s.setShowComments)
 
   const activeDiagram = diagrams.find((d) => d.id === activeTabId)
   const errorCount = validationResults.filter((r) => r.severity === 'error').length
@@ -126,6 +129,14 @@ export function Toolbar({
           disabled={!activeDiagram}
         >
           <CheckSquare size={16} />
+        </button>
+        <button
+          className={`icon-btn ${showComments ? 'active' : ''}`}
+          onClick={() => setShowComments(!showComments)}
+          title={showComments ? t('toolbar.hideComments') : t('toolbar.showComments')}
+          disabled={!activeDiagram}
+        >
+          <MessageSquare size={16} />
         </button>
       </div>
 

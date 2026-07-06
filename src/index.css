@@ -1834,6 +1834,26 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   padding: 7px 10px;
 }
 .comment-reopen-btn:hover { color: var(--primary); }
+.comment-delete-btn {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 10px; color: var(--text-3); cursor: pointer;
+  background: none; border: none; transition: color 0.12s;
+}
+.comment-delete-btn:hover { color: #ef4444; }
+.comment-delete-btn--reply { flex-shrink: 0; padding: 2px; }
+.cdelete-confirm {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10px; color: var(--text-2);
+}
+.cdelete-yes, .cdelete-no {
+  font-size: 10px; cursor: pointer; background: none;
+  border: none; padding: 2px 5px; border-radius: var(--radius);
+  transition: color 0.12s, background 0.12s;
+}
+.cdelete-yes { color: #ef4444; font-weight: 600; }
+.cdelete-yes:hover { background: rgba(239, 68, 68, .12); }
+.cdelete-no { color: var(--text-3); }
+.cdelete-no:hover { color: var(--text); }
 
 /* Composer */
 .comment-composer {

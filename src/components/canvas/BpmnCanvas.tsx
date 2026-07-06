@@ -10,6 +10,7 @@ import { SelectionCommentTrigger } from '@/components/comments/SelectionCommentT
 import { useCommentStore } from '@/store/commentStore'
 import type { Anchor } from '@/store/commentStore'
 import { useDiagramStore } from '@/store/diagramStore'
+import { usePreferencesStore } from '@/store/preferencesStore'
 import { uploadImageDataUrl } from '@/utils/imageStorage'
 
 export interface BpmnCanvasHandle {
@@ -50,6 +51,7 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
     const thumbVRef = useRef<HTMLDivElement>(null)
 
     const [ready, setReady] = useState(false)
+    const showComments = usePreferencesStore((s) => s.showComments)
     const handleReady = useCallback(() => {
       setReady(true)
       onReady?.()
@@ -308,8 +310,9 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
         {/* Cursores de colaboradores en tiempo real */}
         {ready && <RemoteCursors modelerRef={modeler.modelerRef} />}
 
-        {/* Pines y highlights de comentario — renderizados por bpmn-js overlays service */}
-        {ready && <CommentsOverlay modelerRef={modeler.modelerRef} />}
+        {/* Pines y highlights de comentario — renderizados por bpmn-js overlays service.
+            Gated por la preferencia "mostrar comentarios" (toggle en el toolbar). */}
+        {ready && showComments && <CommentsOverlay modelerRef={modeler.modelerRef} />}
 
         {/* Botón flotante para comentar selecciones múltiples */}
         {ready && <SelectionCommentTrigger modelerRef={modeler.modelerRef} />}

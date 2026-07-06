@@ -82,7 +82,9 @@
     "zoomOut": "Zoom out",
     "import": "Import",
     "myDiagrams": "My diagrams",
-    "toggleTheme": "Toggle theme"
+    "toggleTheme": "Toggle theme",
+    "showComments": "Show comments",
+    "hideComments": "Hide comments"
   },
   "palette": {
     "title": "Palette",

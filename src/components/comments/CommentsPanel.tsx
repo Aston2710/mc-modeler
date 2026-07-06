@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { useCommentStore, getCommentBinding, type CommentThread } from '@/store/commentStore'
 import { useAuthStore } from '@/store/authStore'
-import { MessageSquare, X, CheckCircle, RotateCcw, Send } from 'lucide-react'
+import { MessageSquare, X, CheckCircle, RotateCcw, Send, Trash2 } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObj = any
@@ -61,10 +61,13 @@ interface ThreadProps {
 
 function Thread({ thread, isActive, isFocused, userId, userName, onActivate }: ThreadProps) {
   const [replyText, setReplyText] = useState('')
+  // 'thread' = borrar hilo completo; otro valor = id de la reply a borrar
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     if (isActive) textareaRef.current?.focus()
+    else setConfirmDelete(null)
   }, [isActive])
 
   const submit = () => {
@@ -124,6 +127,30 @@ function Thread({ thread, isActive, isFocused, userId, userName, onActivate }: T
                 </div>
                 <p className="creply-content">{reply.content}</p>
               </div>
+              {reply.authorId === userId && (
+                confirmDelete === reply.id ? (
+                  <span className="cdelete-confirm">
+                    <button
+                      className="cdelete-yes"
+                      onClick={() => {
+                        getCommentBinding()?.deleteReply(thread.id, reply.id)
+                        setConfirmDelete(null)
+                      }}
+                    >
+                      Sí
+                    </button>
+                    <button className="cdelete-no" onClick={() => setConfirmDelete(null)}>No</button>
+                  </span>
+                ) : (
+                  <button
+                    className="comment-delete-btn comment-delete-btn--reply"
+                    title="Eliminar respuesta"
+                    onClick={() => setConfirmDelete(reply.id)}
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                )
+              )}
             </div>
           ))}
 
@@ -140,6 +167,28 @@ function Thread({ thread, isActive, isFocused, userId, userName, onActivate }: T
                 style={{ fontSize: 11, minHeight: 48 }}
               />
               <div className="cthread-actions">
+                {thread.createdBy === userId && (
+                  confirmDelete === 'thread' ? (
+                    <span className="cdelete-confirm">
+                      ¿Eliminar hilo?
+                      <button
+                        className="cdelete-yes"
+                        onClick={() => getCommentBinding()?.deleteThread(thread.id)}
+                      >
+                        Sí
+                      </button>
+                      <button className="cdelete-no" onClick={() => setConfirmDelete(null)}>No</button>
+                    </span>
+                  ) : (
+                    <button
+                      className="comment-delete-btn"
+                      title="Eliminar hilo"
+                      onClick={() => setConfirmDelete('thread')}
+                    >
+                      <Trash2 size={11} /> Eliminar
+                    </button>
+                  )
+                )}
                 <button
                   className="comment-resolve-btn"
                   onClick={() => getCommentBinding()?.resolveThread(thread.id)}
@@ -158,12 +207,36 @@ function Thread({ thread, isActive, isFocused, userId, userName, onActivate }: T
           )}
 
           {thread.status === 'resolved' && (
-            <button
-              className="comment-reopen-btn"
-              onClick={() => getCommentBinding()?.reopenThread(thread.id)}
-            >
-              <RotateCcw size={11} /> Reabrir
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <button
+                className="comment-reopen-btn"
+                onClick={() => getCommentBinding()?.reopenThread(thread.id)}
+              >
+                <RotateCcw size={11} /> Reabrir
+              </button>
+              {thread.createdBy === userId && (
+                confirmDelete === 'thread' ? (
+                  <span className="cdelete-confirm">
+                    ¿Eliminar hilo?
+                    <button
+                      className="cdelete-yes"
+                      onClick={() => getCommentBinding()?.deleteThread(thread.id)}
+                    >
+                      Sí
+                    </button>
+                    <button className="cdelete-no" onClick={() => setConfirmDelete(null)}>No</button>
+                  </span>
+                ) : (
+                  <button
+                    className="comment-delete-btn"
+                    title="Eliminar hilo"
+                    onClick={() => setConfirmDelete('thread')}
+                  >
+                    <Trash2 size={11} /> Eliminar
+                  </button>
+                )
+              )}
+            </div>
           )}
         </div>
       )}

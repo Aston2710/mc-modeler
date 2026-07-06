@@ -8,7 +8,9 @@ const { state } = vi.hoisted(() => ({
     replyRows: [] as unknown[],
     inserts: [] as { table: string; values: unknown }[],
     updates: [] as { table: string; values: unknown; id: string }[],
+    deletes: [] as { table: string; id: string }[],
     failInserts: false,
+    failDeletes: false,
   },
 }))
 
@@ -32,6 +34,13 @@ vi.mock('@/lib/supabase', () => {
     update: (values: unknown) => ({
       eq: (_col: string, id: string) => {
         state.updates.push({ table, values, id })
+        return Promise.resolve({ error: null })
+      },
+    }),
+    delete: () => ({
+      eq: (_col: string, id: string) => {
+        if (state.failDeletes) return Promise.resolve({ error: { message: 'boom' } })
+        state.deletes.push({ table, id })
         return Promise.resolve({ error: null })
       },
     }),
@@ -66,7 +75,9 @@ beforeEach(() => {
   state.replyRows = []
   state.inserts = []
   state.updates = []
+  state.deletes = []
   state.failInserts = false
+  state.failDeletes = false
   useCommentStore.setState({ threads: [] } as never)
 })
 
@@ -137,6 +148,46 @@ describe('SupabaseCommentBinding', () => {
     await flush()
     // refetch devolvió [] → el hilo optimista desaparece
     expect(useCommentStore.getState().threads).toHaveLength(0)
+    b.destroy()
+  })
+
+  it('deleteThread: optimista + DELETE en comment_threads', async () => {
+    state.threadRows = [threadRow('t1'), threadRow('t2')]
+    const b = new SupabaseCommentBinding('diag-1')
+    await b.start()
+    b.deleteThread('t1')
+    expect(useCommentStore.getState().threads.map((t: CommentThread) => t.id)).toEqual(['t2'])
+    await flush()
+    expect(state.deletes).toEqual([{ table: 'comment_threads', id: 't1' }])
+    b.destroy()
+  })
+
+  it('deleteReply: optimista + DELETE en comment_replies', async () => {
+    state.threadRows = [threadRow('t1')]
+    state.replyRows = [
+      { id: 'r1', thread_id: 't1', author_id: 'u1', author_name: 'Ana', content: 'cuerpo', created_at: '2026-07-01T10:00:00Z' },
+      { id: 'r2', thread_id: 't1', author_id: 'u2', author_name: 'Beto', content: 'respuesta', created_at: '2026-07-01T11:00:00Z' },
+    ]
+    const b = new SupabaseCommentBinding('diag-1')
+    await b.start()
+    b.deleteReply('t1', 'r2')
+    expect(useCommentStore.getState().threads[0].replies.map((r) => r.id)).toEqual(['r1'])
+    await flush()
+    expect(state.deletes).toEqual([{ table: 'comment_replies', id: 'r2' }])
+    b.destroy()
+  })
+
+  it('DELETE fallido → refetch revierte el optimismo', async () => {
+    state.threadRows = [threadRow('t1')]
+    state.failDeletes = true
+    const b = new SupabaseCommentBinding('diag-1')
+    await b.start()
+    b.deleteThread('t1')
+    expect(useCommentStore.getState().threads).toHaveLength(0)
+    await flush()
+    await flush()
+    // refetch devolvió el hilo aún vivo en la tabla → reaparece
+    expect(useCommentStore.getState().threads.map((t: CommentThread) => t.id)).toEqual(['t1'])
     b.destroy()
   })
 

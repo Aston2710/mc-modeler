@@ -36,6 +36,7 @@ export interface UserPreferences {
   autoSaveInterval: number
   lastOpenedDiagramId: string | null
   paletteMode: 'grid' | 'dropdown' | 'bizagi'
+  showComments: boolean
 }
 
 export interface ValidationResult {

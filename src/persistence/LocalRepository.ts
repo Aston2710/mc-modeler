@@ -13,6 +13,7 @@ const DEFAULT_PREFS: UserPreferences = {
   autoSaveInterval: 30,
   lastOpenedDiagramId: null,
   paletteMode: 'grid',
+  showComments: true,
 }
 
 const store = localforage.createInstance({

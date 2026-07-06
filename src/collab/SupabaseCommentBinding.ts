@@ -239,6 +239,36 @@ export class SupabaseCommentBinding {
     })()
   }
 
+  deleteThread(threadId: string): void {
+    this.threadIds.delete(threadId)
+    this.setThreads((ts) => ts.filter((t) => t.id !== threadId))
+    void (async () => {
+      if (!supabase) return
+      // Las replies caen por on delete cascade. RLS: solo el autor puede borrar.
+      const { error } = await supabase.from('comment_threads').delete().eq('id', threadId)
+      if (error) {
+        console.warn('[comments] deleteThread no persistió, revirtiendo:', error)
+        void this.refetch()
+      }
+    })()
+  }
+
+  deleteReply(threadId: string, replyId: string): void {
+    this.setThreads((ts) =>
+      ts.map((t) =>
+        t.id === threadId ? { ...t, replies: t.replies.filter((r) => r.id !== replyId) } : t
+      )
+    )
+    void (async () => {
+      if (!supabase) return
+      const { error } = await supabase.from('comment_replies').delete().eq('id', replyId)
+      if (error) {
+        console.warn('[comments] deleteReply no persistió, revirtiendo:', error)
+        void this.refetch()
+      }
+    })()
+  }
+
   resolveThread(threadId: string): void {
     this.updateThread(threadId, { status: 'resolved' })
   }

@@ -277,8 +277,9 @@ export default function App() {
       const thumbnail = await buildThumbnail(getSvg).catch(() => undefined)
       await saveDiagram(tabId, xml, undefined, thumbnail)
       setUnsavedChanges(false)
-    } catch {
+    } catch (e) {
       // no bloquear el cambio de pestaña si falla el guardado
+      console.warn('[Flujo] guardado al cambiar de pestaña falló:', e)
     }
   }, [getSvg, saveDiagram, setUnsavedChanges])
 
@@ -304,7 +305,8 @@ export default function App() {
       await saveDiagram(activeTabId, xml, undefined, thumbnail)
       setUnsavedChanges(false)
       addToast({ type: 'success', title: t('statusbar.saved'), duration: 2000 })
-    } catch {
+    } catch (e) {
+      console.error('[Flujo] guardado falló:', e)
       addToast({ type: 'error', title: t('errors.saveFailed') })
     }
   }, [activeTabId, canEditActive, getXml, getSvg, saveDiagram, setUnsavedChanges, addToast, t])

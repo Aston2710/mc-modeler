@@ -30,8 +30,9 @@ export function useAutoSave(
       ])
       await saveDiagram(id, xml, undefined, thumbnail)
       setUnsavedChanges(false)
-    } catch {
-      // silently skip — next interval will retry
+    } catch (e) {
+      // skip — next interval will retry
+      console.warn('[Flujo] autosave falló:', e)
     }
   }
   useEffect(() => {

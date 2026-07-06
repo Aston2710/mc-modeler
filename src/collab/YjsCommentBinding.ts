@@ -145,6 +145,19 @@ export class YjsCommentBinding {
     yreplies.push([reply])
   }
 
+  deleteThread(threadId: string): void {
+    this.ycomments.delete(threadId)
+  }
+
+  deleteReply(threadId: string, replyId: string): void {
+    const ythread = this.ycomments.get(threadId)
+    if (!ythread) return
+    const yreplies = ythread.get('replies') as Y.Array<CommentReply> | undefined
+    if (!yreplies) return
+    const idx = yreplies.toArray().findIndex((r) => r.id === replyId)
+    if (idx >= 0) yreplies.delete(idx, 1)
+  }
+
   resolveThread(threadId: string): void {
     this.ycomments.get(threadId)?.set('status', 'resolved')
   }

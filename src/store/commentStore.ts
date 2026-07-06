@@ -30,6 +30,8 @@ interface ICommentBinding {
   addReply(threadId: string, content: string, userId: string, userName: string): void
   resolveThread(threadId: string): void
   reopenThread(threadId: string): void
+  deleteThread(threadId: string): void
+  deleteReply(threadId: string, replyId: string): void
 }
 
 let _binding: ICommentBinding | null = null
