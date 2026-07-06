@@ -224,9 +224,22 @@ export class SupabaseRepository implements IDiagramRepository {
     if (error) throw error
   }
 
-  async setDiagramProject(diagramId: string, projectId: string | null): Promise<void> {
-    const { error } = await this.sb.from('diagrams').update({ project_id: projectId }).eq('id', diagramId)
+  async setDiagramProject(diagramId: string, projectId: string | null): Promise<string | null> {
+    const { data, error } = await this.sb
+      .from('diagrams').update({ project_id: projectId }).eq('id', diagramId)
+      .select('updated_at').maybeSingle()
     if (error) throw error
+    return (data as { updated_at: string } | null)?.updated_at ?? null
+  }
+
+  async setDiagramName(id: string, name: string): Promise<string | null> {
+    // Update dirigido: NUNCA current_xml (renombrar con save() escribiría el XML
+    // en memoria sin CAS → clobber del trabajo de otro colaborador).
+    const { data, error } = await this.sb
+      .from('diagrams').update({ name }).eq('id', id)
+      .select('updated_at').maybeSingle()
+    if (error) throw error
+    return (data as { updated_at: string } | null)?.updated_at ?? null
   }
 
   async delete(id: string): Promise<void> {
@@ -265,24 +278,42 @@ export class SupabaseRepository implements IDiagramRepository {
     }
   }
 
-  async saveThumbnail(id: string, dataUrl: string): Promise<void> {
+  async saveThumbnail(id: string, dataUrl: string): Promise<string | null> {
     // dataUrl vacío = limpiar thumbnail (diagramStore pasa '' para null).
     if (!dataUrl || !dataUrl.startsWith('data:')) {
       await this.sb.storage.from(THUMB_BUCKET).remove([thumbPath(id)])
-      await this.sb.from('diagrams').update({ thumbnail_path: null }).eq('id', id)
+      let bumped: string | null = null
+      if (this.thumbPaths.get(id) !== null) {
+        const { data } = await this.sb
+          .from('diagrams').update({ thumbnail_path: null }).eq('id', id)
+          .select('updated_at').maybeSingle()
+        bumped = (data as { updated_at: string } | null)?.updated_at ?? null
+      }
       this.thumbPaths.set(id, null)
       this.thumbCache.set(id, null)
-      return
+      return bumped
     }
     const blob = dataUrlToBlob(dataUrl)
     const { error } = await this.sb.storage
       .from(THUMB_BUCKET)
       .upload(thumbPath(id), blob, { upsert: true, contentType: blob.type })
     if (error) throw error
-    await this.sb.from('diagrams').update({ thumbnail_path: thumbPath(id) }).eq('id', id)
+    // El path es constante por diagrama → tras la primera vez NUNCA tocar la
+    // fila. Crítico: ese UPDATE dispara el trigger de updated_at e invalida la
+    // versión CAS de TODOS los escritores en cada autosave (era la causa de
+    // los conflictos fantasma entre colaboradores). Si sí se toca, devolver el
+    // nuevo updated_at para que el llamador adopte la versión.
+    let bumped: string | null = null
+    if (this.thumbPaths.get(id) !== thumbPath(id)) {
+      const { data } = await this.sb
+        .from('diagrams').update({ thumbnail_path: thumbPath(id) }).eq('id', id)
+        .select('updated_at').maybeSingle()
+      bumped = (data as { updated_at: string } | null)?.updated_at ?? null
+    }
     this.thumbPaths.set(id, thumbPath(id))
     // Actualizar el cache con el dataURL recién guardado (identidad estable nueva).
     this.thumbCache.set(id, dataUrl)
+    return bumped
   }
 
   // ── Thumbnails de subprocesos (overlay) ──
