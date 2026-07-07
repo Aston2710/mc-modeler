@@ -110,6 +110,11 @@ interface DiagramState {
   moveDiagramToProject: (diagramId: string, projectId: string | null) => Promise<void>
 }
 
+// Serializa los guardados: autosave y guardado manual pueden solaparse; dos
+// escrituras CAS en vuelo del MISMO cliente se auto-conflictúan (la segunda
+// arranca con el updated_at previo) y pueden escalar al toast de conflicto.
+let saveChain: Promise<unknown> = Promise.resolve()
+
 export const useDiagramStore = create<DiagramState>()(
   immer((set, get) => ({
     diagrams: [],
@@ -253,7 +258,8 @@ export const useDiagramStore = create<DiagramState>()(
       set((s) => { s.activeTabId = id })
     },
 
-    saveDiagram: async (id, xml, elementCount = 0, thumbnail) => {
+    saveDiagram: (id, xml, elementCount = 0, thumbnail) => {
+      const run = async () => {
       const now = new Date().toISOString()
       const diagram = get().diagrams.find((d) => d.id === id)
       if (!diagram) return
@@ -303,7 +309,10 @@ export const useDiagramStore = create<DiagramState>()(
       // hacer fallar el guardado del diagrama.
       try {
         if (thumbnail !== undefined) {
-          await diagramRepository.saveThumbnail(id, thumbnail ?? '')
+          // El PATCH de thumbnail_path bumpea updated_at (trigger). Sin leerlo
+          // de vuelta, el próximo CAS arrancaría desactualizado y conflictuaría.
+          const bumped = await diagramRepository.saveThumbnail(id, thumbnail ?? '')
+          if (bumped) persistedUpdatedAt = bumped
         }
       } catch (err) {
         console.warn('[Flujo] thumbnail no se pudo guardar (no crítico):', err)
@@ -320,13 +329,21 @@ export const useDiagramStore = create<DiagramState>()(
         if (tab) tab.dirty = false
         s.lastSavedAt = persistedUpdatedAt
       })
+      }
+      const task = saveChain.then(run, run)
+      saveChain = task.catch(() => { /* el error lo maneja el caller de task */ })
+      return task
     },
 
     saveThumbnailOnly: async (id, thumbnail) => {
-      await diagramRepository.saveThumbnail(id, thumbnail)
+      const bumped = await diagramRepository.saveThumbnail(id, thumbnail)
       set((s) => {
         const d = s.diagrams.find((d) => d.id === id)
-        if (d) d.thumbnail = thumbnail
+        if (d) {
+          d.thumbnail = thumbnail
+          // El PATCH bumpea updated_at: reflejarlo o el próximo CAS conflictúa.
+          if (bumped) d.updatedAt = bumped
+        }
       })
     },
     

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { MousePointerClick, ChevronRight } from 'lucide-react'
+import { MousePointerClick } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'
 import { BpmnElementIcon } from '@/components/palette/BpmnElementIcon'
 import { isPhase, getPhaseName, getPhaseColor, DEFAULT_PHASE_COLOR } from '@/bpmn/elements/phaseUtil'
@@ -20,9 +20,9 @@ interface Element {
   }
 }
 
+// Contenido del modo "Propiedades" del RightPanel (que aporta el shell de la
+// barra: pestañas de modo, colapso y contenedor .sidebar-r).
 interface PropertiesPanelProps {
-  collapsed: boolean
-  onToggle: () => void
   getSelectedElements: () => Element[]
   // Called when user edits a property — triggers bpmn-js update
   onUpdateProperty?: (elementId: string, property: string, value: string) => void
@@ -60,8 +60,6 @@ function getBpmnIconType(bpmnType: string): string {
 }
 
 export function PropertiesPanel({
-  collapsed,
-  onToggle,
   getSelectedElements,
   onUpdateProperty,
 }: PropertiesPanelProps) {
@@ -78,25 +76,9 @@ export function PropertiesPanel({
     setActiveTab('general')
   }, [selectedIds])
 
-  if (collapsed) {
-    return (
-      <div className="collapsed-rail right">
-        <button className="icon-btn" onClick={onToggle}>
-          <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
-        </button>
-      </div>
-    )
-  }
-
   if (!el || !bo) {
     return (
-      <div className="sidebar-r">
-        <div className="sb-header">
-          <span className="sb-title">{t('properties.noSelection')}</span>
-          <button className="sb-collapse-btn" onClick={onToggle}>
-            <ChevronRight size={14} />
-          </button>
-        </div>
+      <div className="props-content">
         <div className="props-empty">
           <MousePointerClick />
           <div className="empty-title">{t('properties.noSelection')}</div>
@@ -116,7 +98,7 @@ export function PropertiesPanel({
   }
 
   return (
-    <div className="sidebar-r">
+    <div className="props-content">
       <div className="selected-card">
         <div className="selected-icon">
           <BpmnElementIcon type={iconType} size={20} />
@@ -126,9 +108,6 @@ export function PropertiesPanel({
           <div className="selected-title">{(isPhase(el) ? getPhaseName(el) : bo.name) || `(${typeLabel})`}</div>
           <div className="selected-id mono">{el.id}</div>
         </div>
-        <button className="sb-collapse-btn" onClick={onToggle} style={{ flexShrink: 0 }}>
-          <ChevronRight size={14} />
-        </button>
       </div>
 
       <div className="props-tabs">

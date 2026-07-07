@@ -33,7 +33,7 @@ const OUTLINE_OFFSET = 5   // mismo valor que OutlineProvider de bpmn-js
 const END_EVENT_EXTRA = 1  // bpmn-js añade 1px extra para el stroke del EndEvent
 
 const MIN_SIZE: Array<{ type: string; width: number; height: number }> = [
-  { type: 'bpmn:SubProcess', width: 120, height: 80 },
+  { type: 'bpmn:SubProcess', width: 50, height: 30 },
   { type: 'bpmn:Task',       width: 50, height: 30 },
   { type: 'bpmn:Gateway',    width: 30, height: 30 },
   { type: 'bpmn:Event',      width: 28, height: 28 },

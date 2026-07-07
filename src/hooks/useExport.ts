@@ -31,10 +31,125 @@ function resolveBg(theme: ExportTheme): string {
   return THEME_BG[resolveThemeName(theme)] ?? '#ffffff'
 }
 
+// ── Remapeo de colores sin tocar el DOM ─────────────────────────────
+// El renderer (ThemeColors.ts / ThemeAwareRenderer.ts) hornea en el SVG los
+// valores literales de estas variables CSS. Para exportar en el tema opuesto
+// basta con sustituir valor-dark ↔ valor-light en el string SVG, leyendo los
+// valores autorales del CSSOM (:root = light, [data-theme="dark"] = dark).
+// Así el canvas vivo nunca se re-renderiza y no hay flash de tema.
+const RENDERER_VARS = [
+  '--task-fill', '--task-stroke', '--task-text',
+  '--start-fill', '--start-stroke',
+  '--end-fill', '--end-stroke',
+  '--int-fill', '--int-stroke',
+  '--gateway-fill', '--gateway-stroke',
+  '--pool-fill', '--pool-stroke', '--lane-fill',
+  '--text', '--text-2', '--bg', '--border-strong',
+] as const
+
+const LIGHT_SELECTOR = ':root'
+const DARK_SELECTORS = ['[data-theme="dark"]', ':root[data-theme="dark"]']
+
+function collectVarsFromRules(rules: CSSRuleList, selectors: string[], out: Record<string, string>): void {
+  for (const rule of Array.from(rules)) {
+    if (rule instanceof CSSStyleRule && selectors.includes(rule.selectorText)) {
+      for (const v of RENDERER_VARS) {
+        const val = rule.style.getPropertyValue(v).trim()
+        if (val) out[v] = val
+      }
+    } else if ('cssRules' in rule) {
+      // @media / @layer / @supports — descender
+      collectVarsFromRules((rule as CSSGroupingRule).cssRules, selectors, out)
+    }
+  }
+}
+
+function readAuthoredVars(themeName: 'light' | 'dark'): Record<string, string> {
+  const selectors = themeName === 'light' ? [LIGHT_SELECTOR] : DARK_SELECTORS
+  const out: Record<string, string> = {}
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      collectVarsFromRules(sheet.cssRules, selectors, out)
+    } catch {
+      // hoja cross-origin: ignorar
+    }
+  }
+  return out
+}
+
+// "#1e3a5f" → "rgb(30, 58, 95)" (serialización exacta del browser); null si no es hex.
+function hexToRgbString(hex: string): string | null {
+  const m = hex.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i)
+  if (!m) return null
+  let h = m[1]
+  if (h.length === 3) h = h.split('').map(c => c + c).join('')
+  const n = parseInt(h, 16)
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
+}
+
+// Mapa valorOrigen → valorDestino. Cada valor origen se registra en sus DOS
+// serializaciones: hex (atributos fill="#...") y rgb() (el browser re-serializa
+// las propiedades de style="fill: ..." como "rgb(r, g, b)" al exportar el SVG).
+// null si el CSSOM no expone la paleta completa (p.ej. hoja cross-origin) —
+// el caller cae al camino withTheme.
+function buildThemeValueMap(from: 'light' | 'dark', to: 'light' | 'dark'): Map<string, string> | null {
+  const fromVars = readAuthoredVars(from)
+  const toVars = readAuthoredVars(to)
+  const map = new Map<string, string>()
+  for (const v of RENDERER_VARS) {
+    const f = fromVars[v]
+    const t = toVars[v]
+    if (!f || !t) return null
+    map.set(f.toLowerCase(), t)
+    const rgb = hexToRgbString(f)
+    if (rgb) map.set(rgb, t)
+  }
+  return map
+}
+
+// Markup transitorio de interacción que diagram-js dibuja en la capa activa
+// y saveSVG() puede capturar (p.ej. autosave en mitad de un arrastre de lasso).
+// Dentro de un <img> no hay CSS de la app, así que estos elementos renderizan
+// con defaults SVG (fill negro) — hay que quitarlos del export.
+const TRANSIENT_SELECTORS = [
+  '.djs-lasso-overlay',
+  '.djs-dragger',
+  '.djs-drag-group',
+  '.djs-resizer',
+  '.djs-bendpoint',
+  '.djs-segment-dragger',
+].join(', ')
+
+export function sanitizeExportedSvg(svg: string): string {
+  try {
+    const doc = new DOMParser().parseFromString(svg, 'image/svg+xml')
+    if (doc.querySelector('parsererror')) return svg
+    doc.querySelectorAll(TRANSIENT_SELECTORS).forEach(el => el.remove())
+    return new XMLSerializer().serializeToString(doc)
+  } catch {
+    return svg
+  }
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+// Sustitución en UNA sola pasada: un reemplazo secuencial se auto-contamina
+// (p.ej. --text-2 dark #98a2b3 → light #475467, que es a la vez el valor
+// dark de --pool-stroke y sería re-sustituido después).
+function replaceSvgColors(svg: string, valueMap: Map<string, string>): string {
+  const alternation = Array.from(valueMap.keys()).map(escapeRegExp).join('|')
+  const pattern = new RegExp(`(${alternation})(?![0-9a-fA-F])`, 'gi')
+  return svg.replace(pattern, m => valueMap.get(m.toLowerCase()) ?? m)
+}
+
 // Temporarily switches data-theme on <html>, waits for bpmn-js MutationObserver
 // to re-render shape colors, then restores after fn completes.
 // The 2-rAF wait gives the MutationObserver time to fire and repaint before
 // saveSVG() serializes the updated elements.
+// FALLBACK: causa un flash de tema visible en toda la app; solo se usa si
+// buildThemeValueMap() no pudo leer la paleta del CSSOM.
 export async function withTheme<T>(theme: ExportTheme, fn: () => Promise<T>): Promise<T> {
   const root    = document.documentElement
   const current = getCurrentDocTheme()
@@ -63,12 +178,25 @@ export function injectThemeIntoSvg(svg: string, themeName: 'light' | 'dark'): st
       <rect width="100%" height="100%" fill="${bg}"/>`)
 }
 
-// Returns a fully themed SVG: bpmn-js shapes re-rendered in target theme colors
-// + text color + background rect injected. Used for both export and preview.
+// Returns a fully themed SVG: shape colors remapped to the target theme
+// + text color + background rect injected. Used for export, preview and
+// thumbnails. Remaps colors on the exported string — the live canvas is
+// never re-rendered, so no theme flash.
 export async function getThemedSvg(theme: ExportTheme, getSvg: () => Promise<string>): Promise<string> {
-  const rawSvg    = await withTheme(theme, getSvg)
-  const themeName = resolveThemeName(theme)
-  return injectThemeIntoSvg(rawSvg, themeName)
+  const target  = resolveThemeName(theme)
+  const current = getCurrentDocTheme() as 'light' | 'dark'
+
+  if (current === target) {
+    return injectThemeIntoSvg(sanitizeExportedSvg(await getSvg()), target)
+  }
+
+  const valueMap = buildThemeValueMap(current, target)
+  if (valueMap) {
+    return injectThemeIntoSvg(replaceSvgColors(sanitizeExportedSvg(await getSvg()), valueMap), target)
+  }
+
+  // Paleta ilegible desde CSSOM: camino antiguo (re-render con flash)
+  return injectThemeIntoSvg(sanitizeExportedSvg(await withTheme(theme, getSvg)), target)
 }
 
 function parseSvgSize(svg: string): { w: number; h: number } {

@@ -1,6 +1,8 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useCommentStore, getCommentBinding, type CommentThread } from '@/store/commentStore'
 import { useAuthStore } from '@/store/authStore'
+import { useUIStore } from '@/store/uiStore'
 import { MessageSquare, X, CheckCircle, RotateCcw, Send, Trash2 } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -324,9 +326,17 @@ export function CommentsPanel({ modelerRef }: CommentsPanelProps) {
   const activeThreadId = useCommentStore((s) => s.activeThreadId)
   const composerAnchor = useCommentStore((s) => s.composerAnchor)
   const selectedElementId = useCommentStore((s) => s.selectedElementId)
-  const { setPanelOpen, setFilter, setActiveThread, togglePanel } = useCommentStore()
+  const { setFilter, setActiveThread, togglePanel } = useCommentStore()
+  const rightPanelExpanded = useUIStore((s) => s.propertiesPanelOpen)
   const bodyRef = useRef<HTMLDivElement>(null)
   const threadRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  // Slot del RightPanel donde se porta este contenido. Se busca post-commit:
+  // el slot y este componente reaccionan al mismo panelOpen, y los effects
+  // corren cuando el DOM del RightPanel ya está actualizado.
+  const [slot, setSlot] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    setSlot(panelOpen ? document.getElementById('comments-panel-slot') : null)
+  }, [panelOpen, rightPanelExpanded])
 
   const user = useAuthStore((s) => s.user)
   const userId = user?.id ?? 'local'
@@ -335,8 +345,6 @@ export function CommentsPanel({ modelerRef }: CommentsPanelProps) {
     (user?.user_metadata?.name as string | undefined) ||
     user?.email ||
     'Usuario'
-
-  const openCount = threads.filter((t) => t.status === 'open').length
 
   const visible = threads.filter((t) => {
     if (filter === 'open') return t.status === 'open'
@@ -376,38 +384,13 @@ export function CommentsPanel({ modelerRef }: CommentsPanelProps) {
     }
   }, [activeThreadId, setActiveThread, modelerRef])
 
-  return (
+  // El shell (pestañas de modo, header, colapso) es del RightPanel; aquí solo
+  // el contenido, portado a su slot. Sin slot (barra colapsada o cambiando de
+  // modo) no se renderiza nada — el atajo Ctrl+Shift+C sigue vivo arriba.
+  if (!panelOpen || !slot) return null
+
+  return createPortal(
     <>
-      {/* Toggle button — only visible when panel is closed */}
-      {!panelOpen && (
-        <button
-          className="comment-toggle-btn"
-          onClick={togglePanel}
-          title="Comentarios (Ctrl+Shift+C)"
-        >
-          <MessageSquare size={12} />
-          {openCount > 0 && (
-            <span className="ct-badge">{openCount > 9 ? '9+' : openCount}</span>
-          )}
-        </button>
-      )}
-
-      {/* Panel */}
-      {panelOpen && (
-        <div className="comments-panel">
-          <div className="comments-header">
-            <div className="comments-header-left">
-              <MessageSquare size={13} />
-              Comentarios
-              {openCount > 0 && (
-                <span className="comments-open-count">{openCount}</span>
-              )}
-            </div>
-            <button className="icon-btn" onClick={() => setPanelOpen(false)}>
-              <X size={13} />
-            </button>
-          </div>
-
           <div className="comments-tabs">
             {(['open', 'resolved', 'all'] as const).map((f) => (
               <button
@@ -457,8 +440,7 @@ export function CommentsPanel({ modelerRef }: CommentsPanelProps) {
               ))
             )}
           </div>
-        </div>
-      )}
-    </>
+    </>,
+    slot
   )
 }

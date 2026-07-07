@@ -41,8 +41,8 @@ export function ExportModal({ diagramName, getSvg, onExport, onCancel, isExporti
   const effectiveTheme: ExportTheme = supportsTheme ? theme : 'current'
 
   // Regenerate preview whenever theme option changes.
-  // withTheme temporarily re-renders bpmn-js shapes in the target theme —
-  // the brief canvas switch is invisible behind the modal's backdrop-filter:blur.
+  // getThemedSvg remaps colors on the exported SVG string — the live canvas
+  // is never re-rendered, so no theme switch happens behind the modal.
   useEffect(() => {
     let cancelled = false
     setPreviewLoading(true)

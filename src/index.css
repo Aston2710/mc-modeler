@@ -1020,6 +1020,34 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   background: var(--panel); border-left: 1px solid var(--border);
   display: flex; flex-direction: column; min-height: 0; overflow: hidden;
 }
+
+/* RightPanel: pestañas de modo Propiedades | Comentarios */
+.rp-tabs {
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 12px; height: 40px; flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+.rp-tab {
+  display: flex; align-items: center; gap: 6px; height: 100%;
+  font-size: 11px; font-weight: 600; letter-spacing: .04em;
+  color: var(--text-3); border-bottom: 2px solid transparent;
+  background: none; cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+.rp-tab:hover { color: var(--text-2); }
+.rp-tab.active { color: var(--text); border-bottom-color: var(--primary); }
+/* Slot donde CommentsPanel porta su contenido */
+.rp-comments-slot { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/* Contenido del modo propiedades (el shell lo pone RightPanel) */
+.props-content { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+/* Badge de comentarios abiertos en el rail colapsado */
+.rail-comments-btn { position: relative; }
+.rail-badge {
+  position: absolute; top: -2px; right: -2px;
+  min-width: 13px; height: 13px; padding: 0 3px; border-radius: 999px;
+  background: var(--accent); color: #fff;
+  font-size: 8px; font-weight: 700; line-height: 13px; text-align: center;
+}
 .props-empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   padding: 40px 24px; color: var(--text-3); text-align: center; gap: 12px; flex: 1;
@@ -1935,9 +1963,17 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   border: 1.5px dashed var(--border-strong);
   background: transparent;
 }
-.comment-hl--selection {
-  border: 2px dashed var(--accent);
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
+/* Región de comentario de selección — <rect> SVG en la capa comment-regions
+   del canvas (coords de mundo): stroke/fill, no border. Mismo lenguaje visual
+   que .comment-hl--open / --resolved. */
+.comment-region { pointer-events: none; }
+.comment-region--open {
+  stroke: var(--accent); stroke-width: 2;
+  fill: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.comment-region--resolved {
+  stroke: var(--border-strong); stroke-width: 1.5; stroke-dasharray: 6 4;
+  fill: transparent;
 }
 
 /* CSS marker added to .djs-element when element has open comments */

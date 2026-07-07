@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react'
 import { useDiagramStore } from '@/store/diagramStore'
 import { useUIStore } from '@/store/uiStore'
-import { buildThumbnail } from '@/utils/thumbnailUtils'
+import { buildThumbnail, type CropRect } from '@/utils/thumbnailUtils'
 import { isCanvasReadyFor } from '@/collab/canvasSession'
 
 export function useAutoSave(
   getXml: () => Promise<string>,
   getSvg: () => Promise<string>,
+  getThumbCrop?: () => CropRect | null,
   intervalSeconds = 20
 ) {
   const activeTabId = useDiagramStore((s) => s.activeTabId)
@@ -26,7 +27,7 @@ export function useAutoSave(
     try {
       const [xml, thumbnail] = await Promise.all([
         getXml(),
-        buildThumbnail(getSvg).catch(() => null),
+        buildThumbnail(getSvg, getThumbCrop).catch(() => null),
       ])
       await saveDiagram(id, xml, undefined, thumbnail)
       setUnsavedChanges(false)

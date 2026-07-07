@@ -15,7 +15,7 @@ import { useAutoSave } from '@/hooks/useAutoSave'
 import { useKeyboard } from '@/hooks/useKeyboard'
 //import { useExport, type ExportFormat, type PngScale, type PdfOrientation, type ExportTheme } from '@/hooks/useExport'
 import { useExport, type ExportFormat, type PngScale, type PdfOrientation, type ExportTheme } from '@/hooks/useExport'
-import { buildThumbnail } from '@/utils/thumbnailUtils'
+import { buildThumbnail, topPoolCrop } from '@/utils/thumbnailUtils'
 import { isCanvasReadyFor } from '@/collab/canvasSession'
 
 import { validateDiagram } from '@/domain/validation'
@@ -24,7 +24,7 @@ import { Toolbar } from '@/components/layout/Toolbar'
 import { TabsBar } from '@/components/layout/TabsBar'
 import { StatusBar } from '@/components/layout/StatusBar'
 import { PalettePanel } from '@/components/palette/PalettePanel'
-import { PropertiesPanel } from '@/components/properties/PropertiesPanel'
+import { RightPanel } from '@/components/layout/RightPanel'
 import { BpmnCanvas, type BpmnCanvasHandle } from '@/components/canvas/BpmnCanvas'
 import { DiagramList } from '@/components/diagrams/DiagramList'
 import { NewDiagramModal } from '@/components/modals/NewDiagramModal'
@@ -73,8 +73,6 @@ export default function App() {
   // Pestaña cuyo contenido está actualmente en el canvas (para guardarla antes
   // de cargar otra — el canvas es único para todas las pestañas).
   const currentCanvasTabRef = useRef<string | null>(null)
-  // Ref a syncSubProcessLabels (declarada más abajo) para usarla en effects previos.
-  const syncSubProcessLabelsRef = useRef<(() => void) | null>(null)
 
   // ── Init ──────────────────────────────────────────────
   useEffect(() => {
@@ -173,7 +171,6 @@ export default function App() {
           // de forma asíncrona al terminar de procesar el XML.
           useUIStore.getState().setUnsavedChanges(false)
           currentCanvasTabRef.current = id
-          syncSubProcessLabelsRef.current?.()
         })
       })
       .catch((err: unknown) => {
@@ -261,6 +258,12 @@ export default function App() {
     return canvasRef.current.exportSvg()
   }, [])
 
+  // Recorte del thumbnail: con 2+ pools, solo el pool superior.
+  const getThumbCrop = useCallback(
+    () => topPoolCrop(canvasRef.current?.getElementRegistry()),
+    []
+  )
+
   // Persiste la pestaña que está actualmente en el canvas (antes de cargar otra).
   // El canvas es único; sin esto, cambiar de pestaña descarta los cambios no guardados.
   const persistCanvasTab = useCallback(async () => {
@@ -274,14 +277,14 @@ export default function App() {
     if (!isCanvasReadyFor(tabId)) return
     try {
       const xml = await canvasRef.current.exportXml()
-      const thumbnail = await buildThumbnail(getSvg).catch(() => undefined)
+      const thumbnail = await buildThumbnail(getSvg, getThumbCrop).catch(() => undefined)
       await saveDiagram(tabId, xml, undefined, thumbnail)
       setUnsavedChanges(false)
     } catch (e) {
       // no bloquear el cambio de pestaña si falla el guardado
       console.warn('[Flujo] guardado al cambiar de pestaña falló:', e)
     }
-  }, [getSvg, saveDiagram, setUnsavedChanges])
+  }, [getSvg, getThumbCrop, saveDiagram, setUnsavedChanges])
 
   const handleChanged = useCallback(() => {
     setUnsavedChanges(true)
@@ -300,7 +303,7 @@ export default function App() {
       // el thumbnail siempre refleja exactamente lo que está guardado.
       const [xml, thumbnail] = await Promise.all([
         getXml(),
-        buildThumbnail(getSvg).catch(() => null),
+        buildThumbnail(getSvg, getThumbCrop).catch(() => null),
       ])
       await saveDiagram(activeTabId, xml, undefined, thumbnail)
       setUnsavedChanges(false)
@@ -309,7 +312,7 @@ export default function App() {
       console.error('[Flujo] guardado falló:', e)
       addToast({ type: 'error', title: t('errors.saveFailed') })
     }
-  }, [activeTabId, canEditActive, getXml, getSvg, saveDiagram, setUnsavedChanges, addToast, t])
+  }, [activeTabId, canEditActive, getXml, getSvg, getThumbCrop, saveDiagram, setUnsavedChanges, addToast, t])
 
   const handleGoHome = useCallback(async () => {
     await persistCanvasTab() // guardar lo que esté en el canvas antes de salir
@@ -412,22 +415,6 @@ export default function App() {
     setView('home')
   }, [])
   
-  // Carga los thumbnails de sub procesos del diagrama activo en el canvas,
-  // para que los overlays se vean al volver a la pestaña del padre.
-  // Sincroniza el label de cada subproceso = nombre del diagrama enlazado
-  // (o "Sin enlazar"). No marca cambios en el diagrama.
-  const syncSubProcessLabels = useCallback(() => {
-    const subs = canvasRef.current?.listSubProcesses() ?? []
-    if (subs.length === 0) return
-    const { diagrams } = useDiagramStore.getState()
-    for (const sp of subs) {
-      const target = sp.linkedDiagram ? diagrams.find((d) => d.id === sp.linkedDiagram) : null
-      const label = target ? target.name : t('link.unlinked')
-      canvasRef.current?.setElementLabelSilent(sp.id, label)
-    }
-  }, [t])
-  syncSubProcessLabelsRef.current = syncSubProcessLabels
-
   // Estado para el modal de enlazar: qué subproceso lo abrió.
   const [linkingElementId, setLinkingElementId] = useState<string | null>(null)
 
@@ -450,7 +437,18 @@ export default function App() {
   const finishLink = useCallback(async (diagramId: string) => {
     if (linkingElementId) {
       canvasRef.current?.setLinkedDiagram(linkingElementId, diagramId)
-      syncSubProcessLabels()
+      // Nombre inicial del subproceso = nombre del diagrama enlazado, solo si el
+      // shape no tiene nombre propio (o conserva el placeholder legado "Sin
+      // enlazar"/"Unlinked" que versiones anteriores persistían en el XML).
+      // Después el nombre es 100% del usuario: renombrar diagrama o shape no
+      // afecta al otro.
+      const registry = canvasRef.current?.getElementRegistry() as
+        { get(id: string): { businessObject?: { name?: string } } | undefined } | undefined
+      const currentName = registry?.get(linkingElementId)?.businessObject?.name?.trim()
+      if (!currentName || currentName === 'Sin enlazar' || currentName === 'Unlinked') {
+        const targetName = useDiagramStore.getState().diagrams.find((d) => d.id === diagramId)?.name
+        if (targetName) canvasRef.current?.updateElementProperty(linkingElementId, 'name', targetName)
+      }
       // Persistir el padre (el enlace vive en su XML) antes de abrir el destino.
       await persistCanvasTab()
     }
@@ -458,7 +456,7 @@ export default function App() {
     setLinkingElementId(null)
     openDiagram(diagramId)
     setView('editor')
-  }, [linkingElementId, syncSubProcessLabels, persistCanvasTab, closeModal, openDiagram])
+  }, [linkingElementId, persistCanvasTab, closeModal, openDiagram])
 
   const handleLinkPick = useCallback((diagramId: string) => { void finishLink(diagramId) }, [finishLink])
 
@@ -472,7 +470,7 @@ export default function App() {
 
 
   // Auto-save
-  const { save: autoSave } = useAutoSave(getXml, getSvg)
+  const { save: autoSave } = useAutoSave(getXml, getSvg, getThumbCrop)
   void autoSave
 
   // Keyboard shortcuts
@@ -547,7 +545,7 @@ export default function App() {
               />
             </div>
 
-            <PropertiesPanel
+            <RightPanel
               collapsed={!propertiesPanelOpen}
               onToggle={() => setPropertiesPanelOpen(!propertiesPanelOpen)}
               getSelectedElements={() => canvasRef.current?.getSelectedElements() ?? []}

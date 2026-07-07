@@ -265,24 +265,31 @@ export class SupabaseRepository implements IDiagramRepository {
     }
   }
 
-  async saveThumbnail(id: string, dataUrl: string): Promise<void> {
+  async saveThumbnail(id: string, dataUrl: string): Promise<string | null> {
     // dataUrl vacío = limpiar thumbnail (diagramStore pasa '' para null).
     if (!dataUrl || !dataUrl.startsWith('data:')) {
       await this.sb.storage.from(THUMB_BUCKET).remove([thumbPath(id)])
-      await this.sb.from('diagrams').update({ thumbnail_path: null }).eq('id', id)
+      const { data } = await this.sb.from('diagrams')
+        .update({ thumbnail_path: null }).eq('id', id)
+        .select('updated_at').maybeSingle()
       this.thumbPaths.set(id, null)
       this.thumbCache.set(id, null)
-      return
+      return (data as { updated_at: string } | null)?.updated_at ?? null
     }
     const blob = dataUrlToBlob(dataUrl)
     const { error } = await this.sb.storage
       .from(THUMB_BUCKET)
       .upload(thumbPath(id), blob, { upsert: true, contentType: blob.type })
     if (error) throw error
-    await this.sb.from('diagrams').update({ thumbnail_path: thumbPath(id) }).eq('id', id)
+    // Leer de vuelta el updated_at: el trigger lo bumpea en este UPDATE y el
+    // CAS del próximo guardado necesita el valor real del servidor.
+    const { data } = await this.sb.from('diagrams')
+      .update({ thumbnail_path: thumbPath(id) }).eq('id', id)
+      .select('updated_at').maybeSingle()
     this.thumbPaths.set(id, thumbPath(id))
     // Actualizar el cache con el dataURL recién guardado (identidad estable nueva).
     this.thumbCache.set(id, dataUrl)
+    return (data as { updated_at: string } | null)?.updated_at ?? null
   }
 
   // ── Thumbnails de subprocesos (overlay) ──

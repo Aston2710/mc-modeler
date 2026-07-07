@@ -68,8 +68,9 @@ export class LocalRepository implements IDiagramRepository {
     return thumbStore.getItem<string>(id)
   }
 
-  async saveThumbnail(id: string, dataUrl: string): Promise<void> {
+  async saveThumbnail(id: string, dataUrl: string): Promise<string | null> {
     await thumbStore.setItem(id, dataUrl)
+    return null // sin trigger server-side: no bumpea updated_at
   }
 
   private subProcKey(parentId: string, elementId: string): string {

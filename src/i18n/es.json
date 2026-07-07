@@ -135,6 +135,10 @@
       "dataObject": "Objeto de datos"
     }
   },
+  "rightPanel": {
+    "properties": "Propiedades",
+    "comments": "Comentarios"
+  },
   "properties": {
     "noSelection": "Selecciona un elemento",
     "noSelectionSub": "Haz clic en cualquier elemento del canvas para ver sus propiedades",

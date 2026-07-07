@@ -30,8 +30,6 @@ export interface BpmnCanvasHandle {
   startCreate: (bpmnType: string, event: MouseEvent) => void
   getLinkedDiagram: (elementId: string) => string | null
   setLinkedDiagram: (elementId: string, diagramId: string | null) => void
-  listSubProcesses: () => { id: string; linkedDiagram: string | null }[]
-  setElementLabelSilent: (elementId: string, name: string) => void
 }
 
 interface BpmnCanvasProps {
@@ -101,8 +99,6 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
       startCreate: modeler.startCreate,
       getLinkedDiagram: modeler.getLinkedDiagram,
       setLinkedDiagram: modeler.setLinkedDiagram,
-      listSubProcesses: modeler.listSubProcesses,
-      setElementLabelSilent: modeler.setElementLabelSilent,
     }))
 
     // ── Scrollbars visibles estilo Bizagi ──────────────────────────────────

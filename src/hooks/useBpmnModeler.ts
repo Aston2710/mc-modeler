@@ -8,7 +8,7 @@ import { MODELER_CONFIG } from '@/bpmn/config'
 import { BPMN_ELEMENTS } from '@/domain/bpmnElements'
 import { ELEMENT_SIZES } from '@/bpmn/ElementSizes'
 import { PHASE_ID_PREFIX, isPhase, setPhaseName, setPhaseColor } from '@/bpmn/elements/phaseUtil'
-import { getLinkedDiagram as readLink, setLinkedDiagram as writeLink, isSubProcessElement } from '@/bpmn/elements/subProcessLink'
+import { getLinkedDiagram as readLink, setLinkedDiagram as writeLink } from '@/bpmn/elements/subProcessLink'
 import { beginImport, completeImport } from '@/collab/canvasSession'
 import { forceCanonicalBpmnPrefix } from '@/utils/normalizeBpmnXml'
 
@@ -424,29 +424,6 @@ export function useBpmnModeler(
     if (el) writeLink(m.get('modeling'), el, diagramId)
   }, [])
 
-  /** Subprocesos del diagrama actual con su enlace. */
-  const listSubProcesses = useCallback((): { id: string; linkedDiagram: string | null }[] => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const m = modelerRef.current as any
-    if (!m) return []
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return m.get('elementRegistry').filter((el: any) => isSubProcessElement(el))
-      .map((el: { id: string }) => ({ id: el.id, linkedDiagram: readLink(el) }))
-  }, [])
-
-  /** Cambia el nombre visible de un elemento sin marcar el diagrama como modificado. */
-  const setElementLabelSilent = useCallback((elementId: string, name: string) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const m = modelerRef.current as any
-    if (!m) return
-    try {
-      const el = m.get('elementRegistry').get(elementId)
-      if (!el || el.businessObject?.name === name) return
-      el.businessObject.name = name
-      m.get('eventBus').fire('element.changed', { element: el })
-    } catch { /* noop */ }
-  }, [])
-
   return {
     modelerRef,
     importXml,
@@ -465,7 +442,5 @@ export function useBpmnModeler(
     startCreate,
     getLinkedDiagram,
     setLinkedDiagram,
-    listSubProcesses,
-    setElementLabelSilent,
   }
 }

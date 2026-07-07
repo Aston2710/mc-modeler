@@ -32,7 +32,14 @@ export interface IDiagramRepository {
 
   // Thumbnails stored separately to keep main list lean
   getThumbnail(id: string): Promise<string | null>
-  saveThumbnail(id: string, dataUrl: string): Promise<void>
+  /**
+   * Devuelve el nuevo `updated_at` del diagrama si la operación bumpeó su fila
+   * (en Supabase el PATCH de thumbnail_path dispara el trigger de updated_at);
+   * null si no aplica. El caller DEBE guardarlo para el próximo CAS — si no,
+   * cada guardado siguiente arranca con timestamp desactualizado y se
+   * auto-conflictúa.
+   */
+  saveThumbnail(id: string, dataUrl: string): Promise<string | null>
 
   // Sub-process overlay thumbnails — keyed separately from diagram thumbnails
   getSubProcessThumbnail(parentId: string, elementId: string): Promise<string | null>

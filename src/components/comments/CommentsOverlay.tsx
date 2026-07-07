@@ -56,6 +56,22 @@ export function CommentsOverlay({ modelerRef }: CommentsOverlayProps) {
   const setActiveThread = useCommentStore((s) => s.setActiveThread)
   const setPanelOpen = useCommentStore((s) => s.setPanelOpen)
   const [selectionPins, setSelectionPins] = useState<PinState[]>([])
+  // Los hilos pueden llegar de Supabase ANTES de que el canvas termine de
+  // importar el XML: en ese momento el registry aún no tiene los elementos y
+  // los overlays se saltan sin re-intento (threads ya no cambia). Este tick
+  // fuerza el redibujado al completarse cada import.
+  const [importTick, setImportTick] = useState(0)
+
+  useEffect(() => {
+    const m = modelerRef.current
+    if (!m) return
+    try {
+      const eb = m.get('eventBus')
+      const onDone = () => setImportTick((t) => t + 1)
+      eb.on('import.done', onDone)
+      return () => eb.off('import.done', onDone)
+    } catch { /* noop */ }
+  }, [modelerRef])
 
   // Recalculate selection pin viewport positions (needs to run on viewbox change too)
   const recalcSelectionPins = useCallback(() => {
@@ -65,17 +81,20 @@ export function CommentsOverlay({ modelerRef }: CommentsOverlayProps) {
       const canvas = m.get('canvas')
       const registry = m.get('elementRegistry')
       const pins: PinState[] = []
+      // Mundo → pantalla a mano: diagram-js NO tiene canvas.worldToViewbox()
+      // (antes lanzaba TypeError silencioso y el pin nunca se veía).
+      const vb = canvas.viewbox()
 
       threads.forEach((t) => {
         if (t.orphaned || t.anchor.type !== 'selection') return
         const els = t.anchor.elementIds.map((id) => registry.get(id)).filter(Boolean)
         if (!els.length) return
         const bbox = getBBox(els)
-        const p = canvas.worldToViewbox({ x: bbox.x + bbox.width, y: bbox.y })
+        // Esquina superior derecha de la REGIÓN (bbox + padding del rect)
         pins.push({
           threadId: t.id,
-          x: p.x,
-          y: p.y,
+          x: (bbox.x + bbox.width + 8 - vb.x) * vb.scale,
+          y: (bbox.y - 8 - vb.y) * vb.scale,
           count: t.replies.length,
           hasOpen: t.status === 'open',
           label: t.anchor.elementLabel ?? `${t.anchor.elementIds.length} elementos`,
@@ -107,8 +126,6 @@ export function CommentsOverlay({ modelerRef }: CommentsOverlayProps) {
 
     // ── Group element-anchored threads by elementId ───────────
     const byElement = new Map<string, CommentThread[]>()
-    // Also track which elements are part of selection threads (for highlights)
-    const selectionElementIds = new Set<string>()
 
     threads.forEach((t) => {
       if (t.orphaned) return
@@ -116,8 +133,6 @@ export function CommentsOverlay({ modelerRef }: CommentsOverlayProps) {
         const list = byElement.get(t.anchor.elementId) ?? []
         list.push(t)
         byElement.set(t.anchor.elementId, list)
-      } else {
-        t.anchor.elementIds.forEach((id) => selectionElementIds.add(id))
       }
     })
 
@@ -161,20 +176,44 @@ export function CommentsOverlay({ modelerRef }: CommentsOverlayProps) {
       } catch { /* noop */ }
     })
 
-    // ── Selection highlights (dashed border on each element) ──
-    selectionElementIds.forEach((elementId) => {
-      if (byElement.has(elementId)) return // already has element-level highlight
-      const el = registry.get(elementId)
-      if (!el) return
-      const hl = document.createElement('div')
-      hl.className = 'comment-hl comment-hl--selection'
-      hl.style.cssText = `width:${el.width}px;height:${el.height}px;pointer-events:none;box-sizing:border-box;`
-      try {
-        overlaysSvc.add(elementId, 'comment-hl', { position: { top: 0, left: 0 }, html: hl, show: { minZoom: 0.2 } })
-        const w = hl.parentNode
-        if (w instanceof HTMLElement) w.style.pointerEvents = 'none'
-      } catch { /* noop */ }
-    })
+    // ── Región de selección: un rect que abarca el bbox del grupo ─
+    // Dibujado en una capa SVG propia del canvas (coordenadas de mundo):
+    // se transforma solo con zoom/pan, sin recálculo manual. El servicio
+    // overlays no soporta regiones multi-elemento — por eso capa SVG.
+    let regionLayer: SVGGElement | null = null
+    try { regionLayer = canvas.getLayer('comment-regions') } catch { /* noop */ }
+
+    const REGION_PAD = 8
+    const drawRegions = () => {
+      if (!regionLayer) return
+      while (regionLayer.firstChild) regionLayer.removeChild(regionLayer.firstChild)
+      threads.forEach((t) => {
+        if (t.orphaned || t.anchor.type !== 'selection') return
+        const els = t.anchor.elementIds.map((id) => registry.get(id)).filter(Boolean)
+        if (!els.length) return
+        const bbox = getBBox(els)
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+        rect.setAttribute('x', String(bbox.x - REGION_PAD))
+        rect.setAttribute('y', String(bbox.y - REGION_PAD))
+        rect.setAttribute('width', String(bbox.width + REGION_PAD * 2))
+        rect.setAttribute('height', String(bbox.height + REGION_PAD * 2))
+        rect.setAttribute('rx', '6')
+        rect.setAttribute('class',
+          t.status === 'open'
+            ? 'comment-region comment-region--open'
+            : 'comment-region comment-region--resolved')
+        regionLayer!.appendChild(rect)
+      })
+    }
+    drawRegions()
+
+    // Mover un shape del grupo cambia el bbox → redibujar región y pin.
+    let eventBus: AnyObj = null
+    const onCommandStack = () => { drawRegions(); recalcSelectionPins() }
+    try {
+      eventBus = m.get('eventBus')
+      eventBus.on('commandStack.changed', onCommandStack)
+    } catch { /* noop */ }
 
     // Compute initial selection pin positions
     recalcSelectionPins()
@@ -182,13 +221,18 @@ export function CommentsOverlay({ modelerRef }: CommentsOverlayProps) {
     return () => {
       try { overlaysSvc.remove({ type: 'comment-pin' }) } catch { /* noop */ }
       try { overlaysSvc.remove({ type: 'comment-hl' }) } catch { /* noop */ }
+      try { eventBus?.off('commandStack.changed', onCommandStack) } catch { /* noop */ }
+      if (regionLayer) {
+        while (regionLayer.firstChild) regionLayer.removeChild(regionLayer.firstChild)
+      }
       try {
         registry.forEach((el: AnyObj) => {
           try { canvas.removeMarker(el.id, 'has-open-comment') } catch { /* noop */ }
         })
       } catch { /* noop */ }
     }
-  }, [modelerRef, threads, setActiveThread, setPanelOpen, recalcSelectionPins])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- importTick fuerza redibujo post-import
+  }, [modelerRef, threads, setActiveThread, setPanelOpen, recalcSelectionPins, importTick])
 
   // Reposition selection pins on zoom/pan
   useEffect(() => {
