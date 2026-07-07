@@ -9,6 +9,12 @@ import { colorForUser, type CursorState } from '@/collab/presence'
 import { uint8ToBase64, base64ToUint8 } from '@/collab/yBpmnModel'
 import { YjsBpmnBinding, REMOTE_ORIGIN } from '@/collab/YjsBpmnBinding'
 import { isCanvasReadyFor } from '@/collab/canvasSession'
+import {
+  createBroadcastCoalescer,
+  encodeOwnStateVector,
+  diffForPeer,
+  ANTIENTROPY_INTERVAL_MS,
+} from '@/collab/syncProtocol'
 
 const CURSOR_THROTTLE_MS = 50
 // Tope máximo esperando confirmación de que el canvas muestra este diagrama.
@@ -71,9 +77,14 @@ export function useCollab(
 
     // Transporte puro: cada cambio local sale por broadcast. Nada se persiste
     // aquí — la persistencia del diagrama es SOLO current_xml (useAutoSave + CAS).
+    // Coalescido: durante un drag salen ~25 updates/s; fusionarlos en ventanas
+    // de ~150ms evita el rate limit de Realtime (que dropea en silencio).
+    const coalescer = createBroadcastCoalescer((merged) => {
+      channel.sendYjsUpdate(uint8ToBase64(merged))
+    })
     const onDocUpdate = (update: Uint8Array, origin: unknown) => {
       if (origin === REMOTE_ORIGIN) return
-      channel.sendYjsUpdate(uint8ToBase64(update))
+      coalescer.push(update)
     }
 
     const sendFullState = () => {
@@ -139,10 +150,30 @@ export function useCollab(
       onYjsUpdate: (incoming: string) => {
         try { Y.applyUpdate(doc, base64ToUint8(incoming), REMOTE_ORIGIN) } catch { /* noop */ }
       },
+      // Anti-entropía: un peer publicó su state vector → si nos consta algo
+      // que a él le falta (mensaje perdido en su dirección), se lo mandamos
+      // como diff exacto. Sin diff → silencio (no hay eco).
+      onYjsStateVector: (svB64: string) => {
+        try {
+          const diff = diffForPeer(doc, base64ToUint8(svB64))
+          if (diff) channel.sendYjsUpdate(uint8ToBase64(diff))
+        } catch { /* noop */ }
+      },
       onSubscribed: sendFullState,
       onJoin: () => sendFullState(),
     })
     startBindingWhenReady()
+
+    // Tick de anti-entropía: publica el state vector propio (bytes — los peers
+    // responden solo si nos falta algo) y re-sincroniza canvas↔doc para reparar
+    // aplicaciones fallidas o drift del layouter. Broadcast sin garantía de
+    // entrega + canvas con side-effects → sin este tick, un mensaje perdido o
+    // un recálculo local del router = divergencia permanente entre usuarios.
+    const antiEntropyTimer = setInterval(() => {
+      if (disposed) return
+      try { channel.sendYjsStateVector(uint8ToBase64(encodeOwnStateVector(doc))) } catch { /* noop */ }
+      try { binding?.resync() } catch { /* noop */ }
+    }, ANTIENTROPY_INTERVAL_MS)
 
     // ── Cursor local (throttled, en coords de diagrama) ──
     let lastSent = 0
@@ -169,8 +200,11 @@ export function useCollab(
     return () => {
       disposed = true
       clearPendingImportWait()
+      clearInterval(antiEntropyTimer)
       wrap.removeEventListener('mousemove', onMove)
       wrap.removeEventListener('mouseleave', onLeave)
+      // Volcar los últimos deltas coalescidos antes de desconectar (≤150ms de edición).
+      coalescer.dispose()
       doc.off('update', onDocUpdate)
       binding?.destroy()
       void channel.disconnect()

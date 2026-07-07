@@ -167,16 +167,40 @@ export class YjsBpmnBinding {
 
     this.suppress = true
     try {
-      // Orden: shapes nuevas → conexiones nuevas → updates → bajas.
+      // Orden: shapes nuevas → conexiones nuevas → updates (shapes primero,
+      // conexiones después) → bajas. El orden de los updates importa: si los
+      // waypoints de una flecha se aplican ANTES que el movimiento de su shape,
+      // el layouter local recalcula la flecha al mover el shape y queda distinta
+      // a la del emisor (drift de píxeles entre colaboradores).
       orderShapeAdds(adds.filter((s) => !isConnectionSnap(s))).forEach((s) => this.createShape(s))
       adds.filter((s) => isConnectionSnap(s)).forEach((s) => this.createConnection(s))
-      updates.forEach((s) => this.updateElement(s))
+      orderShapeAdds(updates.filter((s) => !isConnectionSnap(s))).forEach((s) => this.updateElement(s))
+      updates.filter((s) => isConnectionSnap(s)).forEach((s) => this.updateElement(s))
       removes.forEach((id) => this.removeElement(id))
+      // Pasada correctiva: aplicar vía modeling API tiene side-effects (el
+      // layouter/docking recalcula conexiones al mover shapes) que pueden dejar
+      // el canvas en valores distintos a los snapshots recibidos. Re-aplicar
+      // una vez los que quedaron desviados — idempotente y exacto.
+      this.correctivePass([...adds, ...updates])
     } finally {
       this.suppress = false
       // Mantener 'last' alineado para no re-emitir lo que acabamos de aplicar.
       this.last = this.currentSnapshots()
     }
+  }
+
+  /** Re-aplica los snapshots cuyo estado en canvas quedó desviado tras la
+   *  primera aplicación (side-effects del layouter). Una sola iteración:
+   *  reduce el drift a ~0 sin arriesgar bucles con los hooks de layout. */
+  private correctivePass(snaps: ElementSnapshot[]) {
+    const registry = this.modeler.get('elementRegistry')
+    snaps.forEach((snap) => {
+      try {
+        const el = registry.get(snap.id)
+        if (!el || !isSyncable(el)) return
+        if (!snapshotsEqual(elementToSnapshot(el), snap)) this.updateElement(snap)
+      } catch { /* best-effort */ }
+    })
   }
 
   private createShape(snap: ElementSnapshot) {
@@ -334,6 +358,24 @@ export class YjsBpmnBinding {
     }
   }
 
+  /**
+   * Re-sincronización periódica canvas↔doc (anti-entropía local): repara
+   * aplicaciones al canvas que fallaron o se desviaron (conexión cuyo nodo aún
+   * no existía, drift del layouter, mensajes cuyo apply se saltó) re-aplicando
+   * lo que el doc ya sabe. Segura de llamar en cualquier momento: no borra por
+   * ausencia y no re-emite (suppress).
+   */
+  resync(): void {
+    if (this.importInProgress || this.suppress) return
+    // Flush del sync local pendiente ANTES (mismo motivo que C1 en applyRemote).
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer)
+      this.debounceTimer = null
+      this.syncLocalToY()
+    }
+    this.reconcileCanvasToDoc()
+  }
+
   private reconcileCanvasToDoc() {
     // El Y.Doc transporta solo CAMBIOS (diffs), NO el diagrama completo. Por eso
     // al reconciliar SOLO se añaden/actualizan elementos: un elemento ausente del
@@ -361,7 +403,9 @@ export class YjsBpmnBinding {
     try {
       orderShapeAdds(adds.filter((s) => !isConnectionSnap(s))).forEach((s) => this.createShape(s))
       adds.filter((s) => isConnectionSnap(s)).forEach((s) => this.createConnection(s))
-      updates.forEach((s) => this.updateElement(s))
+      orderShapeAdds(updates.filter((s) => !isConnectionSnap(s))).forEach((s) => this.updateElement(s))
+      updates.filter((s) => isConnectionSnap(s)).forEach((s) => this.updateElement(s))
+      this.correctivePass([...adds, ...updates])
     } finally {
       this.suppress = false
       this.last = this.currentSnapshots()

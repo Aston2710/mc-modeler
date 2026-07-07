@@ -7,6 +7,9 @@ interface ChannelHandlers {
   onCursor: (userId: string, cursor: CursorState | null) => void
   /** Fase 5: updates binarios de Yjs (base64) recibidos por broadcast. */
   onYjsUpdate?: (base64: string) => void
+  /** Anti-entropía: un peer difundió su state vector (base64) — responder
+   *  con el diff que le falte (ver syncProtocol.diffForPeer). */
+  onYjsStateVector?: (base64: string) => void
   /** El canal quedó suscrito: momento para enviar el estado completo del Y.Doc. */
   onSubscribed?: () => void
   /** Se unió un nuevo participante (distinto a mí): reenviar estado completo. */
@@ -59,6 +62,12 @@ export class CollabChannel {
       })
     }
 
+    if (handlers.onYjsStateVector) {
+      channel.on('broadcast', { event: 'yjs-sv' }, ({ payload }) => {
+        handlers.onYjsStateVector?.(payload.sv as string)
+      })
+    }
+
     channel.on('presence', { event: 'join' }, ({ key }) => {
       if (key !== this.me.userId) handlers.onJoin?.(key)
     })
@@ -91,6 +100,13 @@ export class CollabChannel {
     // (onSubscribed / onJoin) cubrirá cualquier cambio de este intervalo.
     if (!this.channel || !this.subscribed) return
     void this.channel.send({ type: 'broadcast', event: 'yjs', payload: { update: base64 } })
+  }
+
+  /** Anti-entropía: difunde el state vector propio (bytes) para que los peers
+   *  respondan con el diff que nos falte. */
+  sendYjsStateVector(base64: string): void {
+    if (!this.channel || !this.subscribed) return
+    void this.channel.send({ type: 'broadcast', event: 'yjs-sv', payload: { sv: base64 } })
   }
 
   async disconnect(): Promise<void> {
