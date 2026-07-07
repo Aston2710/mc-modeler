@@ -39,9 +39,12 @@ export function useAutoSave(
   useEffect(() => {
     if (!unsavedChanges || !activeTabId) return
 
+    // Jitter 0–5s: en co-edición los timers de los colaboradores se disparan por
+    // los mismos eventos remotos y quedan sincronizados → sus guardados chocan
+    // en cada ciclo (carrera CAS). El jitter los decorrelaciona.
     timerRef.current = setTimeout(() => {
       void save()
-    }, intervalSeconds * 1000)
+    }, intervalSeconds * 1000 + Math.random() * 5000)
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)

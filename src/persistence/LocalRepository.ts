@@ -70,7 +70,17 @@ export class LocalRepository implements IDiagramRepository {
 
   async saveThumbnail(id: string, dataUrl: string): Promise<string | null> {
     await thumbStore.setItem(id, dataUrl)
-    return null // sin trigger server-side: no bumpea updated_at
+    return null // sin trigger de versión en local
+  }
+
+  async setDiagramName(id: string, name: string): Promise<string | null> {
+    const all = await this.getAll()
+    const idx = all.findIndex((d) => d.id === id)
+    if (idx >= 0) {
+      all[idx] = { ...all[idx], name }
+      await store.setItem('flujo:diagrams', all)
+    }
+    return null
   }
 
   private subProcKey(parentId: string, elementId: string): string {
@@ -129,13 +139,14 @@ export class LocalRepository implements IDiagramRepository {
     await store.setItem('flujo:diagrams', updated)
   }
 
-  async setDiagramProject(diagramId: string, projectId: string | null): Promise<void> {
+  async setDiagramProject(diagramId: string, projectId: string | null): Promise<string | null> {
     const all = await this.getAll()
     const idx = all.findIndex((d) => d.id === diagramId)
     if (idx >= 0) {
       all[idx] = { ...all[idx], projectId }
       await store.setItem('flujo:diagrams', all)
     }
+    return null
   }
 
   async getFolders(): Promise<Folder[]> {

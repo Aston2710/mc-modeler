@@ -57,15 +57,49 @@ describe('saveDiagram — control optimista (CAS)', () => {
     expect(useDiagramStore.getState().diagrams[0].updatedAt).toBe('v10')
   })
 
-  it('conflicto persistente (doble) → acepta el estado del otro, sin lanzar ni pisar', async () => {
+  it('conflicto persistente (doble, contenido divergente) → acepta el estado del otro, sin lanzar ni pisar', async () => {
     save.mockRejectedValueOnce(new DiagramConflictError('d1'))
-    getById.mockResolvedValueOnce({ ...seedDiagram(), updatedAt: 'v9' })
+    getById.mockResolvedValueOnce({ ...seedDiagram(), updatedAt: 'v9', xml: 'remoto-distinto' })
     save.mockRejectedValueOnce(new DiagramConflictError('d1'))
+    getById.mockResolvedValueOnce({ ...seedDiagram(), updatedAt: 'v10', xml: 'remoto-distinto-2' })
     // No debe lanzar
     await expect(useDiagramStore.getState().saveDiagram('d1', VALID_XML)).resolves.toBeUndefined()
     const st = useDiagramStore.getState()
-    expect(st.diagrams[0].updatedAt).toBe('v9') // refrescado al del otro escritor
+    expect(st.diagrams[0].updatedAt).toBe('v10') // refrescado al del otro escritor
     expect(st.tabs[0].dirty).toBe(false)
+  })
+
+  it('conflicto pero el server YA tiene este contenido → adopta la versión sin escribir (idempotencia tiempo real)', async () => {
+    save.mockRejectedValueOnce(new DiagramConflictError('d1'))
+    getById.mockResolvedValueOnce({ ...seedDiagram(), updatedAt: 'v9', xml: VALID_XML })
+    await useDiagramStore.getState().saveDiagram('d1', VALID_XML)
+    expect(save).toHaveBeenCalledTimes(1) // NO reintenta: ya está persistido
+    const st = useDiagramStore.getState()
+    expect(st.diagrams[0].updatedAt).toBe('v9')
+    expect(st.tabs[0].dirty).toBe(false)
+  })
+
+  it('doble conflicto pero al final el server tiene este contenido → adopta sin notificar', async () => {
+    const dispatchEvent = vi.fn()
+    vi.stubGlobal('document', { dispatchEvent })
+    try {
+      save.mockRejectedValueOnce(new DiagramConflictError('d1'))
+      getById.mockResolvedValueOnce({ ...seedDiagram(), updatedAt: 'v9', xml: 'otro' })
+      save.mockRejectedValueOnce(new DiagramConflictError('d1'))
+      getById.mockResolvedValueOnce({ ...seedDiagram(), updatedAt: 'v10', xml: VALID_XML })
+      await useDiagramStore.getState().saveDiagram('d1', VALID_XML)
+      expect(dispatchEvent).not.toHaveBeenCalled() // sin divergencia real → sin toast
+      expect(useDiagramStore.getState().diagrams[0].updatedAt).toBe('v10')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('thumbnail que toca la fila (bump del trigger) → la versión local adopta el nuevo updated_at', async () => {
+    save.mockResolvedValueOnce('v2')
+    saveThumbnail.mockResolvedValueOnce('v3') // primera vez: UPDATE thumbnail_path → trigger
+    await useDiagramStore.getState().saveDiagram('d1', VALID_XML, 1, 'data:image/webp;base64,x')
+    expect(useDiagramStore.getState().diagrams[0].updatedAt).toBe('v3') // no queda stale
   })
 
   it('conflicto persistente (doble) → notifica a la UI (evento flujo:save-conflict)', async () => {
@@ -85,8 +119,9 @@ describe('saveDiagram — control optimista (CAS)', () => {
     })
     try {
       save.mockRejectedValueOnce(new DiagramConflictError('d1'))
-      getById.mockResolvedValueOnce({ ...seedDiagram(), updatedAt: 'v9' })
+      getById.mockResolvedValueOnce({ ...seedDiagram(), updatedAt: 'v9', xml: 'otro-1' })
       save.mockRejectedValueOnce(new DiagramConflictError('d1'))
+      getById.mockResolvedValueOnce({ ...seedDiagram(), updatedAt: 'v10', xml: 'otro-2' })
       await useDiagramStore.getState().saveDiagram('d1', VALID_XML)
       expect(dispatched).toEqual([{ type: 'flujo:save-conflict', detail: { id: 'd1' } }])
     } finally {
@@ -99,7 +134,7 @@ describe('saveDiagram — control optimista (CAS)', () => {
     vi.stubGlobal('document', { dispatchEvent })
     try {
       save.mockRejectedValueOnce(new DiagramConflictError('d1'))
-      getById.mockResolvedValueOnce({ ...seedDiagram(), updatedAt: 'v9' })
+      getById.mockResolvedValueOnce({ ...seedDiagram(), updatedAt: 'v9', xml: 'otro' })
       save.mockResolvedValueOnce('v10')
       await useDiagramStore.getState().saveDiagram('d1', VALID_XML)
       expect(dispatchEvent).not.toHaveBeenCalled()
