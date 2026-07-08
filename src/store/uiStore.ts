@@ -35,7 +35,7 @@ interface UIState {
 
 export const useUIStore = create<UIState>()(
   immer((set) => ({
-    propertiesPanelOpen: true,
+    propertiesPanelOpen: false,
     palettePanelOpen: true,
     selectedElementIds: [],
     zoom: 1,
