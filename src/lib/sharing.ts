@@ -81,10 +81,17 @@ export async function addCollaboratorByEmail(
   return true
 }
 
-/** Crea (o devuelve) un enlace de invitación con token. */
+/** Convierte días a timestamp de expiración; null = nunca expira. */
+function expiresAtFrom(days: number | null): string | null {
+  if (days == null) return null
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
+}
+
+/** Crea un enlace de invitación con token. `expiresInDays` null = sin expiración. */
 export async function createInviteLink(
   diagramId: string,
-  role: Exclude<CollaboratorRole, 'owner'>
+  role: Exclude<CollaboratorRole, 'owner'>,
+  expiresInDays: number | null = null
 ): Promise<string> {
   const client = sb()
   const { data: u } = await client.auth.getUser()
@@ -94,6 +101,7 @@ export async function createInviteLink(
     role,
     token,
     created_by: u.user?.id,
+    expires_at: expiresAtFrom(expiresInDays),
   })
   if (error) throw error
   return `${window.location.origin}/?invite=${token}`
@@ -190,7 +198,8 @@ export async function addProjectCollaboratorByEmail(
 
 export async function createProjectInviteLink(
   projectId: string,
-  role: Exclude<CollaboratorRole, 'owner'>
+  role: Exclude<CollaboratorRole, 'owner'>,
+  expiresInDays: number | null = null
 ): Promise<string> {
   const client = sb()
   const { data: u } = await client.auth.getUser()
@@ -200,6 +209,7 @@ export async function createProjectInviteLink(
     role,
     token,
     created_by: u.user?.id,
+    expires_at: expiresAtFrom(expiresInDays),
   })
   if (error) throw error
   return `${window.location.origin}/?projectInvite=${token}`

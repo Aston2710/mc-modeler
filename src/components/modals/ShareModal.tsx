@@ -52,6 +52,9 @@ export function ShareModal({ kind = 'diagram', diagramId, diagramName, onClose }
   const [collaborators, setCollaborators] = useState<Collaborator[]>([])
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<Exclude<CollaboratorRole, 'owner'>>('editor')
+  // Expiración del enlace en días; 'never' = sin expiración.
+  const [expiry, setExpiry] = useState<'3' | '7' | '30' | 'never'>('7')
+  const expiresInDays = expiry === 'never' ? null : Number(expiry)
   const [busy, setBusy] = useState(false)
 
   const refresh = useCallback(async () => {
@@ -79,7 +82,7 @@ export function ShareModal({ kind = 'diagram', diagramId, diagramName, onClose }
         await refresh()
       } else {
         // No tiene cuenta → generar enlace de invitación
-        const link = await api.link(diagramId, role)
+        const link = await api.link(diagramId, role, expiresInDays)
         await navigator.clipboard.writeText(link)
         addToast({ type: 'info', title: t('share.notRegistered'), message: t('share.linkCopied') })
       }
@@ -93,7 +96,7 @@ export function ShareModal({ kind = 'diagram', diagramId, diagramName, onClose }
   const handleCopyLink = async () => {
     setBusy(true)
     try {
-      const link = await api.link(diagramId, role)
+      const link = await api.link(diagramId, role, expiresInDays)
       await navigator.clipboard.writeText(link)
       addToast({ type: 'success', title: t('share.linkCopied') })
     } catch {
@@ -160,10 +163,24 @@ export function ShareModal({ kind = 'diagram', diagramId, diagramName, onClose }
                 </button>
               </div>
 
-              <button className="btn-ghost" onClick={handleCopyLink} disabled={busy} style={{ justifyContent: 'center' }}>
-                <Copy size={14} style={{ marginRight: 6 }} />
-                {t('share.copyLink')}
-              </button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button className="btn-ghost" onClick={handleCopyLink} disabled={busy} style={{ justifyContent: 'center', flex: 1 }}>
+                  <Copy size={14} style={{ marginRight: 6 }} />
+                  {t('share.copyLink')}
+                </button>
+                <select
+                  className="f-input"
+                  style={{ width: 130 }}
+                  value={expiry}
+                  onChange={(e) => setExpiry(e.target.value as typeof expiry)}
+                  title={t('share.expiryLabel')}
+                >
+                  <option value="3">{t('share.expiry3d')}</option>
+                  <option value="7">{t('share.expiry7d')}</option>
+                  <option value="30">{t('share.expiry30d')}</option>
+                  <option value="never">{t('share.expiryNever')}</option>
+                </select>
+              </div>
             </>
           )}
 

@@ -141,8 +141,10 @@ export default function App() {
           setView('editor')
           addToast({ type: 'success', title: t('share.inviteAccepted') })
         }
-      } catch {
-        addToast({ type: 'error', title: t('share.inviteError') })
+      } catch (err) {
+        // El RPC lanza 'Invitación expirada' cuando expires_at ya pasó.
+        const expired = err instanceof Error && err.message.includes('expirada')
+        addToast({ type: 'error', title: expired ? t('share.inviteExpired') : t('share.inviteError') })
       }
     })()
   }, [session, loadAll, loadProjects, openDiagram, addToast, t])

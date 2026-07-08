@@ -35,7 +35,13 @@
     "inviteAccepted": "Te uniste al diagrama compartido.",
     "inviteError": "No se pudo procesar la invitación.",
     "titleProject": "Compartir proyecto",
-    "projectInviteAccepted": "Te uniste al proyecto compartido."
+    "projectInviteAccepted": "Te uniste al proyecto compartido.",
+    "expiryLabel": "Expiración del enlace",
+    "expiry3d": "Expira en 3 días",
+    "expiry7d": "Expira en 7 días",
+    "expiry30d": "Expira en 30 días",
+    "expiryNever": "Nunca expira",
+    "inviteExpired": "La invitación ha expirado."
   },
   "projects": {
     "title": "Proyectos",

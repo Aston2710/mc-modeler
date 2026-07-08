@@ -35,7 +35,13 @@
     "inviteAccepted": "You joined the shared diagram.",
     "inviteError": "Could not process the invitation.",
     "titleProject": "Share project",
-    "projectInviteAccepted": "You joined the shared project."
+    "projectInviteAccepted": "You joined the shared project.",
+    "expiryLabel": "Link expiration",
+    "expiry3d": "Expires in 3 days",
+    "expiry7d": "Expires in 7 days",
+    "expiry30d": "Expires in 30 days",
+    "expiryNever": "Never expires",
+    "inviteExpired": "The invitation has expired."
   },
   "projects": {
     "title": "Projects",
