@@ -90,6 +90,14 @@ const FLOW_NODE_TAGS = [
   'sequenceFlow',
 ]
 
+// Redondeo a entero de coordenadas/tamaños del DI. Bizagi parsea TextX/TextY/
+// TextWidth/TextHeight con Convert.ToSingle en CULTURA ACTUAL (regional español:
+// "." = separador de miles → "242.16" se lee como 24216… → OverflowException en
+// Convert.ToInt32 al guardar: "Valor demasiado grande o demasiado pequeño para
+// Int32"). Bizagi mismo siempre escribe estos atributos como enteros. Ver
+// .syntesis/Export bpm - Int32 overflow/findings.md
+const num = (v: string | null): number => Math.round(parseFloat(v ?? '0'))
+
 function parseBpmnXml(xml: string): ParsedBpmn {
   const parser = new DOMParser()
   const doc    = parser.parseFromString(xml, 'text/xml')
@@ -122,10 +130,10 @@ function parseBpmnXml(xml: string): ParsedBpmn {
     const b = shape.getElementsByTagNameNS(ns.dc, 'Bounds')[0]
     if (b) {
       shapes.set(id, {
-        x:      parseFloat(b.getAttribute('x')      ?? '0'),
-        y:      parseFloat(b.getAttribute('y')      ?? '0'),
-        width:  parseFloat(b.getAttribute('width')  ?? '0'),
-        height: parseFloat(b.getAttribute('height') ?? '0'),
+        x:      num(b.getAttribute('x')),
+        y:      num(b.getAttribute('y')),
+        width:  num(b.getAttribute('width')),
+        height: num(b.getAttribute('height')),
       })
     }
     const lblEl = shape.getElementsByTagNameNS(ns.bpmndi, 'BPMNLabel')[0]
@@ -133,10 +141,10 @@ function parseBpmnXml(xml: string): ParsedBpmn {
       const lb = lblEl.getElementsByTagNameNS(ns.dc, 'Bounds')[0]
       if (lb) {
         labelBounds.set(id, {
-          x:      parseFloat(lb.getAttribute('x')      ?? '0'),
-          y:      parseFloat(lb.getAttribute('y')      ?? '0'),
-          width:  parseFloat(lb.getAttribute('width')  ?? '0'),
-          height: parseFloat(lb.getAttribute('height') ?? '0'),
+          x:      num(lb.getAttribute('x')),
+          y:      num(lb.getAttribute('y')),
+          width:  num(lb.getAttribute('width')),
+          height: num(lb.getAttribute('height')),
         })
       }
     }
@@ -148,8 +156,8 @@ function parseBpmnXml(xml: string): ParsedBpmn {
     const id = edge.getAttribute('bpmnElement')
     if (!id) return
     edges.set(id, all(edge, 'waypoint', ns.di).map(wp => ({
-      x: parseFloat(wp.getAttribute('x') ?? '0'),
-      y: parseFloat(wp.getAttribute('y') ?? '0'),
+      x: num(wp.getAttribute('x')),
+      y: num(wp.getAttribute('y')),
     })))
   })
 
