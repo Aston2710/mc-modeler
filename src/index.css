@@ -900,6 +900,12 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   /* Snap lines */
   --snap-line-stroke-color: color-mix(in srgb, var(--primary) 50%, transparent) !important;
 
+  /* Feedback de connect/drop durante drag (reconectar flechas, soltar shapes).
+     Defaults de diagram-js son casi-blancos fijos → rompen modo oscuro. */
+  --shape-connect-allowed-fill-color: color-mix(in srgb, var(--ok) 20%, var(--panel)) !important;
+  --shape-drop-allowed-fill-color: color-mix(in srgb, var(--ok) 20%, var(--panel)) !important;
+  --shape-drop-not-allowed-fill-color: color-mix(in srgb, var(--error) 18%, var(--panel)) !important;
+
   /* Context pad */
   --context-pad-entry-background-color: var(--panel) !important;
   --context-pad-entry-hover-background-color: var(--bg-2) !important;

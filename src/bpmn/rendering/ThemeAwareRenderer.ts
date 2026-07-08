@@ -36,6 +36,12 @@ import {
 } from './ThemeColors'
 import { isPhase, getPhaseName, getPhaseColor } from '../elements/phaseUtil'
 import { isStorageImageRef, getResolvedImage, resolveImageRef } from '@/utils/imageStorage'
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — bpmn-js ships CommonJS without full types
+import { getLabel } from 'bpmn-js/lib/util/LabelUtil'
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import { getLabelColor } from 'bpmn-js/lib/draw/BpmnRenderUtil'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const PHASE_HEADER = 30 // alto de la banda de nombre (const int TextHeight = 30 en Bizagi)
@@ -194,6 +200,8 @@ function ThemeAwareRenderer(
   BpmnRenderer.call(this, config, eventBus, styles, pathMap, canvas, textRenderer, 1500)
   // Para re-renderizar una imagen cuando su referencia de Storage se resuelve async.
   this._imgEventBus = eventBus
+  // Para renderizar labels externos con su propio tamaño (ResizableLabelsModule).
+  this._textRenderer = textRenderer
 }
 
 inherits(ThemeAwareRenderer, BpmnRenderer)
@@ -211,8 +219,8 @@ ThemeAwareRenderer.$inject = [
  * Puede renderizar cualquier elemento que el BpmnRenderer base puede.
  */
 ThemeAwareRenderer.prototype.canRender = function (element: AnyElement): boolean {
-  // Excluir labels — el base renderer los maneja bien
-  if (element.labelTarget) return false
+  // Labels externos incluidos: los renderizamos nosotros para que el texto
+  // se envuelva al tamaño real del label (el base usa caja fija 90×30).
   return BpmnRenderer.prototype.canRender.call(this, element)
 }
 
@@ -224,6 +232,27 @@ ThemeAwareRenderer.prototype.drawShape = function (
   element: AnyElement,
 ): SVGElement {
   const colors = getColorsFor(element)
+
+  // Label externo (eventos, gateways, conexiones): renderizar el texto
+  // envolviéndolo al tamaño REAL del label — el base renderer usa una caja
+  // fija de 90×30 e ignora element.width/height, lo que impide redimensionar.
+  if (element.labelTarget) {
+    const w = Number.isFinite(element.width) && element.width > 0 ? element.width : 90
+    const h = Number.isFinite(element.height) && element.height > 0 ? element.height : 30
+    const text = this._textRenderer.createText(getLabel(element) || '', {
+      box: { width: w, height: h },
+      align: 'center-middle',
+      fitBox: true, // no truncar palabras más largas que la caja
+      style: {
+        ...this._textRenderer.getExternalStyle(),
+        // Respeta color DI si existe; si no, color de texto del tema
+        fill: getLabelColor(element, colors.labelColor, colors.labelColor),
+      },
+    })
+    text.setAttribute('class', 'djs-label')
+    parentGfx.appendChild(text)
+    return text
+  }
 
   // Fase / Milestone — estilo Bizagi. Cada fase es una banda con chevron derecho:
   //   - El RELLENO incluye el chevron (su interior es parte de la fase) y, salvo

@@ -234,10 +234,20 @@ function formatting(fontSize = 8, bold = false): string {
 }
 
 // ─── Label position (external labels: events, gateways) ──────────────────────
-// Bizagi needs TextWidth > element width to avoid clipping.
-// TextX offset centers the 90px label under the shape.
+// Si el BPMN trae bounds del label en el DI (<bpmndi:BPMNLabel><dc:Bounds>) se
+// honran tal cual (posición Y tamaño manual del usuario). Fallback: Bizagi
+// needs TextWidth > element width to avoid clipping; TextX offset centers the
+// 90px label under the shape.
 
-function externalLabel(b: Bounds, _lb?: Bounds, kind: 'event' | 'gateway' = 'event'): { tx: number; ty: number; tw: number; th: number } {
+function externalLabel(b: Bounds, lb?: Bounds, kind: 'event' | 'gateway' = 'event'): { tx: number; ty: number; tw: number; th: number } {
+  if (lb) {
+    return {
+      tx: Math.round(lb.x),
+      ty: Math.round(lb.y),
+      tw: Math.round(lb.width),
+      th: Math.round(lb.height),
+    }
+  }
   return {
     tx: kind === 'gateway' ? b.x - 25 : b.x - 30,
     ty: b.y + b.height,

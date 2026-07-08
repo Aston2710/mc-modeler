@@ -4,6 +4,7 @@ import CanvasLassoModule from './canvas/CanvasLassoModule'
 import ScrollPanModule from './canvas/ScrollPanModule'
 import PoolInteriorLassoModule from './canvas/PoolInteriorLassoModule'
 import CustomResizeModule from './elements/CustomResizeModule'
+import ResizableLabelsModule from './elements/ResizableLabelsModule'
 import CustomSelectionModule from './canvas/CustomSelectionModule'
 import CustomElementSizesModule from './elements/CustomElementSizesModule'
 import TranslateModule from './i18n/TranslateModule'
@@ -39,6 +40,7 @@ export const MODELER_CONFIG = {
     ScrollPanModule,
     PoolInteriorLassoModule,
     CustomResizeModule,
+    ResizableLabelsModule,
     CustomSelectionModule,
     CustomElementSizesModule,
     CanvasPageModule,
