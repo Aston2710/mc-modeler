@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
-import type { UserPreferences } from '@/domain/types'
+import type { DiagramSort, UserPreferences } from '@/domain/types'
 import { diagramRepository } from '@/persistence'
 import i18n from '@/i18n'
 
@@ -15,6 +15,7 @@ interface PreferencesState extends UserPreferences {
   setLastOpened: (id: string | null) => Promise<void>
   setPaletteMode: (v: 'grid' | 'dropdown' | 'bizagi') => Promise<void>
   setShowComments: (v: boolean) => Promise<void>
+  setDiagramSort: (v: DiagramSort) => Promise<void>
 }
 
 // Extraer SOLO los campos de datos: el estado de Zustand incluye las acciones
@@ -31,6 +32,7 @@ const save = async (s: PreferencesState) => {
     lastOpenedDiagramId: s.lastOpenedDiagramId,
     paletteMode: s.paletteMode,
     showComments: s.showComments,
+    diagramSort: s.diagramSort,
   }
   await diagramRepository.savePreferences(prefs)
 }
@@ -46,6 +48,7 @@ export const usePreferencesStore = create<PreferencesState>()(
     lastOpenedDiagramId: null,
     paletteMode: 'grid',
     showComments: true,
+    diagramSort: { key: 'updated', dir: 'desc' },
     loaded: false,
 
     load: async () => {
@@ -97,6 +100,11 @@ export const usePreferencesStore = create<PreferencesState>()(
 
     setShowComments: async (v) => {
       set((s) => { s.showComments = v })
+      await save(get())
+    },
+
+    setDiagramSort: async (v) => {
+      set((s) => { s.diagramSort = v })
       await save(get())
     },
   }))

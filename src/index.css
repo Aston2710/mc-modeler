@@ -1316,6 +1316,52 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 }
 .filter-pill:not(.active) .fp-count { background: var(--bg-2); color: var(--text-3); }
 
+/* Control de ordenamiento (extremo derecho del filter-bar) */
+.sort-wrap { margin-left: auto; position: relative; }
+.sort-trigger {
+  display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--panel); color: var(--text-2); font-size: 12px; cursor: pointer;
+}
+.sort-trigger:hover { background: var(--bg-2); border-color: var(--border-strong); }
+.sort-trigger[aria-expanded="true"] { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-50); }
+.sort-trigger .st-prefix { color: var(--text-3); }
+.sort-trigger .st-label { color: var(--text); font-weight: 500; }
+.sort-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 40;
+  min-width: 230px; background: var(--panel);
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg); padding: 6px;
+  animation: pop 0.14s cubic-bezier(.2,.9,.3,1.1);
+}
+@media (prefers-reduced-motion: reduce) { .sort-menu { animation: none; } }
+.sort-menu-title {
+  font-size: 10px; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--text-3); font-weight: 600; padding: 6px 10px 4px;
+}
+.sort-option {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 7px 10px; border-radius: var(--radius);
+  font-size: 12.5px; color: var(--text-2); text-align: left;
+}
+.sort-option:hover { background: var(--bg-2); }
+.sort-option[aria-selected="true"] { color: var(--text); font-weight: 500; background: var(--primary-50); }
+.sort-option .so-icon { color: var(--text-3); flex: none; }
+.sort-option[aria-selected="true"] .so-icon { color: var(--primary); }
+.sort-option .so-dir {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10.5px; color: var(--primary); font-weight: 600;
+}
+.sort-menu-hint {
+  border-top: 1px solid var(--border); margin-top: 6px; padding: 7px 10px 4px;
+  font-size: 10.5px; color: var(--text-3);
+}
+@media (max-width: 640px) {
+  .sort-wrap { margin-left: 0; width: 100%; }
+  .sort-trigger { width: 100%; justify-content: space-between; }
+  .sort-menu { left: 0; right: 0; }
+}
+
 .diagrams-grid {
   max-width: 1200px; margin: 0 auto;
   display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));

@@ -1,13 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, Upload, Plus, FileText, Sun, Moon, X, FolderPlus, Folder, Share2, ArrowLeft, Trash2, LogOut } from 'lucide-react'
+import { Search, Upload, Plus, FileText, Sun, Moon, X, FolderPlus, Folder, Share2, ArrowLeft, Trash2, LogOut, ArrowUpDown, ArrowUp, ArrowDown, Clock, CalendarDays, ArrowDownAZ, Shapes } from 'lucide-react'
 import { useDiagramStore } from '@/store/diagramStore'
 import { useUIStore } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { useCollabStore } from '@/store/collabStore'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import { formatRelativeTime } from '@/utils/dateFormatter'
-import type { CollaboratorRole, Diagram } from '@/domain/types'
+import { compareDiagrams, compareProjects, NATURAL_DIR } from '@/utils/diagramSort'
+import type { CollaboratorRole, Diagram, DiagramSortKey } from '@/domain/types'
 
 interface DiagramListProps {
   onOpen: (id: string) => void
@@ -35,6 +36,7 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
   const setLanguage = usePreferencesStore((s) => s.setLanguage)
   const rolesByDiagram = useCollabStore((s) => s.rolesByDiagram)
   const rolesByProject = useCollabStore((s) => s.rolesByProject)
+  const diagramSort = usePreferencesStore((s) => s.diagramSort)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   // Persistir el proyecto abierto para que sobreviva ir al editor y volver.
   const [openProjectId, setOpenProjectIdState] = useState<string | null>(
@@ -48,29 +50,43 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
 
   const openProject = openProjectId ? projects.find((p) => p.id === openProjectId) ?? null : null
 
-  const filtered = diagrams
+  const isSharedDiagram = (d: Diagram) => {
+    const role = rolesByDiagram[d.id]
+    return role === 'editor' || role === 'viewer'
+  }
+
+  // Ámbito visible: dentro de un proyecto → solo sus diagramas; en la raíz → solo sueltos.
+  const scoped = diagrams.filter((d) => {
+    if (openProjectId) return d.projectId === openProjectId
+    if (d.projectId) {
+      // Si el proyecto padre es visible, el diagrama se navega desde su carpeta.
+      // Si no es visible (acceso solo al diagrama, sin acceso al proyecto),
+      // mostrar en raíz para que el usuario pueda acceder.
+      const projectIsVisible = projects.some((p) => p.id === d.projectId)
+      if (projectIsVisible) return false
+    }
+    return true
+  })
+
+  const sharedCount = scoped.filter(isSharedDiagram).length
+
+  const filtered = scoped
     .filter((d) => {
-      // Dentro de un proyecto → solo sus diagramas; en la raíz → solo sueltos.
-      if (openProjectId) {
-        if (d.projectId !== openProjectId) return false
-      } else if (d.projectId) {
-        // Si el proyecto padre es visible, el diagrama se navega desde su carpeta.
-        // Si no es visible (acceso solo al diagrama, sin acceso al proyecto),
-        // mostrar en raíz para que el usuario pueda acceder.
-        const projectIsVisible = projects.some((p) => p.id === d.projectId)
-        if (projectIsVisible) return false
-      }
       if (search && !d.name.toLowerCase().includes(search.toLowerCase())) return false
       if (filter === 'recent') {
         const diff = Date.now() - new Date(d.updatedAt).getTime()
         return diff < 7 * 24 * 60 * 60 * 1000
       }
+      if (filter === 'own') return !isSharedDiagram(d)
+      if (filter === 'shared') return isSharedDiagram(d)
       return true
     })
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .sort(compareDiagrams(diagramSort))
 
   const diagramCountByProject = (projectId: string) =>
     diagrams.filter((d) => d.projectId === projectId).length
+
+  const sortedProjects = [...projects].sort(compareProjects(diagramSort, diagramCountByProject))
 
   const handleDelete = async (id: string) => {
     if (id.startsWith('project:')) {
@@ -172,7 +188,7 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
         {/* Sección de proyectos (solo en la vista raíz y en modo nube) */}
         {!openProject && isSupabaseConfigured && projects.length > 0 && (
           <div className="projects-row">
-            {projects.map((p) => (
+            {sortedProjects.map((p) => (
               <div key={p.id} className="project-card" onClick={() => setOpenProjectId(p.id)}>
                 <div className="project-card-icon"><Folder size={18} /></div>
                 <div className="project-card-body">
@@ -199,7 +215,7 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
             onClick={() => setFilter('all')}
           >
             {t('diagrams.filters.all')}
-            <span className="fp-count">{diagrams.length}</span>
+            <span className="fp-count">{scoped.length}</span>
           </button>
           <button
             className={`filter-pill ${filter === 'recent' ? 'active' : ''}`}
@@ -207,6 +223,25 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
           >
             {t('diagrams.filters.recent')}
           </button>
+          {isSupabaseConfigured && (
+            <>
+              <button
+                className={`filter-pill ${filter === 'own' ? 'active' : ''}`}
+                onClick={() => setFilter('own')}
+              >
+                {t('diagrams.filters.own')}
+                <span className="fp-count">{scoped.length - sharedCount}</span>
+              </button>
+              <button
+                className={`filter-pill ${filter === 'shared' ? 'active' : ''}`}
+                onClick={() => setFilter('shared')}
+              >
+                {t('diagrams.filters.shared')}
+                <span className="fp-count">{sharedCount}</span>
+              </button>
+            </>
+          )}
+          <SortControl />
         </div>
 
         <div className="diagrams-grid">
@@ -259,6 +294,94 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
               </button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const SORT_OPTIONS: { key: DiagramSortKey; Icon: typeof Clock }[] = [
+  { key: 'updated', Icon: Clock },
+  { key: 'created', Icon: CalendarDays },
+  { key: 'name', Icon: ArrowDownAZ },
+  { key: 'elements', Icon: Shapes },
+]
+
+function SortControl() {
+  const { t } = useTranslation()
+  const diagramSort = usePreferencesStore((s) => s.diagramSort)
+  const setDiagramSort = usePreferencesStore((s) => s.setDiagramSort)
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (e: PointerEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
+
+  const pick = (key: DiagramSortKey) => {
+    if (key === diagramSort.key) {
+      // Repetir el criterio activo invierte la dirección
+      void setDiagramSort({ key, dir: diagramSort.dir === 'asc' ? 'desc' : 'asc' })
+    } else {
+      void setDiagramSort({ key, dir: NATURAL_DIR[key] })
+    }
+  }
+
+  const dirLabel = (key: DiagramSortKey) => {
+    if (key === 'name') return diagramSort.dir === 'asc' ? t('diagrams.sort.az') : t('diagrams.sort.za')
+    if (key === 'elements') return diagramSort.dir === 'desc' ? t('diagrams.sort.mostFirst') : t('diagrams.sort.leastFirst')
+    return diagramSort.dir === 'desc' ? t('diagrams.sort.newestFirst') : t('diagrams.sort.oldestFirst')
+  }
+
+  const DirIcon = diagramSort.dir === 'desc' ? ArrowDown : ArrowUp
+
+  return (
+    <div className="sort-wrap" ref={wrapRef}>
+      <button
+        className="sort-trigger"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <ArrowUpDown size={13} />
+        <span className="st-prefix">{t('diagrams.sort.label')}:</span>
+        <span className="st-label">{t(`diagrams.sort.${diagramSort.key}`)}</span>
+        <DirIcon size={12} />
+      </button>
+      {open && (
+        <div className="sort-menu" role="listbox" aria-label={t('diagrams.sort.title')}>
+          <div className="sort-menu-title">{t('diagrams.sort.title')}</div>
+          {SORT_OPTIONS.map(({ key, Icon }) => (
+            <button
+              key={key}
+              className="sort-option"
+              role="option"
+              aria-selected={diagramSort.key === key}
+              onClick={() => pick(key)}
+            >
+              <Icon size={14} className="so-icon" />
+              {t(`diagrams.sort.${key}`)}
+              {diagramSort.key === key && (
+                <span className="so-dir">
+                  <DirIcon size={11} />
+                  {dirLabel(key)}
+                </span>
+              )}
+            </button>
+          ))}
+          <div className="sort-menu-hint">{t('diagrams.sort.hint')}</div>
         </div>
       )}
     </div>

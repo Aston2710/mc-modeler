@@ -202,7 +202,24 @@
     "subtitle_other": "{{count}} diagramas BPMN",
     "filters": {
       "all": "Todos",
-      "recent": "Recientes"
+      "recent": "Recientes",
+      "own": "Propios",
+      "shared": "Compartidos"
+    },
+    "sort": {
+      "label": "Ordenar",
+      "title": "Ordenar por",
+      "updated": "Última modificación",
+      "created": "Fecha de creación",
+      "name": "Nombre",
+      "elements": "Nº de elementos",
+      "newestFirst": "Reciente primero",
+      "oldestFirst": "Antiguo primero",
+      "az": "A–Z",
+      "za": "Z–A",
+      "mostFirst": "Mayor primero",
+      "leastFirst": "Menor primero",
+      "hint": "Clic en el criterio activo invierte el orden"
     },
     "createCard": {
       "title": "Crear diagrama",

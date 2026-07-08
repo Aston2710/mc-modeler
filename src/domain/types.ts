@@ -27,6 +27,15 @@ export interface Project {
   updatedAt: string
 }
 
+export type DiagramListFilter = 'all' | 'recent' | 'own' | 'shared'
+
+export type DiagramSortKey = 'updated' | 'created' | 'name' | 'elements'
+
+export interface DiagramSort {
+  key: DiagramSortKey
+  dir: 'asc' | 'desc'
+}
+
 export interface UserPreferences {
   language: 'es' | 'en'
   theme: 'light' | 'dark' | 'system'
@@ -37,6 +46,7 @@ export interface UserPreferences {
   lastOpenedDiagramId: string | null
   paletteMode: 'grid' | 'dropdown' | 'bizagi'
   showComments: boolean
+  diagramSort: DiagramSort
 }
 
 export interface ValidationResult {

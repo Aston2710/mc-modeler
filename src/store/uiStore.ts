@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
-import type { ActiveModal, Toast, ValidationResult } from '@/domain/types'
+import type { ActiveModal, DiagramListFilter, Toast, ValidationResult } from '@/domain/types'
 import { generateId } from '@/utils/idGenerator'
 
 interface UIState {
@@ -13,7 +13,7 @@ interface UIState {
   activeModal: ActiveModal
   toasts: Toast[]
   unsavedChanges: boolean
-  diagramListFilter: 'all' | 'recent'
+  diagramListFilter: DiagramListFilter
   diagramListSearch: string
   imageUploadContext: { onConfirm: (url: string) => void } | null
   // Actions
@@ -28,7 +28,7 @@ interface UIState {
   addToast: (toast: Omit<Toast, 'id'>) => void
   removeToast: (id: string) => void
   setUnsavedChanges: (v: boolean) => void
-  setDiagramListFilter: (f: 'all' | 'recent') => void
+  setDiagramListFilter: (f: DiagramListFilter) => void
   setDiagramListSearch: (q: string) => void
   setImageUploadContext: (ctx: { onConfirm: (url: string) => void } | null) => void
 }

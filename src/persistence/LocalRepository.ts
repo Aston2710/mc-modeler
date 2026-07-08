@@ -14,6 +14,7 @@ const DEFAULT_PREFS: UserPreferences = {
   lastOpenedDiagramId: null,
   paletteMode: 'grid',
   showComments: true,
+  diagramSort: { key: 'updated', dir: 'desc' },
 }
 
 const store = localforage.createInstance({
