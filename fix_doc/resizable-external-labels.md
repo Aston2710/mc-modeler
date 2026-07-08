@@ -73,6 +73,14 @@ Fix: el listener de `resize.move` entra a **prioridad 750** — después de que 
 - **.bpm Bizagi:** `bpmExport.ts::externalLabel()` recibía `labelBounds` del DI y **los ignoraba** (`_lb`, hardcodeaba 90×30) → ahora los usa (redondeados a entero, cf. `bug-export-bpm-int32.md`); fallback al comportamiento anterior si no hay `BPMNLabel`.
 - **Colaboración:** labels están **excluidos** del sync Yjs (`SKIP_TYPES = ['label']` en `yBpmnModel.ts`) — mover un label tampoco sincronizaba antes; el resize hereda esa limitación. Si algún día se sincronizan labels, el resize viaja igual que el move (mismo snapshot x/y/width/height).
 
+## 7b. Fix derivado — selección inconsistente entre labels (2026-07-08)
+
+Síntoma: al seleccionar el label de un gateway aparecía outline punteado ámbar + halo con padding; el label de una flecha se veía normal (outline azul ceñido).
+
+Causa: **los labels externos comparten `businessObject` con su elemento padre**, así que en `CustomSelectionModule` `isGateway(labelDeGateway) === true` → el label heredaba la clase CSS `.djs-shape--gateway` (outline ámbar punteado), el `SelectionHalo` y el filtro de handles laterales. El label de una flecha (bo = SequenceFlow) no matcheaba nada. Asimetría pre-existente, invisible hasta que los labels se volvieron seleccionables/redimensionables.
+
+Fix: guard `element.labelTarget` en los 3 servicios de `CustomSelectionModule` (`ShapeClassifier`, `SelectionHalo`, `NonRectangularResizeFilter`). Regla general a recordar: **cualquier lógica que clasifique por `businessObject.$instanceOf` debe excluir labels explícitamente** — el bo del label es el del padre.
+
 ## 8. Pendientes / trampas para el futuro
 
 - **Tipografía** (global y por elemento): pospuesta por el usuario. Global = `MODELER_CONFIG → textRenderer: { defaultStyle/externalStyle: { fontSize } }`. Por elemento = extensión moddle `flujo:fontSize` + renderer + panel. **Ojo:** cambiar fontSize invalida los anchos ceñidos persistidos (el texto medirá distinto) — al implementarlo, considerar re-snap al importar.

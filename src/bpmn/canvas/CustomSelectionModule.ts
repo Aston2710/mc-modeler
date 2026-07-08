@@ -48,6 +48,13 @@ function ShapeClassifier(eventBus: AnyObj) {
   function classify(element: AnyObj, gfx: SVGElement) {
     if (!gfx || !element?.businessObject) return
 
+    // Los labels externos COMPARTEN businessObject con su elemento padre
+    // (isGateway(labelDeGateway) === true). Sin este guard, el label hereda
+    // la clase del padre → outline punteado ámbar, halo y filtro de handles,
+    // mientras el label de una flecha (bo = SequenceFlow) se ve normal.
+    // Un label es un rectángulo de texto: tratamiento visual estándar siempre.
+    if (element.labelTarget) return
+
     if (isGateway(element)) {
       gfx.classList.add('djs-shape--gateway')
     } else if (isStartEvent(element)) {
@@ -83,7 +90,8 @@ ShapeClassifier.$inject = ['eventBus']
 
 function SelectionHalo(eventBus: AnyObj) {
   function injectHalo(element: AnyObj, visual: SVGElement) {
-    if (!visual || !isNonRectangular(element)) return
+    // element.labelTarget: los labels comparten bo con el padre — sin halo
+    if (!visual || element.labelTarget || !isNonRectangular(element)) return
 
     // Crear siempre nuevo (visual se vacía en cada render)
     const halo = document.createElementNS(SVG_NS, 'rect') as SVGRectElement
@@ -121,7 +129,8 @@ const SIDE_DIRS = ['n', 's', 'e', 'w']
 
 function NonRectangularResizeFilter(eventBus: AnyObj, canvas: AnyObj, selection: AnyObj) {
   function hideSideHandles(element: AnyObj) {
-    if (!isNonRectangular(element)) return
+    // Labels: rectangulares, conservan sus 8 handles (e/w son los útiles)
+    if (element?.labelTarget || !isNonRectangular(element)) return
 
     const layer: SVGElement | null = canvas.getLayer('resizers')
     if (!layer) return
