@@ -11,6 +11,8 @@ export interface CommentReply {
   authorName: string
   content: string
   createdAt: number
+  /** Ids de usuarios etiquetados con @ (solo modo colaborativo). */
+  mentions?: string[]
 }
 
 export interface CommentThread {
@@ -26,8 +28,8 @@ export interface CommentThread {
 
 // Structural interface to avoid circular import with YjsCommentBinding
 interface ICommentBinding {
-  createThread(anchor: Anchor, content: string, userId: string, userName: string): string
-  addReply(threadId: string, content: string, userId: string, userName: string): void
+  createThread(anchor: Anchor, content: string, userId: string, userName: string, mentions?: string[]): string
+  addReply(threadId: string, content: string, userId: string, userName: string, mentions?: string[]): void
   resolveThread(threadId: string): void
   reopenThread(threadId: string): void
   deleteThread(threadId: string): void

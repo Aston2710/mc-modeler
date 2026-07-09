@@ -1935,6 +1935,27 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .cdelete-no { color: var(--text-3); }
 .cdelete-no:hover { color: var(--text); }
 
+/* Menciones (@) */
+.mention-wrap { position: relative; display: flex; flex-direction: column; }
+.mention-dropdown {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 60;
+  margin-top: 2px; padding: 3px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+  display: flex; flex-direction: column; gap: 1px;
+  max-height: 160px; overflow-y: auto;
+}
+.mention-item {
+  text-align: left; font-size: 11px; color: var(--text-2);
+  padding: 5px 8px; border-radius: 5px; border: none; background: none; cursor: pointer;
+}
+.mention-item.active { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--text); }
+.mention {
+  color: var(--accent); font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: 3px; padding: 0 2px;
+}
+
 /* Composer */
 .comment-composer {
   border-bottom: 1px solid var(--border);

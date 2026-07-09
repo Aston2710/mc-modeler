@@ -42,6 +42,7 @@ import { getLabel } from 'bpmn-js/lib/util/LabelUtil'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { getLabelColor } from 'bpmn-js/lib/draw/BpmnRenderUtil'
+import { createCenteredLabelText } from '../elements/ResizableLabelsModule'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const PHASE_HEADER = 30 // alto de la banda de nombre (const int TextHeight = 30 en Bizagi)
@@ -239,17 +240,13 @@ ThemeAwareRenderer.prototype.drawShape = function (
   if (element.labelTarget) {
     const w = Number.isFinite(element.width) && element.width > 0 ? element.width : 90
     const h = Number.isFinite(element.height) && element.height > 0 ? element.height : 30
-    const text = this._textRenderer.createText(getLabel(element) || '', {
-      box: { width: w, height: h },
-      align: 'center-middle',
-      fitBox: true, // no truncar palabras más largas que la caja
-      style: {
-        ...this._textRenderer.getExternalStyle(),
-        // Respeta color DI si existe; si no, color de texto del tema
-        fill: getLabelColor(element, colors.labelColor, colors.labelColor),
-      },
+    // createCenteredLabelText corrige el centrado horizontal (bug fitBox de
+    // diagram-js: centra contra el bloque de texto, no contra la caja).
+    const text = createCenteredLabelText(this._textRenderer, getLabel(element) || '', { width: w, height: h }, {
+      ...this._textRenderer.getExternalStyle(),
+      // Respeta color DI si existe; si no, color de texto del tema
+      fill: getLabelColor(element, colors.labelColor, colors.labelColor),
     })
-    text.setAttribute('class', 'djs-label')
     parentGfx.appendChild(text)
     return text
   }

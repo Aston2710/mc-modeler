@@ -3,6 +3,10 @@ import { createPortal } from 'react-dom'
 import { useCommentStore, getCommentBinding, type CommentThread } from '@/store/commentStore'
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
+import { useDiagramStore } from '@/store/diagramStore'
+import { isSupabaseConfigured } from '@/lib/supabase'
+import { listCollaborators, listProjectCollaborators } from '@/lib/sharing'
+import { MentionTextarea, MentionText, activeMentions, type MentionOption } from './MentionTextarea'
 import { MessageSquare, X, CheckCircle, RotateCcw, Send, Trash2 } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -58,11 +62,14 @@ interface ThreadProps {
   isFocused: boolean
   userId: string
   userName: string
+  mentionOptions: MentionOption[]
   onActivate: () => void
 }
 
-function Thread({ thread, isActive, isFocused, userId, userName, onActivate }: ThreadProps) {
+function Thread({ thread, isActive, isFocused, userId, userName, mentionOptions, onActivate }: ThreadProps) {
   const [replyText, setReplyText] = useState('')
+  // Todo lo elegido en el dropdown de @; al enviar se filtra lo aún presente en el texto.
+  const [pendingMentions, setPendingMentions] = useState<MentionOption[]>([])
   // 'thread' = borrar hilo completo; otro valor = id de la reply a borrar
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -75,8 +82,9 @@ function Thread({ thread, isActive, isFocused, userId, userName, onActivate }: T
   const submit = () => {
     const text = replyText.trim()
     if (!text) return
-    getCommentBinding()?.addReply(thread.id, text, userId, userName)
+    getCommentBinding()?.addReply(thread.id, text, userId, userName, activeMentions(text, pendingMentions))
     setReplyText('')
+    setPendingMentions([])
   }
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -104,7 +112,9 @@ function Thread({ thread, isActive, isFocused, userId, userName, onActivate }: T
             <span className="cthread-time">{relativeTime(thread.createdAt)}</span>
           </div>
           {first && (
-            <p className={`cthread-preview${isActive ? ' full' : ''}`}>{first.content}</p>
+            <p className={`cthread-preview${isActive ? ' full' : ''}`}>
+              <MentionText content={first.content} options={mentionOptions} />
+            </p>
           )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
@@ -127,7 +137,9 @@ function Thread({ thread, isActive, isFocused, userId, userName, onActivate }: T
                   <span className="creply-author">{reply.authorName}</span>
                   <span className="creply-time">{relativeTime(reply.createdAt)}</span>
                 </div>
-                <p className="creply-content">{reply.content}</p>
+                <p className="creply-content">
+                  <MentionText content={reply.content} options={mentionOptions} />
+                </p>
               </div>
               {reply.authorId === userId && (
                 confirmDelete === reply.id ? (
@@ -158,11 +170,13 @@ function Thread({ thread, isActive, isFocused, userId, userName, onActivate }: T
 
           {thread.status === 'open' && (
             <div className="cthread-input-area">
-              <textarea
+              <MentionTextarea
                 ref={textareaRef}
                 value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
+                onChange={setReplyText}
                 onKeyDown={onKey}
+                onMention={(o) => setPendingMentions((ms) => [...ms, o])}
+                options={mentionOptions.filter((o) => o.id !== userId)}
                 placeholder="Responder… (Ctrl+Enter)"
                 rows={2}
                 className="f-textarea"
@@ -252,17 +266,22 @@ function Thread({ thread, isActive, isFocused, userId, userName, onActivate }: T
 
 // ── Composer ────────────────────────────────────────────────
 
-interface ComposerProps { userId: string; userName: string }
+interface ComposerProps { userId: string; userName: string; mentionOptions: MentionOption[] }
 
-function NewThreadComposer({ userId, userName }: ComposerProps) {
+function NewThreadComposer({ userId, userName, mentionOptions }: ComposerProps) {
   const composerAnchor = useCommentStore((s) => s.composerAnchor)
   const closeComposer = useCommentStore((s) => s.closeComposer)
   const setActiveThread = useCommentStore((s) => s.setActiveThread)
   const [text, setText] = useState('')
+  const [pendingMentions, setPendingMentions] = useState<MentionOption[]>([])
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    if (composerAnchor) { setText(''); setTimeout(() => inputRef.current?.focus(), 50) }
+    if (composerAnchor) {
+      setText('')
+      setPendingMentions([])
+      setTimeout(() => inputRef.current?.focus(), 50)
+    }
   }, [composerAnchor])
 
   if (!composerAnchor) return null
@@ -273,10 +292,13 @@ function NewThreadComposer({ userId, userName }: ComposerProps) {
   const submit = () => {
     const content = text.trim()
     if (!content) return
-    const id = getCommentBinding()?.createThread(composerAnchor, content, userId, userName)
+    const id = getCommentBinding()?.createThread(
+      composerAnchor, content, userId, userName, activeMentions(content, pendingMentions)
+    )
     if (id) setActiveThread(id)
     closeComposer()
     setText('')
+    setPendingMentions([])
   }
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -293,11 +315,13 @@ function NewThreadComposer({ userId, userName }: ComposerProps) {
         </button>
       </div>
       <p className="comment-anchor-lbl">{anchorLabel}</p>
-      <textarea
+      <MentionTextarea
         ref={inputRef}
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={setText}
         onKeyDown={onKey}
+        onMention={(o) => setPendingMentions((ms) => [...ms, o])}
+        options={mentionOptions.filter((o) => o.id !== userId)}
         placeholder="Escribe un comentario… (Ctrl+Enter)"
         rows={3}
         className="f-textarea"
@@ -345,6 +369,35 @@ export function CommentsPanel({ modelerRef }: CommentsPanelProps) {
     (user?.user_metadata?.name as string | undefined) ||
     user?.email ||
     'Usuario'
+
+  // Colaboradores del diagrama (+ los del proyecto, si pertenece a uno) para
+  // el autocomplete de menciones y el resaltado. Solo en modo colaborativo.
+  const activeTabId = useDiagramStore((s) => s.activeTabId)
+  const [mentionOptions, setMentionOptions] = useState<MentionOption[]>([])
+  useEffect(() => {
+    if (!panelOpen || !isSupabaseConfigured || !user || !activeTabId) {
+      setMentionOptions([])
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const collabs = await listCollaborators(activeTabId)
+        const projectId = useDiagramStore.getState().diagrams.find((d) => d.id === activeTabId)?.projectId
+        const projCollabs = projectId ? await listProjectCollaborators(projectId) : []
+        if (cancelled) return
+        const seen = new Set<string>()
+        const opts: MentionOption[] = []
+        for (const c of [...collabs, ...projCollabs]) {
+          if (seen.has(c.userId)) continue
+          seen.add(c.userId)
+          opts.push({ id: c.userId, label: c.displayName || c.email || 'Usuario' })
+        }
+        setMentionOptions(opts)
+      } catch { /* sin lista de colaboradores → sin autocomplete */ }
+    })()
+    return () => { cancelled = true }
+  }, [panelOpen, user, activeTabId])
 
   const visible = threads.filter((t) => {
     if (filter === 'open') return t.status === 'open'
@@ -403,7 +456,9 @@ export function CommentsPanel({ modelerRef }: CommentsPanelProps) {
             ))}
           </div>
 
-          {composerAnchor && <NewThreadComposer userId={userId} userName={userName} />}
+          {composerAnchor && (
+            <NewThreadComposer userId={userId} userName={userName} mentionOptions={mentionOptions} />
+          )}
 
           <div className="comments-body" ref={bodyRef}>
             {visible.length === 0 ? (
@@ -434,6 +489,7 @@ export function CommentsPanel({ modelerRef }: CommentsPanelProps) {
                     isFocused={thread.anchor.type === 'element' && thread.anchor.elementId === selectedElementId}
                     userId={userId}
                     userName={userName}
+                    mentionOptions={mentionOptions}
                     onActivate={() => handleActivate(thread)}
                   />
                 </div>

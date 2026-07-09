@@ -73,13 +73,57 @@ Fix: el listener de `resize.move` entra a **prioridad 750** — después de que 
 - **.bpm Bizagi:** `bpmExport.ts::externalLabel()` recibía `labelBounds` del DI y **los ignoraba** (`_lb`, hardcodeaba 90×30) → ahora los usa (redondeados a entero, cf. `bug-export-bpm-int32.md`); fallback al comportamiento anterior si no hay `BPMNLabel`.
 - **Colaboración:** labels están **excluidos** del sync Yjs (`SKIP_TYPES = ['label']` en `yBpmnModel.ts`) — mover un label tampoco sincronizaba antes; el resize hereda esa limitación. Si algún día se sincronizan labels, el resize viaja igual que el move (mismo snapshot x/y/width/height).
 
-## 7b. Fix derivado — selección inconsistente entre labels (2026-07-08)
+## 7b. Fix derivado — inconsistencias entre labels de shapes y de flechas (2026-07-08)
 
-Síntoma: al seleccionar el label de un gateway aparecía outline punteado ámbar + halo con padding; el label de una flecha se veía normal (outline azul ceñido).
+Síntoma reportado: el label de un gateway y el de una flecha "se veían distintos" al seleccionarlos.
 
-Causa: **los labels externos comparten `businessObject` con su elemento padre**, así que en `CustomSelectionModule` `isGateway(labelDeGateway) === true` → el label heredaba la clase CSS `.djs-shape--gateway` (outline ámbar punteado), el `SelectionHalo` y el filtro de handles laterales. El label de una flecha (bo = SequenceFlow) no matcheaba nada. Asimetría pre-existente, invisible hasta que los labels se volvieron seleccionables/redimensionables.
+Diagnóstico en dos partes (con corrección de rumbo tras feedback del usuario):
 
-Fix: guard `element.labelTarget` en los 3 servicios de `CustomSelectionModule` (`ShapeClassifier`, `SelectionHalo`, `NonRectangularResizeFilter`). Regla general a recordar: **cualquier lógica que clasifique por `businessObject.$instanceOf` debe excluir labels explícitamente** — el bo del label es el del padre.
+1. **Los labels externos comparten `businessObject` con su elemento padre** →
+   en `CustomSelectionModule`, `isGateway(labelDeGateway) === true`. El label de
+   gateway heredaba: clase `.djs-shape--gateway` (outline punteado ámbar), halo,
+   y el filtro que oculta handles laterales. El de flecha (bo = SequenceFlow) no.
+   - Outline punteado del color del tipo + halo: **DESEADO por el usuario**
+     (comunica a qué elemento pertenece el label) — se conservan.
+   - Filtro de handles laterales: **bug real** — bloqueaba los handles e/w del
+     label (justo los útiles para ensanchar). Guard `element.labelTarget` SOLO
+     en `NonRectangularResizeFilter`.
+   - Regla a recordar: cualquier clasificación por `businessObject.$instanceOf`
+     alcanza también a los labels; decidir caso por caso si es deseado.
+
+2. **La inconsistencia real era el espacio muerto**: labels legacy (v1 pre-snap)
+   persistieron cajas más anchas que su texto; el import las honraba verbatim →
+   caja con aire alrededor del texto. Fix: `LabelImportNormalizer` — en
+   `import.done`, todo label >90px se re-ciñe a su texto (snapToContent,
+   idempotente). Mutación DIRECTA (sin command stack): no ensucia undo ni marca
+   dirty al abrir; actualiza `label.di.label.bounds` a mano para que
+   saveXML/exports serialicen la caja ceñida. Nota: esto matiza el §4 — el DI
+   se honra verbatim en `getExternalLabelBounds` (path import) para conservar
+   el ancho de quiebre, y el normalizador ciñe después.
+
+Comportamiento por diseño (confirmado con usuario): un label de UNA sola
+palabra corta ("MC") tiene un único tamaño válido — la caja siempre abraza el
+texto, arrastrar no lo agranda ni encoge. Si algún día se quiere "aire"
+configurable, sería un padding opcional en snapToContent.
+
+## 7c. Fix derivado — texto pegado a la izquierda (bug fitBox de diagram-js)
+
+Síntoma: texto del label pegado al borde izquierdo con aire a la derecha cuando
+la caja es más ancha que el texto (visible en labels legacy no ceñidos).
+
+Causa (diagram-js `Text.js::layoutText`): con `fitBox: true` el centrado
+HORIZONTAL se calcula contra `maxLineWidth` (el bloque de texto), no contra la
+caja → la línea más larga siempre queda en x=0. El centrado vertical sí usa
+`box.height`. `fitBox: false` no es alternativa: activa `shortenLine` y trunca
+palabras más largas que la caja.
+
+Fix: `createCenteredLabelText()` (exportado de `ResizableLabelsModule`) — crea
+el texto con fitBox:true y aplica el centrado horizontal manualmente via
+`transform: translate((boxW - dims.width)/2, 0)`. Lo usan el render
+(ThemeAwareRenderer) y el preview de drag (que COMPONE su propio translate de
+offset con el del centrado — ojo al orden). Además `LabelImportNormalizer` se
+extendió a TODOS los labels externos (no solo >90) para ceñir también legacy
+angostos con caja más ancha que su texto.
 
 ## 8. Pendientes / trampas para el futuro
 

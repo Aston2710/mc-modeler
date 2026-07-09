@@ -76,11 +76,40 @@ function isExternalLabel(el: AnyObj): boolean {
 const sharedTextUtil = new TextUtil({})
 
 /** Dimensiones del texto envuelto a `width` con el estilo de labels externos. */
-function wrapDims(textRenderer: AnyObj, text: string, width: number): { width: number; height: number } {
+export function wrapDims(textRenderer: AnyObj, text: string, width: number): { width: number; height: number } {
   return sharedTextUtil.getDimensions(text, {
     box: { width, height: 30 },
     style: textRenderer.getExternalStyle(),
   })
+}
+
+/**
+ * Crea el <text> de un label externo centrado H y V dentro de `box`.
+ *
+ * BUG de diagram-js que esto corrige: con fitBox:true el centrado horizontal
+ * de layoutText se calcula contra maxLineWidth (el bloque de texto), no contra
+ * la caja → la línea más larga queda en x=0 y el texto se pega a la izquierda
+ * cuando la caja es más ancha que el texto. (El vertical sí usa box.height.)
+ * fitBox:false no sirve: truncaría palabras más largas que la caja.
+ * Fix: centrado horizontal manual vía transform con el ancho medido.
+ */
+export function createCenteredLabelText(
+  textRenderer: AnyObj,
+  text: string,
+  box: { width: number; height: number },
+  style: AnyObj,
+): SVGElement {
+  const el = textRenderer.createText(text, {
+    box,
+    align: 'center-middle',
+    fitBox: true,
+    style,
+  })
+  el.setAttribute('class', 'djs-label')
+  const dims = wrapDims(textRenderer, text, box.width)
+  const dx = (box.width - dims.width) / 2
+  if (dx > 0.5) el.setAttribute('transform', `translate(${Math.round(dx)}, 0)`)
+  return el
 }
 
 /**
@@ -214,16 +243,17 @@ function LabelResizePreview(
     const visual: SVGElement | null = gfx?.querySelector('.djs-visual')
     if (!visual) return
     while (visual.firstChild) visual.removeChild(visual.firstChild)
-    const text = textRenderer.createText(getLabel(shape) || '', {
-      box: { width: bounds.width, height: bounds.height },
-      align: 'center-middle',
-      fitBox: true,
-      style: textRenderer.getExternalStyle(), // fill lo pone el CSS del tema en canvas
-    })
-    text.setAttribute('class', 'djs-label')
+    const text = createCenteredLabelText(
+      textRenderer,
+      getLabel(shape) || '',
+      { width: bounds.width, height: bounds.height },
+      textRenderer.getExternalStyle(), // fill lo pone el CSS del tema en canvas
+    )
     // El gfx está trasladado a (shape.x, shape.y); compensar si el drag mueve
-    // el origen (handles izquierdo/superior).
-    text.setAttribute('transform', `translate(${bounds.x - shape.x}, ${bounds.y - shape.y})`)
+    // el origen (handles izquierdo/superior). Componer con el centrado propio.
+    const own = text.getAttribute('transform')
+    const shift = `translate(${bounds.x - shape.x}, ${bounds.y - shape.y})`
+    text.setAttribute('transform', own ? `${shift} ${own}` : shift)
     visual.appendChild(text)
   }
 
@@ -252,6 +282,50 @@ function LabelResizePreview(
 
 LabelResizePreview.$inject = ['eventBus', 'elementRegistry', 'graphicsFactory', 'textRenderer']
 
+// ── 5. Normalización al importar ────────────────────────────────────────────
+// Labels legacy (p. ej. redimensionados con la v1 pre-snap) pueden traer en el
+// DI una caja MÁS ANCHA que su texto — el import los honra verbatim y quedan
+// con espacio muerto alrededor. Aquí, tras cada import, todo label >90px se
+// re-ciñe a su texto (idempotente: los ya ceñidos no cambian).
+// Mutación directa (sin command stack): no ensucia el undo ni marca el
+// diagrama como modificado al solo abrirlo; el DI se actualiza a mano para
+// que saveXML/exports serialicen la caja ceñida.
+function LabelImportNormalizer(
+  eventBus: AnyObj,
+  elementRegistry: AnyObj,
+  graphicsFactory: AnyObj,
+  textRenderer: AnyObj,
+) {
+  eventBus.on('import.done', function () {
+    // Todos los labels externos (no solo >90): también los legacy angostos con
+    // caja más ancha que su texto quedan ceñidos. Idempotente para los demás.
+    const labels = elementRegistry.filter((el: AnyObj) => isExternalLabel(el))
+    labels.forEach((label: AnyObj) => {
+      try {
+        const text = getLabel(label)
+        if (!text || !text.trim()) return
+        const snapped = snapToContent(textRenderer, text, label.width, label)
+        if (snapped.width === label.width && snapped.height === label.height) return
+        label.x = snapped.x
+        label.y = snapped.y
+        label.width = snapped.width
+        label.height = snapped.height
+        const diBounds = label.di?.label?.bounds
+        if (diBounds) {
+          diBounds.x = snapped.x
+          diBounds.y = snapped.y
+          diBounds.width = snapped.width
+          diBounds.height = snapped.height
+        }
+        const gfx = elementRegistry.getGraphics(label)
+        if (gfx) graphicsFactory.update('shape', label, gfx)
+      } catch { /* label huérfano o sin gfx: ignorar */ }
+    })
+  })
+}
+
+LabelImportNormalizer.$inject = ['eventBus', 'elementRegistry', 'graphicsFactory', 'textRenderer']
+
 // ── Módulo bpmn-js ──────────────────────────────────────────────────────────
 const ResizableLabelsModule = {
   __init__: [
@@ -260,12 +334,14 @@ const ResizableLabelsModule = {
     'labelSnapBehavior',
     'labelEditingBoxPatch',
     'labelResizePreview',
+    'labelImportNormalizer',
   ],
   labelResizeRules: ['type', LabelResizeRules],
   labelBoundsPatch: ['type', LabelBoundsPatch],
   labelSnapBehavior: ['type', LabelSnapBehavior],
   labelEditingBoxPatch: ['type', LabelEditingBoxPatch],
   labelResizePreview: ['type', LabelResizePreview],
+  labelImportNormalizer: ['type', LabelImportNormalizer],
 }
 
 export default ResizableLabelsModule

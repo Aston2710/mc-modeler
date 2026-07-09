@@ -48,12 +48,9 @@ function ShapeClassifier(eventBus: AnyObj) {
   function classify(element: AnyObj, gfx: SVGElement) {
     if (!gfx || !element?.businessObject) return
 
-    // Los labels externos COMPARTEN businessObject con su elemento padre
-    // (isGateway(labelDeGateway) === true). Sin este guard, el label hereda
-    // la clase del padre → outline punteado ámbar, halo y filtro de handles,
-    // mientras el label de una flecha (bo = SequenceFlow) se ve normal.
-    // Un label es un rectángulo de texto: tratamiento visual estándar siempre.
-    if (element.labelTarget) return
+    // NOTA: los labels externos comparten businessObject con su padre, por lo
+    // que el label de un gateway también recibe .djs-shape--gateway (outline
+    // punteado del color del tipo). DESEADO: comunica a qué elemento pertenece.
 
     if (isGateway(element)) {
       gfx.classList.add('djs-shape--gateway')
@@ -90,8 +87,7 @@ ShapeClassifier.$inject = ['eventBus']
 
 function SelectionHalo(eventBus: AnyObj) {
   function injectHalo(element: AnyObj, visual: SVGElement) {
-    // element.labelTarget: los labels comparten bo con el padre — sin halo
-    if (!visual || element.labelTarget || !isNonRectangular(element)) return
+    if (!visual || !isNonRectangular(element)) return
 
     // Crear siempre nuevo (visual se vacía en cada render)
     const halo = document.createElementNS(SVG_NS, 'rect') as SVGRectElement

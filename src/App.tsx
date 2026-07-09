@@ -101,20 +101,41 @@ export default function App() {
   // Estado del proyecto que se está compartiendo (modal shareProject).
   const [shareProjectInfo, setShareProjectInfo] = useState<{ id: string; name: string } | null>(null)
 
-  // Capturar tokens de invitación (?invite= / ?projectInvite=) antes del redirect de login.
+  // Capturar tokens de invitación (?invite= / ?projectInvite=) y deep links a
+  // diagrama (?d=, usados por los correos de notificación) antes del redirect de login.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const token = params.get('invite')
     const projectToken = params.get('projectInvite')
+    const deepLink = params.get('d')
     if (token) localStorage.setItem('flujo:pendingInvite', token)
     if (projectToken) localStorage.setItem('flujo:pendingProjectInvite', projectToken)
-    if (token || projectToken) {
+    if (deepLink) localStorage.setItem('flujo:pendingOpenDiagram', deepLink)
+    if (token || projectToken || deepLink) {
       params.delete('invite')
       params.delete('projectInvite')
+      params.delete('d')
       const qs = params.toString()
       window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''))
     }
   }, [])
+
+  // Abrir diagrama de un deep link (?d=) una vez hay sesión y datos cargados.
+  useEffect(() => {
+    if (!isSupabaseConfigured || !session) return
+    const pending = localStorage.getItem('flujo:pendingOpenDiagram')
+    if (!pending) return
+    localStorage.removeItem('flujo:pendingOpenDiagram')
+    void (async () => {
+      try {
+        await loadAll()
+        if (useDiagramStore.getState().diagrams.some((d) => d.id === pending)) {
+          openDiagram(pending)
+          setView('editor')
+        }
+      } catch { /* noop */ }
+    })()
+  }, [session, loadAll, openDiagram])
 
   // Canjear invitación pendiente (diagrama o proyecto) una vez hay sesión.
   useEffect(() => {

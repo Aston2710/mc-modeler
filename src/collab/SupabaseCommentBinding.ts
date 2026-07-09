@@ -23,6 +23,7 @@ interface ReplyRow {
   author_name: string
   content: string
   created_at: string
+  mentions: string[] | null
 }
 
 const REFETCH_DEBOUNCE_MS = 300
@@ -139,6 +140,7 @@ export class SupabaseCommentBinding {
         authorName: r.author_name,
         content: r.content,
         createdAt: Date.parse(r.created_at),
+        mentions: r.mentions ?? [],
       })
       repliesByThread.set(r.thread_id, list)
     }
@@ -166,7 +168,7 @@ export class SupabaseCommentBinding {
     store.syncFromYjs(mutate([...store.threads]))
   }
 
-  createThread(anchor: Anchor, content: string, userId: string, userName: string): string {
+  createThread(anchor: Anchor, content: string, userId: string, userName: string, mentions: string[] = []): string {
     const threadId = crypto.randomUUID()
     const replyId = crypto.randomUUID()
     const now = Date.now()
@@ -178,7 +180,7 @@ export class SupabaseCommentBinding {
       createdBy: userId,
       createdByName: userName,
       createdAt: now,
-      replies: [{ id: replyId, authorId: userId, authorName: userName, content, createdAt: now }],
+      replies: [{ id: replyId, authorId: userId, authorName: userName, content, createdAt: now, mentions }],
     }
     this.threadIds.add(threadId)
     this.setThreads((ts) => [...ts, thread])
@@ -202,6 +204,7 @@ export class SupabaseCommentBinding {
             author_id: userId,
             author_name: userName,
             content,
+            mentions,
           })
       if (e1 || e2) {
         console.warn('[comments] createThread no persistió, revirtiendo:', e1 ?? e2)
@@ -211,7 +214,7 @@ export class SupabaseCommentBinding {
     return threadId
   }
 
-  addReply(threadId: string, content: string, userId: string, userName: string): void {
+  addReply(threadId: string, content: string, userId: string, userName: string, mentions: string[] = []): void {
     const replyId = crypto.randomUUID()
     const reply: CommentReply = {
       id: replyId,
@@ -219,6 +222,7 @@ export class SupabaseCommentBinding {
       authorName: userName,
       content,
       createdAt: Date.now(),
+      mentions,
     }
     this.setThreads((ts) =>
       ts.map((t) => (t.id === threadId ? { ...t, replies: [...t.replies, reply] } : t))
@@ -231,6 +235,7 @@ export class SupabaseCommentBinding {
         author_id: userId,
         author_name: userName,
         content,
+        mentions,
       })
       if (error) {
         console.warn('[comments] addReply no persistió, revirtiendo:', error)
