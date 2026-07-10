@@ -10,6 +10,7 @@ import { useDiagramStore } from '@/store/diagramStore'
 import { useUIStore } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { PresenceAvatars } from '@/components/collab/PresenceAvatars'
+import { NotificationBell } from '@/components/layout/NotificationBell'
 
 interface ToolbarProps {
   onNew: () => void
@@ -186,6 +187,9 @@ export function Toolbar({
       <button className="icon-btn" onClick={toggleTheme} title={t('toolbar.toggleTheme')}>
         {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
       </button>
+
+      {/* Notificaciones */}
+      {cloudMode && <NotificationBell />}
 
       {/* Presencia en tiempo real */}
       {cloudMode && <PresenceAvatars />}

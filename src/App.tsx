@@ -5,7 +5,9 @@ import { useUIStore } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { useAuthStore } from '@/store/authStore'
 import { useCollabStore } from '@/store/collabStore'
+import { useNotificationStore } from '@/store/notificationStore'
 import { isSupabaseConfigured } from '@/lib/supabase'
+import { activateThreadWhenReady } from '@/lib/notificationNav'
 import { redeemInvite, redeemProjectInvite } from '@/lib/sharing'
 import { LoginView } from '@/components/auth/LoginView'
 import { ShareModal } from '@/components/modals/ShareModal'
@@ -98,6 +100,13 @@ export default function App() {
     }
   }, [sessionUserId, loadAll, loadProjects])
 
+  // Centro de notificaciones in-app: carga + suscripción Realtime mientras hay sesión.
+  useEffect(() => {
+    if (!isSupabaseConfigured || !sessionUserId) return
+    void useNotificationStore.getState().start(sessionUserId)
+    return () => useNotificationStore.getState().stop()
+  }, [sessionUserId])
+
   // Estado del proyecto que se está compartiendo (modal shareProject).
   const [shareProjectInfo, setShareProjectInfo] = useState<{ id: string; name: string } | null>(null)
 
@@ -108,13 +117,16 @@ export default function App() {
     const token = params.get('invite')
     const projectToken = params.get('projectInvite')
     const deepLink = params.get('d')
+    const thread = params.get('thread')
     if (token) localStorage.setItem('flujo:pendingInvite', token)
     if (projectToken) localStorage.setItem('flujo:pendingProjectInvite', projectToken)
     if (deepLink) localStorage.setItem('flujo:pendingOpenDiagram', deepLink)
-    if (token || projectToken || deepLink) {
+    if (thread) localStorage.setItem('flujo:pendingThread', thread)
+    if (token || projectToken || deepLink || thread) {
       params.delete('invite')
       params.delete('projectInvite')
       params.delete('d')
+      params.delete('thread')
       const qs = params.toString()
       window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''))
     }
@@ -132,10 +144,24 @@ export default function App() {
         if (useDiagramStore.getState().diagrams.some((d) => d.id === pending)) {
           openDiagram(pending)
           setView('editor')
+        } else {
+          // Sin acceso o diagrama inexistente: el thread pendiente ya no aplica.
+          localStorage.removeItem('flujo:pendingThread')
+          addToast({ type: 'error', title: t('notifications.noAccess') })
         }
       } catch { /* noop */ }
     })()
-  }, [session, loadAll, openDiagram])
+  }, [session, loadAll, openDiagram, addToast, t])
+
+  // Activar el hilo de comentario de un deep link (?thread=) cuando el binding
+  // de comentarios lo cargue en el store.
+  useEffect(() => {
+    if (!isSupabaseConfigured || !session) return
+    const threadId = localStorage.getItem('flujo:pendingThread')
+    if (!threadId) return
+    localStorage.removeItem('flujo:pendingThread')
+    return activateThreadWhenReady(threadId)
+  }, [session])
 
   // Canjear invitación pendiente (diagrama o proyecto) una vez hay sesión.
   useEffect(() => {

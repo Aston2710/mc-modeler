@@ -133,43 +133,55 @@ la fuente de la campanita.
 
 ---
 
-## 3. Plan de evolución
+## 3. Evolución — 4 fases (IMPLEMENTADAS 2026-07-09)
 
-### Fase 1 — Deep link enfocado al comentario (barato, alto impacto)
+Todas aplicadas a la BD remota y verificadas (typecheck + build + 59 tests).
 
-Cierra el gap donde "Ver comentario" abre solo el diagrama.
+### Fase 1 — Deep link enfocado al comentario
 
-- SQL: agregar `threadId` al payload del trigger de menciones.
-- Apps Script: `mUrl = base + '/?d=' + diagramId + '&thread=' + threadId`.
-- App.tsx: leer `?thread=`, guardar pendiente, tras abrir diagrama
-  `setPanelOpen(true)` + `setActiveThread(threadId)` (el scroll ya existe en
-  `CommentsPanel`). Cuidar timing: esperar a que el binding cargue los hilos.
+Cierra el gap donde "Ver comentario" abría solo el diagrama.
+
+- **Migración 0011**: `threadId` agregado al payload del trigger de menciones.
+- **Apps Script**: `mUrl = base + '/?d=' + diagramId + '&thread=' + threadId`.
+- **App.tsx**: lee `?thread=`, y vía `activateThreadWhenReady()`
+  (`src/lib/notificationNav.ts`) espera a que el binding cargue el hilo →
+  `setPanelOpen(true)` + `setActiveThread`. Fallback timeout 20s. Fallback sin
+  acceso: toast `notifications.noAccess` + limpia el thread pendiente.
 
 ### Fase 2 — Centro de notificaciones in-app (campanita)
 
-Reusa `notification_outbox` + Realtime (ya usado en comentarios).
+`notification_outbox` es ahora también la fuente de la bandeja.
 
-- SQL: columna `read_at`; RLS `select` de lo propio (`recipient_id =
-  auth.uid()`); `replica identity full` + publicación Realtime.
-- `notificationStore.ts`: lista, contador no-leídas, `markRead`, suscripción
-  Realtime filtrada por `recipient_id`.
-- `NotificationBell.tsx`: ícono en Toolbar con badge, dropdown con lista, click →
-  navegación interna (sin recargar) + `markRead`. Mismo destino que el correo.
+- **Migración 0012**: columna `read_at`; RLS `select`/`update` de lo propio
+  (`recipient_id = auth.uid()`); grant `update (read_at)` a nivel columna (no
+  pueden tocar otras columnas); `replica identity full` + publicación Realtime.
+- **`notificationStore.ts`**: lista (máx 50), no-leídas, `markRead`/`markAllRead`
+  optimistas, suscripción Realtime INSERT/UPDATE filtrada por `recipient_id`.
+- **`NotificationBell.tsx`** en Toolbar (cloud): badge, dropdown, click →
+  `openNotificationTarget()` (navegación interna sin recargar) + `markRead`.
+  Arranca/para en App.tsx según `sessionUserId`.
 
 ### Fase 3 — Preferencias + unsubscribe
 
-- SQL: `notification_prefs (user_id pk, invite_events, mention_events,
-  email_enabled)`.
-- Productores consultan prefs antes de encolar email (o encolan para la campana
-  y marcan skip-email).
-- UI de toggles en ajustes. Unsubscribe: token firmado en el correo → endpoint
-  que apaga el pref sin login (mínimo: link a la página de preferencias).
+- **Migración 0013**: `notification_prefs (user_id pk, email_enabled,
+  invite_events, mention_events)`. `deliver_notification` consulta prefs y omite
+  el POST si el canal está apagado — la fila igual se crea (la campana siempre
+  funciona). Sin fila = todo activado.
+- **UI**: panel de engranaje dentro del dropdown de la campana con 3 toggles.
+  `setPref` optimista + upsert.
+- **Unsubscribe**: footer del correo enlaza a la app (login-gated). Unsubscribe
+  con token firmado sin login queda pendiente (requiere `doGet` en Apps Script).
 
-### Fase 4 — Batching / digest (último, solo si el volumen molesta)
+### Fase 4 — Batching / digest
 
-- Agrupar N colaboradores del mismo evento en 1 correo, o digest por ventana.
-- El time-trigger `retryUnsent` de Apps Script puede agrupar filas por
-  destinatario. Diferir hasta tener volumen real.
+- **Migración 0014**: flag `digest_mode` en `notification_config`. `false`
+  (default) = inmediato, 1 correo/evento. `true` = el trigger no envía; el
+  time-trigger `retryUnsent` agrupa las filas sin enviar por destinatario y
+  manda 1 correo resumen por ventana.
+- **Apps Script**: `retryUnsent` reescrito — agrupa por destinatario (1 →
+  individual, 2+ → `sendDigest_`), respeta prefs en ambos modos (en digest el
+  trigger no las filtró), marca suprimidas por pref como enviadas.
 
-**Orden:** 1 → 2 → 3 → 4. Fase 1 ≈ un par de horas; Fase 2 es el mayor salto de
-valor tras el correo; 3 y 4 son madurez.
+**Gaps restantes (conscientes):** invite de proyecto sigue sin ruta a proyecto
+específico (abre diagrama sí, proyecto → sin nav); unsubscribe one-click sin
+login (solo link a la app).

@@ -43,6 +43,17 @@
     "expiryNever": "Nunca expira",
     "inviteExpired": "La invitación ha expirado."
   },
+  "notifications": {
+    "noAccess": "No tienes acceso a ese diagrama.",
+    "title": "Notificaciones",
+    "empty": "No tienes notificaciones.",
+    "markAllRead": "Marcar todas leídas",
+    "prefsTitle": "Preferencias de notificación",
+    "emailPrefs": "Recibir por correo:",
+    "prefEmail": "Correos activados",
+    "prefInvites": "Invitaciones aceptadas",
+    "prefMentions": "Menciones en comentarios"
+  },
   "projects": {
     "title": "Proyectos",
     "section": "Proyectos",
