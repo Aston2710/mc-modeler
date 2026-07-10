@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Bell, UserPlus, FolderPlus, AtSign, CheckCheck, Settings } from 'lucide-react'
 import {
@@ -48,13 +49,25 @@ export function NotificationBell() {
   const prefs = useNotificationStore((s) => s.prefs)
   const setPref = useNotificationStore((s) => s.setPref)
   const unread = items.filter((n) => !n.readAt).length
-  const wrapRef = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const dropRef = useRef<HTMLDivElement>(null)
   const [showPrefs, setShowPrefs] = useState(false)
+  // El toolbar tiene overflow:hidden → el dropdown se porta a <body> con
+  // posición fija calculada desde el botón, para no quedar recortado.
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
+
+  useLayoutEffect(() => {
+    if (!open || !btnRef.current) return
+    const r = btnRef.current.getBoundingClientRect()
+    setPos({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) })
+  }, [open])
 
   useEffect(() => {
     if (!open) return
     const onDown = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) close(false)
+      const target = e.target as Node
+      if (btnRef.current?.contains(target) || dropRef.current?.contains(target)) return
+      close(false)
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
@@ -73,8 +86,9 @@ export function NotificationBell() {
   }
 
   return (
-    <div className="notif-wrap" ref={wrapRef}>
+    <div className="notif-wrap">
       <button
+        ref={btnRef}
         className={`icon-btn ${open ? 'active' : ''}`}
         onClick={() => setOpen()}
         title={t('notifications.title')}
@@ -83,8 +97,12 @@ export function NotificationBell() {
         {unread > 0 && <span className="notif-badge">{unread > 9 ? '9+' : unread}</span>}
       </button>
 
-      {open && (
-        <div className="notif-dropdown">
+      {open && pos && createPortal(
+        <div
+          className="notif-dropdown"
+          ref={dropRef}
+          style={{ position: 'fixed', top: pos.top, right: pos.right }}
+        >
           <div className="notif-head">
             <span className="notif-title">{t('notifications.title')}</span>
             <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -151,7 +169,8 @@ export function NotificationBell() {
               })
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

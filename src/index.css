@@ -1966,7 +1966,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   border-radius: 8px; pointer-events: none;
 }
 .notif-dropdown {
-  position: absolute; top: calc(100% + 6px); right: 0; z-index: 200;
+  z-index: 1000;
   width: 340px; max-height: 460px; display: flex; flex-direction: column;
   background: var(--panel); border: 1px solid var(--border);
   border-radius: 10px; box-shadow: 0 8px 28px rgba(0, 0, 0, .22); overflow: hidden;
