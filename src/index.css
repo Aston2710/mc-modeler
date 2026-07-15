@@ -357,6 +357,19 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 }
 .sb-collapse-btn:hover { background: var(--bg-2); color: var(--text); }
 
+/* Solo lectura (viewer) */
+.palette-readonly {
+  padding: 16px 14px; font-size: 12.5px; line-height: 1.5;
+  color: var(--text-3);
+}
+.readonly-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--bg-2); border: 1px solid var(--border);
+  color: var(--text-2); font-size: 11.5px; font-weight: 600;
+  white-space: nowrap; user-select: none;
+}
+
 .palette-settings-menu {
   z-index: 300;
   background: var(--panel); border: 1px solid var(--border);

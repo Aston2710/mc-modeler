@@ -10,6 +10,8 @@ interface PalettePanelProps {
   collapsed: boolean
   onToggle: () => void
   onStartCreate: (bpmnType: string, event: MouseEvent) => void
+  /** false = viewer (solo lectura): no se muestran elementos para crear. */
+  canEdit?: boolean
 }
 
 const CATEGORIES: BpmnCategory[] = ['events', 'activities', 'gateways', 'containers']
@@ -21,7 +23,7 @@ const CATEGORY_REPRESENTATIVE: Partial<Record<BpmnCategory, string>> = {
   containers: 'pool',
 }
 
-export function PalettePanel({ collapsed, onToggle, onStartCreate }: PalettePanelProps) {
+export function PalettePanel({ collapsed, onToggle, onStartCreate, canEdit = true }: PalettePanelProps) {
   const { t } = useTranslation()
   const paletteMode = usePreferencesStore((s) => s.paletteMode)
   const setPaletteMode = usePreferencesStore((s) => s.setPaletteMode)
@@ -77,6 +79,23 @@ export function PalettePanel({ collapsed, onToggle, onStartCreate }: PalettePane
         <button className="icon-btn" onClick={onToggle} title={t('palette.search')}>
           <ChevronRight size={14} />
         </button>
+      </div>
+    )
+  }
+
+  // Viewer (solo lectura): sin paleta de creación.
+  if (!canEdit) {
+    return (
+      <div className="sidebar-l">
+        <div className="sb-header">
+          <span className="sb-title">{t('palette.title')}</span>
+          <button className="sb-collapse-btn" onClick={onToggle} title="Colapsar">
+            <ChevronLeft size={14} />
+          </button>
+        </div>
+        <div className="palette-readonly">
+          {t('readonly.paletteHint', 'Solo lectura: no puedes agregar elementos. Puedes ver y comentar el diagrama.')}
+        </div>
       </div>
     )
   }

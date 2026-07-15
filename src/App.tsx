@@ -19,6 +19,7 @@ import { useKeyboard } from '@/hooks/useKeyboard'
 import { useExport, type ExportFormat, type PngScale, type PdfOrientation, type ExportTheme } from '@/hooks/useExport'
 import { buildThumbnail, topPoolCrop } from '@/utils/thumbnailUtils'
 import { isCanvasReadyFor } from '@/collab/canvasSession'
+import { setBpmnReadOnly } from '@/bpmn/readOnlyState'
 
 import { validateDiagram } from '@/domain/validation'
 
@@ -60,6 +61,13 @@ export default function App() {
   const authInitialized = useAuthStore((s) => s.initialized)
   const session = useAuthStore((s) => s.session)
   const canEditActive = useCollabStore((s) => s.canEdit(activeTabId))
+
+  // Modo solo-lectura del canvas: viewer no puede editar. Se recalcula al
+  // cambiar de pestaña o cuando cargan los roles (canEditActive). En modo local
+  // canEdit siempre es true → nunca solo-lectura.
+  useEffect(() => {
+    setBpmnReadOnly(!canEditActive)
+  }, [canEditActive])
 
   // Canvas ref
   const canvasRef = useRef<BpmnCanvasHandle>(null)
@@ -583,6 +591,7 @@ export default function App() {
               collapsed={!palettePanelOpen}
               onToggle={() => setPalettePanelOpen(!palettePanelOpen)}
               onStartCreate={handleStartCreate}
+              canEdit={canEditActive}
             />
 
             <div style={{ minHeight: 0, minWidth: 0, overflow: 'hidden', position: 'relative', height: '100%' }}>
@@ -598,6 +607,7 @@ export default function App() {
               collapsed={!propertiesPanelOpen}
               onToggle={() => setPropertiesPanelOpen(!propertiesPanelOpen)}
               getSelectedElements={() => canvasRef.current?.getSelectedElements() ?? []}
+              readOnly={!canEditActive}
               onUpdateProperty={(id, prop, val) => {
                 if (!canEditActive) return
                 canvasRef.current?.updateElementProperty(id, prop, val)

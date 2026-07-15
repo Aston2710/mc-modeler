@@ -26,6 +26,8 @@ interface PropertiesPanelProps {
   getSelectedElements: () => Element[]
   // Called when user edits a property — triggers bpmn-js update
   onUpdateProperty?: (elementId: string, property: string, value: string) => void
+  /** true = viewer: campos deshabilitados (solo lectura). */
+  readOnly?: boolean
 }
 
 function getBpmnIconType(bpmnType: string): string {
@@ -62,6 +64,7 @@ function getBpmnIconType(bpmnType: string): string {
 export function PropertiesPanel({
   getSelectedElements,
   onUpdateProperty,
+  readOnly = false,
 }: PropertiesPanelProps) {
   const { t } = useTranslation()
   const selectedIds = useUIStore((s) => s.selectedElementIds)
@@ -125,7 +128,7 @@ export function PropertiesPanel({
         </button>
       </div>
 
-      <div className="props-body">
+      <fieldset className="props-body" disabled={readOnly} style={{ border: 0, padding: 0, paddingBottom: 12, margin: 0, minInlineSize: 'auto' }}>
         {activeTab === 'general' && (
           <>
             <div className="section">
@@ -274,7 +277,7 @@ export function PropertiesPanel({
             </div>
           </div>
         )}
-      </div>
+      </fieldset>
     </div>
   )
 }

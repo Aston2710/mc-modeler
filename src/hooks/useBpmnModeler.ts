@@ -11,6 +11,7 @@ import { PHASE_ID_PREFIX, isPhase, setPhaseName, setPhaseColor } from '@/bpmn/el
 import { getLinkedDiagram as readLink, setLinkedDiagram as writeLink } from '@/bpmn/elements/subProcessLink'
 import { beginImport, completeImport } from '@/collab/canvasSession'
 import { forceCanonicalBpmnPrefix } from '@/utils/normalizeBpmnXml'
+import { isBpmnReadOnly } from '@/bpmn/readOnlyState'
 
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -123,6 +124,9 @@ export function useBpmnModeler(
 
       const meta = e.ctrlKey || e.metaKey
       const key = e.key.toLowerCase()
+      // Solo-lectura (viewer): copiar sigue permitido (no muta), pero pegar,
+      // borrar y mover con teclado quedan bloqueados.
+      const readOnly = isBpmnReadOnly()
 
       if (meta && key === 'c') {
         try {
@@ -136,10 +140,17 @@ export function useBpmnModeler(
       }
 
       if (meta && key === 'v') {
+        if (readOnly) { e.preventDefault(); return }
         try {
           e.preventDefault()
           ;(modeler as any).get('editorActions').trigger('paste')
         } catch { /* ignore */ }
+        return
+      }
+
+      if (readOnly && (e.key === 'Delete' || e.key === 'Backspace' || e.key.startsWith('Arrow'))) {
+        // Viewer: sin borrar ni mover elementos.
+        if (e.key !== 'Backspace') e.preventDefault()
         return
       }
 

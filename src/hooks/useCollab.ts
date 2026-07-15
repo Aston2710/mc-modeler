@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import * as Y from 'yjs'
 import { useDiagramStore } from '@/store/diagramStore'
 import { useAuthStore } from '@/store/authStore'
+import { useCollabStore } from '@/store/collabStore'
 import { usePresenceStore } from '@/store/presenceStore'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import { CollabChannel } from '@/collab/SupabaseProvider'
@@ -84,10 +85,19 @@ export function useCollab(
     })
     const onDocUpdate = (update: Uint8Array, origin: unknown) => {
       if (origin === REMOTE_ORIGIN) return
+      // Solo-lectura (viewer): modo recibir-solo. Aunque la BD (RLS) impide que
+      // un viewer persista, un cambio local suyo transmitido por broadcast lo
+      // aplicaría el canvas de un editor conectado, cuyo autosave lo guardaría.
+      // No transmitir cierra esa fuga: nada de lo que toque un viewer sale de
+      // su pestaña. (El binding sigue aplicando cambios REMOTOS para que vea la
+      // edición en vivo de los demás.)
+      if (!useCollabStore.getState().canEdit(diagramId)) return
       coalescer.push(update)
     }
 
     const sendFullState = () => {
+      // Viewer (solo-lectura): recibir-solo, no sembrar estado a los peers.
+      if (!useCollabStore.getState().canEdit(diagramId)) return
       try {
         channel.sendYjsUpdate(uint8ToBase64(Y.encodeStateAsUpdate(doc)))
       } catch { /* noop */ }

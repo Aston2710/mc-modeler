@@ -26,6 +26,7 @@ import PhaseLabelEditingModule from './elements/PhaseLabelEditingModule'
 import GroupConnectionRulesModule from './elements/GroupConnectionRulesModule'
 import StickyLaneLabelsModule from './canvas/StickyLaneLabelsModule'
 import CommentContextPadModule from './elements/CommentContextPadModule'
+import ReadOnlyModule from './elements/ReadOnlyModule'
 import flujoModdle from './moddle/flujo.json'
 
 // @ts-ignore
@@ -61,6 +62,7 @@ export const MODELER_CONFIG = {
     GroupConnectionRulesModule,
     StickyLaneLabelsModule,
     CommentContextPadModule,
+    ReadOnlyModule,
     BizagiLayouter,
     BizagiConnectionDocking,
     BizagiSegmentHandles,

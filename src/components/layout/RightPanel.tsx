@@ -14,6 +14,8 @@ interface RightPanelProps {
   onToggle: () => void
   getSelectedElements: () => Element[]
   onUpdateProperty?: (elementId: string, property: string, value: string) => void
+  /** true = viewer: propiedades en solo lectura. */
+  readOnly?: boolean
 }
 
 /**
@@ -26,7 +28,7 @@ interface RightPanelProps {
  * que es quien tiene el modelerRef) vía createPortal hacia el slot
  * #comments-panel-slot que se renderiza aquí.
  */
-export function RightPanel({ collapsed, onToggle, getSelectedElements, onUpdateProperty }: RightPanelProps) {
+export function RightPanel({ collapsed, onToggle, getSelectedElements, onUpdateProperty, readOnly }: RightPanelProps) {
   const { t } = useTranslation()
   const panelOpen = useCommentStore((s) => s.panelOpen)
   const setPanelOpen = useCommentStore((s) => s.setPanelOpen)
@@ -92,6 +94,7 @@ export function RightPanel({ collapsed, onToggle, getSelectedElements, onUpdateP
         <PropertiesPanel
           getSelectedElements={getSelectedElements}
           onUpdateProperty={onUpdateProperty}
+          readOnly={readOnly}
         />
       )}
     </div>

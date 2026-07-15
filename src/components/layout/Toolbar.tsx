@@ -4,7 +4,7 @@ import {
   Plus, Upload, Download, CheckSquare,
   Undo2, Redo2, ZoomIn, ZoomOut, Maximize2,
   Sun, Moon, Save, Home, GitBranch, Share2, LogOut,
-  MessageSquare
+  MessageSquare, Eye
 } from 'lucide-react'
 import { useDiagramStore } from '@/store/diagramStore'
 import { useUIStore } from '@/store/uiStore'
@@ -143,10 +143,10 @@ export function Toolbar({
 
       {/* Undo/Redo */}
       <div className="tb-group">
-        <button className="icon-btn" onClick={onUndo} disabled={!canUndo} title={t('toolbar.undo')}>
+        <button className="icon-btn" onClick={onUndo} disabled={!canUndo || !canEdit} title={t('toolbar.undo')}>
           <Undo2 size={16} />
         </button>
-        <button className="icon-btn" onClick={onRedo} disabled={!canRedo} title={t('toolbar.redo')}>
+        <button className="icon-btn" onClick={onRedo} disabled={!canRedo || !canEdit} title={t('toolbar.redo')}>
           <Redo2 size={16} />
         </button>
       </div>
@@ -202,11 +202,21 @@ export function Toolbar({
         </button>
       )}
 
+      {/* Solo lectura: viewer no puede editar */}
+      {cloudMode && activeDiagram && !canEdit && (
+        <span className="readonly-badge" title={t('readonly.tooltip', 'Solo puedes ver y comentar este diagrama')}>
+          <Eye size={13} />
+          {t('readonly.badge', 'Solo lectura')}
+        </span>
+      )}
+
       {/* Save */}
-      <button className="btn-primary" onClick={onSave} disabled={!activeDiagram || !canEdit}>
-        <Save size={14} />
-        {t('toolbar.save')}
-      </button>
+      {canEdit && (
+        <button className="btn-primary" onClick={onSave} disabled={!activeDiagram}>
+          <Save size={14} />
+          {t('toolbar.save')}
+        </button>
+      )}
 
       {/* Sign out (cloud) */}
       {cloudMode && onSignOut && (
