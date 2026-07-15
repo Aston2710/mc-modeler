@@ -121,6 +121,28 @@ export function useBpmnModeler(
         }
       }
 
+      const meta = e.ctrlKey || e.metaKey
+      const key = e.key.toLowerCase()
+
+      if (meta && key === 'c') {
+        try {
+          const selection = (modeler as any).get('selection').get()
+          if (selection && selection.length > 0) {
+            e.preventDefault()
+            ;(modeler as any).get('editorActions').trigger('copy')
+          }
+        } catch { /* ignore */ }
+        return
+      }
+
+      if (meta && key === 'v') {
+        try {
+          e.preventDefault()
+          ;(modeler as any).get('editorActions').trigger('paste')
+        } catch { /* ignore */ }
+        return
+      }
+
       if (e.key === 'Delete' || e.key === 'Backspace') {
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
