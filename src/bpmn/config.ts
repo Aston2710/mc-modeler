@@ -28,6 +28,9 @@ import StickyLaneLabelsModule from './canvas/StickyLaneLabelsModule'
 import CommentContextPadModule from './elements/CommentContextPadModule'
 import flujoModdle from './moddle/flujo.json'
 
+// @ts-ignore
+import NativeCopyPasteModule from 'bpmn-js-native-copy-paste'
+
 // NOTA: BizagiDragRouter eliminado — bpmn-js llama al layouter registrado
 // automáticamente durante el drag a través del canal oficial 'layouter'.
 // No se necesita ningún módulo interceptor adicional.
@@ -61,6 +64,7 @@ export const MODELER_CONFIG = {
     BizagiLayouter,
     BizagiConnectionDocking,
     BizagiSegmentHandles,
+    NativeCopyPasteModule,
   ],
   keyboardMoveSelection: { moveSpeed: 5, moveSpeedAccelerated: 15 },
   moddleExtensions: {
