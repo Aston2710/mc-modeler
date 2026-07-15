@@ -38,6 +38,29 @@ function ReadOnlyGuard(
     if (isBpmnReadOnly()) return false
   })
 
+  // (2b) Bloqueo duro del INICIO de cualquier arrastre que mute el diagrama
+  // (mover/redimensionar/conectar/bendpoints). El veto de canExecute ya
+  // revierte el comando, pero abortar el drag en el arranque evita el preview
+  // que "sigue" al cursor y garantiza el bloqueo aunque un módulo custom de
+  // move manipule en move.end saltándose las reglas.
+  eventBus.on(
+    [
+      'shape.move.start',
+      'elements.move',
+      'resize.start',
+      'connect.start',
+      'global-connect.start',
+      'bendpoint.move.start',
+      'connectionSegment.move.start',
+      'spaceTool.selection.start',
+      'spaceTool.move',
+    ],
+    VETO_PRIORITY,
+    () => {
+      if (isBpmnReadOnly()) return false
+    }
+  )
+
   // (3) Defensa: si algún flujo intenta activar edición directa, cancelarla.
   eventBus.on('directEditing.activate', VETO_PRIORITY, () => {
     if (isBpmnReadOnly()) {

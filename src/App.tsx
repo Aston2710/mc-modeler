@@ -344,7 +344,11 @@ export default function App() {
   }, [getSvg, getThumbCrop, saveDiagram, setUnsavedChanges])
 
   const handleChanged = useCallback(() => {
-    setUnsavedChanges(true)
+    // Viewer: los cambios remotos aplicados a su canvas disparan
+    // commandStack.changed, pero NO son ediciones suyas → no marcar "sin
+    // guardar" (evita el punto de no-guardado y que el autosave se active).
+    const tabId = useDiagramStore.getState().activeTabId
+    if (useCollabStore.getState().canEdit(tabId)) setUnsavedChanges(true)
     setCanUndo(canvasRef.current?.canUndo() ?? false)
     setCanRedo(canvasRef.current?.canRedo() ?? false)
   }, [setUnsavedChanges])

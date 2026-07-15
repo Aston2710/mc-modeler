@@ -67,6 +67,24 @@ describe('ReadOnlyGuard (vetos)', () => {
     expect(bus.invoke('copyPaste.pasteElements')).toBeUndefined()
   })
 
+  it('veta el inicio de arrastres que mutan (mover/resize/conectar/bendpoint)', () => {
+    const bus = makeFakeEventBus()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    new (ReadOnlyGuard as any)(bus, { close: vi.fn() }, { cancel: vi.fn() })
+
+    const dragEvents = [
+      'shape.move.start', 'elements.move', 'resize.start', 'connect.start',
+      'global-connect.start', 'bendpoint.move.start', 'connectionSegment.move.start',
+      'spaceTool.selection.start', 'spaceTool.move',
+    ]
+
+    setBpmnReadOnly(true)
+    for (const ev of dragEvents) expect(bus.invoke(ev), ev).toBe(false)
+
+    setBpmnReadOnly(false)
+    for (const ev of dragEvents) expect(bus.invoke(ev), ev).toBeUndefined()
+  })
+
   it('cancela edición directa si se intenta activar en solo-lectura', () => {
     const bus = makeFakeEventBus()
     const directEditing = { cancel: vi.fn() }

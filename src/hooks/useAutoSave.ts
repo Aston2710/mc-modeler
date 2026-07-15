@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useDiagramStore } from '@/store/diagramStore'
 import { useUIStore } from '@/store/uiStore'
+import { useCollabStore } from '@/store/collabStore'
 import { buildThumbnail, type CropRect } from '@/utils/thumbnailUtils'
 import { isCanvasReadyFor } from '@/collab/canvasSession'
 
@@ -20,6 +21,11 @@ export function useAutoSave(
     const id = useDiagramStore.getState().activeTabId
     const dirty = useUIStore.getState().unsavedChanges
     if (!id || !dirty) return
+    // Viewer (solo lectura): NUNCA escribir. Un cambio remoto puede marcar el
+    // canvas como sucio; sin este guard el autosave del viewer intentaría
+    // guardar → RLS lo rechaza y dispara el aviso de conflicto CAS. El diagrama
+    // es inmutable para el viewer: no hay ninguna ruta de escritura.
+    if (!useCollabStore.getState().canEdit(id)) return
     // El timer puede disparar justo durante un cambio de pestaña: si el
     // canvas todavía muestra el diagrama saliente, exportarlo guardaría su
     // contenido bajo el id del diagrama entrante. Esperar al siguiente ciclo.
