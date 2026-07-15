@@ -66,6 +66,9 @@ export const MODELER_CONFIG = {
     BizagiSegmentHandles,
     NativeCopyPasteModule,
   ],
+  keyboard: {
+    bindTo: document
+  },
   keyboardMoveSelection: { moveSpeed: 5, moveSpeedAccelerated: 15 },
   moddleExtensions: {
     flujo: flujoModdle,
