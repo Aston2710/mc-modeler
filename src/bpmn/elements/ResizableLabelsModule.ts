@@ -45,19 +45,19 @@
  * conservan.
  */
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore — diagram-js ships CommonJS without full types
 import RuleProvider from 'diagram-js/lib/features/rules/RuleProvider'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore
 import TextUtil from 'diagram-js/lib/util/Text'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore
 import inherits from 'inherits-browser'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore
 import CommandInterceptor from 'diagram-js/lib/command/CommandInterceptor'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore
 import { getLabel } from 'bpmn-js/lib/util/LabelUtil'
 

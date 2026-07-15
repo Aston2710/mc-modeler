@@ -1,4 +1,4 @@
-import { markManual, isManual } from './manualRoute'
+import { isManual } from './manualRoute'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObj = any
@@ -42,12 +42,15 @@ ConnectionContextPadProvider.prototype.getContextPadEntries = function (element:
       imageUrl: RESET_ICON,
       action: {
         click(_event: MouseEvent, connection: AnyObj) {
-          markManual(connection, false)
+          // forceReroute: el layouter ignora la ruta manual y devuelve la
+          // solución fresca. El hint resetRoute hace que ManualRouteBehavior
+          // limpie el flag DENTRO del mismo comando → reset atómico y undoable.
           const wp = layouter.layoutConnection(connection, {
             source: connection.source,
             target: connection.target,
+            forceReroute: true,
           })
-          if (wp?.length >= 2) modeling.updateWaypoints(connection, wp)
+          if (wp?.length >= 2) modeling.updateWaypoints(connection, wp, { resetRoute: true })
         },
       },
     },

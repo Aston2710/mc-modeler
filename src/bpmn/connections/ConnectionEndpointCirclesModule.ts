@@ -65,6 +65,7 @@ function ConnectionEndpointCirclesBehavior(eventBus: any, canvas: any, bendpoint
     const g = ensureGroup()
 
     for (const el of selectedElements) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const conn = el as any
       const wps: Array<{ x: number; y: number }> | undefined = conn.waypoints
       if (!wps || wps.length < 2) continue

@@ -7,10 +7,10 @@
  * (Group con id `Phase_*`) se excluyen: son fondos, no se conectan.
  */
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore — diagram-js CommonJS sin tipos completos
 import RuleProvider from 'diagram-js/lib/features/rules/RuleProvider'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore
 import inherits from 'inherits-browser'
 import { isPhase } from './phaseUtil'

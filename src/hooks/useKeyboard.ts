@@ -49,6 +49,6 @@ export function useKeyboard(handlers: KeyboardHandlers) {
     window.addEventListener('keydown', handle)
     return () => window.removeEventListener('keydown', handle)
   // openModal is stable (Zustand action) — handlers via ref, no need in deps
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [openModal])
 }

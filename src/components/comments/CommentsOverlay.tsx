@@ -231,7 +231,7 @@ export function CommentsOverlay({ modelerRef }: CommentsOverlayProps) {
         })
       } catch { /* noop */ }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- importTick fuerza redibujo post-import
+   
   }, [modelerRef, threads, setActiveThread, setPanelOpen, recalcSelectionPins, importTick])
 
   // Reposition selection pins on zoom/pan
