@@ -85,6 +85,40 @@ describe('ReadOnlyGuard (vetos)', () => {
     for (const ev of dragEvents) expect(bus.invoke(ev), ev).toBeUndefined()
   })
 
+  it('veta teclas mutantes (flechas/borrar/undo/pegar) en el teclado de bpmn-js', () => {
+    const bus = makeFakeEventBus()
+    let kbHandler: ((e: AnyObj) => unknown) | null = null
+    const keyboard = { addListener: (_p: number, fn: (e: AnyObj) => unknown) => { kbHandler = fn } }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    new (ReadOnlyGuard as any)(bus, { close: vi.fn() }, { cancel: vi.fn() }, keyboard)
+    expect(kbHandler).toBeTypeOf('function')
+
+    const fire = (init: Partial<KeyboardEvent>) => {
+      const preventDefault = vi.fn()
+      const res = kbHandler!({ keyEvent: { preventDefault, ...init } })
+      return { res, preventDefault }
+    }
+
+    setBpmnReadOnly(true)
+    // Mutantes → bloqueadas (return false + preventDefault).
+    for (const key of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Delete', 'Backspace']) {
+      const { res, preventDefault } = fire({ key })
+      expect(res, key).toBe(false)
+      expect(preventDefault, key).toHaveBeenCalled()
+    }
+    expect(fire({ key: 'z', ctrlKey: true }).res).toBe(false) // undo
+    expect(fire({ key: 'v', ctrlKey: true }).res).toBe(false) // pegar
+
+    // No mutantes → permitidas (undefined, sin preventDefault).
+    expect(fire({ key: 'c', ctrlKey: true }).res).toBeUndefined() // copiar
+    expect(fire({ key: 'a', ctrlKey: true }).res).toBeUndefined() // seleccionar todo
+
+    // Editor → no interfiere con nada.
+    setBpmnReadOnly(false)
+    expect(fire({ key: 'ArrowUp' }).res).toBeUndefined()
+    expect(fire({ key: 'Delete' }).res).toBeUndefined()
+  })
+
   it('cancela edición directa si se intenta activar en solo-lectura', () => {
     const bus = makeFakeEventBus()
     const directEditing = { cancel: vi.fn() }

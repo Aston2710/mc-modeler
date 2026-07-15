@@ -22,11 +22,29 @@ const COMMENT_ENTRY = 'comment.add'
  * edición del context pad) se bloquean por separado. Los comentarios NO pasan
  * por el commandStack (viven en tablas Supabase), así que siguen permitidos.
  */
+// Prioridad del veto de teclado: por encima de KeyboardMoveSelection (1500) y
+// de las bindings por defecto de bpmn-js, para cortarlas antes de que corran.
+const KEYBOARD_VETO_PRIORITY = 2000
+
+/** ¿Esta tecla dispara una mutación del diagrama? (mover/borrar/deshacer/pegar) */
+function isMutatingKey(keyEvent: KeyboardEvent): boolean {
+  const key = keyEvent.key || ''
+  const cmd = keyEvent.ctrlKey || keyEvent.metaKey
+  if (key === 'Delete' || key === 'Backspace') return true // borrar
+  if (key.indexOf('Arrow') === 0) return true // mover selección
+  if (cmd) {
+    const k = key.toLowerCase()
+    if (k === 'z' || k === 'y' || k === 'v' || k === 'x') return true // undo/redo/pegar/cortar
+  }
+  return false // copiar (c), seleccionar todo (a), zoom, escape, navegación → permitido
+}
+
 function ReadOnlyGuard(
   this: AnyObj,
   eventBus: AnyObj,
   contextPad: AnyObj,
-  directEditing: AnyObj
+  directEditing: AnyObj,
+  keyboard: AnyObj
 ) {
   // (1) Veto de toda operación de modelado sujeta a reglas.
   eventBus.on('commandStack.canExecute', VETO_PRIORITY, () => {
@@ -74,6 +92,22 @@ function ReadOnlyGuard(
     if (isBpmnReadOnly()) return false
   })
 
+  // (5) Veto del teclado de bpmn-js. KeyboardMoveSelection (mover con flechas),
+  // y las bindings por defecto (borrar/undo/redo/pegar) llaman a modeling.*
+  // directamente, saltándose canExecute. Cortamos en el propio `keyboard` a
+  // mayor prioridad: devolver false detiene la propagación → esos listeners no
+  // corren. (`keyboard` puede no existir en configs mínimas.)
+  if (keyboard && typeof keyboard.addListener === 'function') {
+    keyboard.addListener(KEYBOARD_VETO_PRIORITY, (e: AnyObj) => {
+      if (!isBpmnReadOnly()) return
+      const keyEvent = e?.keyEvent as KeyboardEvent | undefined
+      if (keyEvent && isMutatingKey(keyEvent)) {
+        try { keyEvent.preventDefault() } catch { /* noop */ }
+        return false
+      }
+    })
+  }
+
   // Al cambiar de/a solo-lectura, cerrar el context pad para que se recomponga
   // con el conjunto de entradas correcto la próxima vez que se abra.
   onReadOnlyChange(() => {
@@ -81,7 +115,7 @@ function ReadOnlyGuard(
   })
 }
 
-ReadOnlyGuard.$inject = ['eventBus', 'contextPad', 'directEditing']
+ReadOnlyGuard.$inject = ['eventBus', 'contextPad', 'directEditing', 'keyboard']
 
 /**
  * Proveedor de context pad de prioridad baja: en solo-lectura filtra las
