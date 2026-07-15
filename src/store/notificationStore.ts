@@ -129,17 +129,21 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   // Optimista: marca ya en el store; el UPDATE va async (RLS acota a lo propio).
+  // El builder de supabase-js es lazy → hay que await-earlo (IIFE) o la petición
+  // nunca se envía y el read_at no persiste (revierte al recargar).
   markRead: (id) => {
     const target = get().items.find((n) => n.id === id)
     if (!target || target.readAt) return
     const now = Date.now()
     set((s) => ({ items: s.items.map((n) => (n.id === id ? { ...n, readAt: now } : n)) }))
-    if (supabase) {
-      void supabase
+    void (async () => {
+      if (!supabase) return
+      const { error } = await supabase
         .from('notification_outbox')
         .update({ read_at: new Date(now).toISOString() })
         .eq('id', id)
-    }
+      if (error) console.warn('[notif] markRead no persistió:', error)
+    })()
   },
 
   markAllRead: () => {
@@ -147,28 +151,35 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     if (!unread.length) return
     const now = Date.now()
     set((s) => ({ items: s.items.map((n) => (n.readAt ? n : { ...n, readAt: now })) }))
-    if (supabase) {
-      void supabase
+    void (async () => {
+      if (!supabase) return
+      const { error } = await supabase
         .from('notification_outbox')
         .update({ read_at: new Date(now).toISOString() })
         .in('id', unread.map((n) => n.id))
-    }
+      if (error) console.warn('[notif] markAllRead no persistió:', error)
+    })()
   },
 
   // Optimista: aplica en el store y hace upsert async (RLS acota a lo propio).
   setPref: (key, value) => {
     set((s) => ({ prefs: { ...s.prefs, [key]: value } }))
-    if (!supabase || !currentUserId) return
+    if (!currentUserId) return
     const p = get().prefs
-    void supabase.from('notification_prefs').upsert(
-      {
-        user_id: currentUserId,
-        email_enabled: p.emailEnabled,
-        invite_events: p.inviteEvents,
-        mention_events: p.mentionEvents,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' }
-    )
+    const uid = currentUserId
+    void (async () => {
+      if (!supabase) return
+      const { error } = await supabase.from('notification_prefs').upsert(
+        {
+          user_id: uid,
+          email_enabled: p.emailEnabled,
+          invite_events: p.inviteEvents,
+          mention_events: p.mentionEvents,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' }
+      )
+      if (error) console.warn('[notif] setPref no persistió:', error)
+    })()
   },
 }))
