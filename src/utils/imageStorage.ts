@@ -18,8 +18,11 @@ import { supabase } from '@/lib/supabase'
  * como siempre.
  */
 
-const BUCKET = 'diagram-images'
-const REF_PREFIX = `storage://${BUCKET}/`
+export const BUCKET = 'diagram-images'
+export const REF_PREFIX = `storage://${BUCKET}/`
+/** Marca del 2º segmento del path que distingue la biblioteca de las imágenes
+ *  embebidas por diagrama. Ver migración 0016. */
+export const LIBRARY_MARKER = 'imglib'
 /** Token de imagen dentro del texto de una TextAnnotation. */
 const IMG_TOKEN_RE = /\[IMAGE:([^\]]+)\]/g
 
@@ -27,9 +30,14 @@ export function isStorageImageRef(url: string): boolean {
   return url.startsWith(REF_PREFIX)
 }
 
-const refToPath = (ref: string) => ref.slice(REF_PREFIX.length)
+/** Construye el path de Storage de una imagen de biblioteca. */
+export function buildLibraryPath(scopeId: string, uuid: string, ext: string): string {
+  return `${scopeId}/${LIBRARY_MARKER}/${uuid}.${ext}`
+}
 
-function dataUrlToBlob(dataUrl: string): Blob {
+export const refToPath = (ref: string) => ref.slice(REF_PREFIX.length)
+
+export function dataUrlToBlob(dataUrl: string): Blob {
   const commaIdx = dataUrl.indexOf(',')
   const header = dataUrl.slice(0, commaIdx)
   const payload = dataUrl.slice(commaIdx + 1)
@@ -43,7 +51,7 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([decodeURIComponent(payload)], { type: mime })
 }
 
-function blobToDataUrl(blob: Blob): Promise<string> {
+export function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result as string)
@@ -52,7 +60,7 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   })
 }
 
-const extForMime = (mime: string): string =>
+export const extForMime = (mime: string): string =>
   mime === 'image/webp' ? 'webp'
   : mime === 'image/png' ? 'png'
   : mime === 'image/jpeg' ? 'jpg'

@@ -38,6 +38,10 @@ import { ShortcutsModal } from '@/components/modals/ShortcutsModal'
 import { ImageUploadModal } from '@/components/modals/ImageUploadModal'
 import { ToastContainer } from '@/components/ui/ToastContainer'
 import { ProjectView } from '@/components/diagrams/ProjectView'
+import { ImageGallery } from '@/components/images/ImageGallery'
+import { ImageLightbox } from '@/components/images/ImageLightbox'
+import { useImageStore } from '@/store/imageStore'
+import type { LibraryImage } from '@/domain/types'
 
 export default function App() {
   const { t } = useTranslation()
@@ -104,6 +108,7 @@ export default function App() {
     if (!isSupabaseConfigured || sessionUserId) {
       void loadAll()
       void loadProjects()
+      void useImageStore.getState().loadAll()
       void useCollabStore.getState().loadRoles()
     }
   }, [sessionUserId, loadAll, loadProjects])
@@ -528,6 +533,55 @@ export default function App() {
     await finishLink(newId)
   }, [activeDiagram, createDiagram, finishLink])
 
+  // ── Vínculo de imágenes de biblioteca a elementos ──────────────
+  const [imageLinkElementId, setImageLinkElementId] = useState<string | null>(null)
+  const [lightboxIds, setLightboxIds] = useState<string[]>([])
+  const [lightboxElementId, setLightboxElementId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const onLink = (e: Event) => {
+      if (!canEditActive) return
+      const { elementId } = (e as CustomEvent<{ elementId: string }>).detail
+      setImageLinkElementId(elementId)
+      openModal('imagePicker')
+    }
+    const onView = (e: Event) => {
+      const { elementId } = (e as CustomEvent<{ elementId: string }>).detail
+      const ids = canvasRef.current?.getLinkedImages(elementId) ?? []
+      if (ids.length === 0) {
+        // Sin imágenes aún: para un editor, abrir el selector.
+        if (canEditActive) { setImageLinkElementId(elementId); openModal('imagePicker') }
+        return
+      }
+      setLightboxElementId(elementId)
+      setLightboxIds(ids)
+      openModal('imageViewer')
+    }
+    document.addEventListener('bpmn:image:link', onLink)
+    document.addEventListener('bpmn:image:view', onView)
+    return () => {
+      document.removeEventListener('bpmn:image:link', onLink)
+      document.removeEventListener('bpmn:image:view', onView)
+    }
+  }, [canEditActive, openModal])
+
+  const handleImagePick = useCallback((image: LibraryImage) => {
+    if (imageLinkElementId) {
+      canvasRef.current?.linkImage(imageLinkElementId, image.id)
+      setUnsavedChanges(true)
+    }
+    setImageLinkElementId(null)
+    closeModal()
+  }, [imageLinkElementId, setUnsavedChanges, closeModal])
+
+  const handleImageUnlink = useCallback((imageId: string) => {
+    if (lightboxElementId) {
+      canvasRef.current?.unlinkImage(lightboxElementId, imageId)
+      setUnsavedChanges(true)
+      setLightboxIds((ids) => ids.filter((id) => id !== imageId))
+    }
+  }, [lightboxElementId, setUnsavedChanges])
+
 
 
   // Auto-save
@@ -574,6 +628,7 @@ export default function App() {
             onFitToScreen={() => canvasRef.current?.fitToScreen()}
             onSave={handleSave}
             onGoHome={handleGoHome}
+            onOpenImages={() => openModal('imageGallery')}
             canUndo={canUndo}
             canRedo={canRedo}
             cloudMode={isSupabaseConfigured}
@@ -671,6 +726,27 @@ export default function App() {
           onPick={handleLinkPick}
           onCreateAndLink={handleLinkCreate}
           onCancel={() => { setLinkingElementId(null); closeModal() }}
+        />
+      )}
+      {activeModal === 'imageGallery' && (
+        <ImageGallery
+          projectId={activeDiagram()?.projectId ?? null}
+          onClose={closeModal}
+        />
+      )}
+      {activeModal === 'imagePicker' && (
+        <ImageGallery
+          projectId={activeDiagram()?.projectId ?? null}
+          onPick={handleImagePick}
+          onClose={() => { setImageLinkElementId(null); closeModal() }}
+        />
+      )}
+      {activeModal === 'imageViewer' && lightboxIds.length > 0 && (
+        <ImageLightbox
+          imageIds={lightboxIds}
+          canEdit={canEditActive}
+          onUnlink={handleImageUnlink}
+          onClose={() => { setLightboxIds([]); setLightboxElementId(null); closeModal() }}
         />
       )}
       {activeModal === 'shareProject' && shareProjectInfo && (

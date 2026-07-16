@@ -1,7 +1,10 @@
 import { LocalRepository } from './LocalRepository'
 import { SupabaseRepository } from './SupabaseRepository'
+import { LocalImageRepository } from './LocalImageRepository'
+import { SupabaseImageRepository } from './SupabaseImageRepository'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import type { IDiagramRepository } from './IDiagramRepository'
+import type { IImageRepository } from './IImageRepository'
 
 /**
  * Selección de backend:
@@ -14,4 +17,8 @@ export const diagramRepository: IDiagramRepository = isSupabaseConfigured
   ? new SupabaseRepository()
   : new LocalRepository()
 
-export { LocalRepository, SupabaseRepository }
+export const imageRepository: IImageRepository = isSupabaseConfigured
+  ? new SupabaseImageRepository()
+  : new LocalImageRepository()
+
+export { LocalRepository, SupabaseRepository, LocalImageRepository, SupabaseImageRepository }

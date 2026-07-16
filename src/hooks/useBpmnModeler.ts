@@ -9,6 +9,7 @@ import { BPMN_ELEMENTS } from '@/domain/bpmnElements'
 import { ELEMENT_SIZES } from '@/bpmn/ElementSizes'
 import { PHASE_ID_PREFIX, isPhase, setPhaseName, setPhaseColor } from '@/bpmn/elements/phaseUtil'
 import { getLinkedDiagram as readLink, setLinkedDiagram as writeLink } from '@/bpmn/elements/subProcessLink'
+import { getLinkedImages as readImages, addLinkedImage as addImage, removeLinkedImage as removeImage } from '@/bpmn/elements/imageLink'
 import { beginImport, completeImport } from '@/collab/canvasSession'
 import { forceCanonicalBpmnPrefix } from '@/utils/normalizeBpmnXml'
 import { isBpmnReadOnly } from '@/bpmn/readOnlyState'
@@ -460,6 +461,28 @@ export function useBpmnModeler(
     if (el) writeLink(m.get('modeling'), el, diagramId)
   }, [])
 
+  // ── Vínculo de imágenes de biblioteca a elementos ──
+  const getLinkedImages = useCallback((elementId: string): string[] => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = modelerRef.current as any
+    const el = m?.get('elementRegistry').get(elementId)
+    return el ? readImages(el) : []
+  }, [])
+
+  const linkImage = useCallback((elementId: string, imageId: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = modelerRef.current as any
+    const el = m?.get('elementRegistry').get(elementId)
+    if (el) addImage(m.get('modeling'), el, imageId)
+  }, [])
+
+  const unlinkImage = useCallback((elementId: string, imageId: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = modelerRef.current as any
+    const el = m?.get('elementRegistry').get(elementId)
+    if (el) removeImage(m.get('modeling'), el, imageId)
+  }, [])
+
   return {
     modelerRef,
     importXml,
@@ -478,5 +501,8 @@ export function useBpmnModeler(
     startCreate,
     getLinkedDiagram,
     setLinkedDiagram,
+    getLinkedImages,
+    linkImage,
+    unlinkImage,
   }
 }

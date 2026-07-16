@@ -4,7 +4,7 @@ import {
   Plus, Upload, Download, CheckSquare,
   Undo2, Redo2, ZoomIn, ZoomOut, Maximize2,
   Sun, Moon, Save, Home, GitBranch, Share2, LogOut,
-  MessageSquare, Eye
+  MessageSquare, Eye, Image as ImageIcon
 } from 'lucide-react'
 import { useDiagramStore } from '@/store/diagramStore'
 import { useUIStore } from '@/store/uiStore'
@@ -24,6 +24,7 @@ interface ToolbarProps {
   onFitToScreen: () => void
   onSave: () => void
   onGoHome: () => void
+  onOpenImages: () => void
   canUndo: boolean
   canRedo: boolean
   cloudMode?: boolean
@@ -35,7 +36,7 @@ interface ToolbarProps {
 export function Toolbar({
   onNew, onImport, onExport, onValidate,
   onUndo, onRedo, onZoomIn, onZoomOut, onFitToScreen,
-  onSave, onGoHome,
+  onSave, onGoHome, onOpenImages,
   canUndo, canRedo,
   cloudMode = false, canEdit = true, onShare, onSignOut,
 }: ToolbarProps) {
@@ -138,6 +139,9 @@ export function Toolbar({
           disabled={!activeDiagram}
         >
           <MessageSquare size={16} />
+        </button>
+        <button className="icon-btn" onClick={onOpenImages} title={t('images.title')}>
+          <ImageIcon size={16} />
         </button>
       </div>
 

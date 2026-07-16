@@ -16,6 +16,17 @@
       ]
     },
     {
+      "name": "LinkedImages",
+      "extends": ["bpmn:FlowNode"],
+      "properties": [
+        {
+          "name": "linkedImages",
+          "isAttr": true,
+          "type": "String"
+        }
+      ]
+    },
+    {
       "name": "ManualRoute",
       "extends": ["bpmn:SequenceFlow", "bpmn:Association", "bpmn:MessageFlow"],
       "properties": [
