@@ -15,10 +15,10 @@
  * Nosotros siempre ponemos los colores del tema como attrs.
  */
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore — bpmn-js ships CommonJS without full types
 import BpmnRenderer from 'bpmn-js/lib/draw/BpmnRenderer'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore
 import inherits from 'inherits-browser'
 
@@ -36,10 +36,10 @@ import {
 } from './ThemeColors'
 import { isPhase, getPhaseName, getPhaseColor } from '../elements/phaseUtil'
 import { isStorageImageRef, getResolvedImage, resolveImageRef } from '@/utils/imageStorage'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore — bpmn-js ships CommonJS without full types
 import { getLabel } from 'bpmn-js/lib/util/LabelUtil'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore
 import { getLabelColor } from 'bpmn-js/lib/draw/BpmnRenderUtil'
 import { createCenteredLabelText } from '../elements/ResizableLabelsModule'

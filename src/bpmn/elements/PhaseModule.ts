@@ -12,10 +12,10 @@
  * - Las fases empiezan tras las columnas de etiqueta (nombre del pool + del lane).
  */
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore — diagram-js CommonJS sin tipos completos
 import CommandInterceptor from 'diagram-js/lib/command/CommandInterceptor'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore
 import inherits from 'inherits-browser'
 import { isPhase, setPhaseName, getPhaseName, setPhaseColor, DEFAULT_PHASE_COLOR } from './phaseUtil'

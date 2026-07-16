@@ -18,6 +18,8 @@ import DataObjectContextPadModule from './elements/DataObjectContextPadModule'
 import BizagiLayouter from './connections/BizagiLayouter'
 import BizagiConnectionDocking from './connections/BizagiConnectionDocking'
 import BizagiSegmentHandles from './connections/BizagiSegmentHandles'
+import OrthogonalityBehavior from './connections/OrthogonalityBehavior'
+import ManualRouteBehavior from './connections/ManualRouteBehavior'
 import ConnectionEndpointCirclesModule from './connections/ConnectionEndpointCirclesModule'
 import ConnectionContextPadModule from './connections/ConnectionContextPadModule'
 import SubProcessInterceptorModule from './elements/SubProcessInterceptorModule'
@@ -66,6 +68,8 @@ export const MODELER_CONFIG = {
     BizagiLayouter,
     BizagiConnectionDocking,
     BizagiSegmentHandles,
+    OrthogonalityBehavior,
+    ManualRouteBehavior,
     NativeCopyPasteModule,
   ],
   keyboardMoveSelection: { moveSpeed: 5, moveSpeedAccelerated: 15 },

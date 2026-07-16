@@ -7,39 +7,47 @@
  *  - No updateSegmentDraggerPosition call → segment bar stays fixed at midpoint (fixes 2a)
  */
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore
 import { forEach } from 'min-dash'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore
 import { event as domEvent, query as domQuery, queryAll as domQueryAll } from 'min-dom'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore
 import { BENDPOINT_CLS, SEGMENT_DRAGGER_CLS, addSegmentDragger, getConnectionIntersection } from 'diagram-js/lib/features/bendpoints/BendpointUtil'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore
 import { escapeCSS } from 'diagram-js/lib/util/EscapeUtil'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore
 import { pointsAligned } from 'diagram-js/lib/util/Geometry'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore
 import { isPrimaryButton } from 'diagram-js/lib/util/Mouse'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore
 import { append as svgAppend, attr as svgAttr, classes as svgClasses, create as svgCreate, remove as svgRemove } from 'tiny-svg'
-import { markManual } from './manualRoute'
 import { isGroupShape, freeEdgeDock } from './groupDocking'
+import { slideDock, gatewayVertexDock, type Face } from './orthogonal'
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function isGatewayShape(el: any): boolean {
+  const bo = el?.businessObject
+  return !!(bo && typeof bo.$instanceOf === 'function' && bo.$instanceOf('bpmn:Gateway'))
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyObj = any
+
 function BizagiSegmentHandles(
-    this: any, 
-    eventBus: any, 
-    canvas: any, 
-    interactionEvents: any, 
-    bendpointMove: any, 
-    connectionSegmentMove: any,
-    graphicsFactory: any,   // ← AÑADIR
-) { 
+    this: AnyObj,
+    eventBus: AnyObj,
+    canvas: AnyObj,
+    interactionEvents: AnyObj,
+    bendpointMove: AnyObj,
+    connectionSegmentMove: AnyObj,
+    graphicsFactory: AnyObj,
+) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function activateBendpointMove(event: any, connection: any): boolean | undefined {
@@ -175,13 +183,10 @@ function BizagiSegmentHandles(
     if (gfx) svgRemove(gfx)
   })
 
-  // Al terminar de arrastrar un segmento o un extremo, marcar la conexión como
-  // ruta manual: a partir de ahora el layouter respeta sus waypoints.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  eventBus.on(['connectionSegment.move.end', 'bendpoint.move.end'], function (event: any) {
-    const conn = event?.context?.connection
-    if (conn?.waypoints?.length >= 2) markManual(conn, true)
-  })
+  // NOTA: el marcado de ruta manual ya NO se hace aquí con un set directo al
+  // businessObject (rompía undo/redo). Lo hace ManualRouteBehavior dentro del
+  // commandStack, a partir de los hints segmentMove/bendpointMove que el código
+  // nativo pone en connection.updateWaypoints.
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   eventBus.on('element.marker.update', function (event: any) {
@@ -235,7 +240,7 @@ function BizagiSegmentHandles(
     }
   })
 
-  eventBus.on('bendpoint.move.move', function (event: any) {  //FIX BUG-09
+  eventBus.on('bendpoint.move.move', function (event: AnyObj) {  //FIX BUG-09
     const context = event.context
     const newWaypoints = context.newWaypoints
     if (!newWaypoints || newWaypoints.length < 2) return
@@ -251,172 +256,92 @@ function BizagiSegmentHandles(
     const idx = isStart ? 0 : newWaypoints.length - 1
     const cursorPoint = newWaypoints[idx]
 
-    // Grupo: anclaje LIBRE sobre la arista, siguiendo el cursor (no se fuerza al
-    // centro). Resto de shapes: snap al cardinal como hasta ahora.
-    const snapped = isGroupShape(hoverShape)
-      ? freeEdgeDock(hoverShape, cursorPoint)
-      : snapToCardinal(hoverShape, cursorPoint)
+    // Dock deslizante: el extremo sigue al cursor A LO LARGO del borde del
+    // shape (estilo Ports de Bizagi), no se fuerza al centro de la cara.
+    // Gateways: vértice del rombo con histéresis (evita flip/parpadeo).
+    let snapped: { x: number; y: number; face: Face }
+    if (isGroupShape(hoverShape)) {
+      snapped = freeEdgeDock(hoverShape, cursorPoint)
+    } else if (isGatewayShape(hoverShape)) {
+      snapped = gatewayVertexDock(hoverShape, cursorPoint, context.__dockFace)
+      context.__dockFace = snapped.face
+    } else {
+      snapped = slideDock(hoverShape, cursorPoint)
+    }
     newWaypoints[idx] = { x: snapped.x, y: snapped.y, original: cursorPoint }
   })
 
-  // Umbral en píxeles para cambiar de cardinal durante drag de segmento.
-  // 0 = cambia en cuanto el punto previo cruza el centro del shape.
-  // Valor positivo = requiere N píxeles adicionales más allá del centro.
-  const SEGMENT_CARDINAL_SWITCH_THRESHOLD = 0
-  
   // Prioridad 500: disparamos DESPUÉS del handler interno de bpmn-js (prioridad 1000).
-  // bpmn-js reconstruye los waypoints y llama redrawConnection primero.
-  // Nosotros corregimos los waypoints y llamamos redrawConnection de nuevo con la versión correcta.
+  //
+  // El handler nativo (ConnectionSegmentMove) ya hace lo correcto para shapes
+  // rectangulares: mueve el segmento perpendicular a su eje, auto-inserta/quita
+  // stubs cuando el docking deja de intersectar el shape, y el crop de
+  // BizagiConnectionDocking (intersección con el path SVG) desliza el extremo
+  // A LO LARGO del borde. Antes este handler re-snapeaba el extremo al cardinal
+  // centro (threshold=0) deshaciendo todo eso — era la causa de la rigidez y de
+  // los saltos. Ahora solo corrige:
+  //  - Gateways: el crop puede dejar el dock sobre el borde inclinado del rombo;
+  //    snap al vértice de la cara elegida con histéresis (sin flip a mitad de drag).
+  //  - Grupos: anclaje libre por arista (comportamiento existente).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   eventBus.on('connectionSegment.move.move', 500, function (event: any) {
     const context = event.context
     const connection = context.connection
     if (!connection?.source || !connection?.target) return
 
-    // Las propiedades correctas del context según ConnectionSegmentMove.js:
-    const segStartIdx = context.segmentStartIndex   // índice del waypoint INICIO del segmento
-    const segEndIdx   = context.segmentEndIndex     // índice del waypoint FIN del segmento
-    const origLen     = context.originalWaypoints?.length
-    if (origLen == null) return
-
-    const isFirstSeg = segStartIdx === 0
-    const isLastSeg  = segEndIdx === origLen - 1
-
-    // Solo actuar para el primer o último segmento (los adyacentes a src/tgt).
-    // Para segmentos medios, bpmn-js mantiene la ortogonalidad correctamente.
-    if (!isFirstSeg && !isLastSeg) return
-
-    // Trabajar sobre connection.waypoints que bpmn-js ya actualizó en su handler
+    // Trabajar sobre connection.waypoints que bpmn-js ya actualizó en su handler.
+    // Índices VIVOS (wps[0]/wps[last]), no derivados de originalWaypoints: el
+    // nativo puede haber insertado/quitado stubs y los índices originales ya
+    // no corresponden.
     const wps = connection.waypoints
     if (!wps || wps.length < 2) return
     const last = wps.length - 1
 
     let modified = false
 
-    if (isLastSeg && connection.target?.width) {
-      const tgt = connection.target
+    const tgt = connection.target
+    if (tgt?.width && (isGroupShape(tgt) || isGatewayShape(tgt))) {
       const prevToEnd = wps[last - 1]
-
-      // Grupo: anclaje LIBRE deslizando a lo largo de la arista. Resto: cardinal.
+      let d: { x: number; y: number; face: Face }
       if (isGroupShape(tgt)) {
-        const d = freeEdgeDock(tgt, prevToEnd)
-        if (d.x !== wps[last].x || d.y !== wps[last].y) {
-          wps[last] = { x: d.x, y: d.y }
-          if (d.face === 'left' || d.face === 'right') wps[last - 1] = { x: wps[last - 1].x, y: d.y }
-          else wps[last - 1] = { x: d.x, y: wps[last - 1].y }
-          modified = true
-        }
+        d = freeEdgeDock(tgt, prevToEnd)
       } else {
-        const newCardinal = nearestCardinalWithThreshold(tgt, prevToEnd, SEGMENT_CARDINAL_SWITCH_THRESHOLD)
-        // Sólo actualizar si el cardinal cambió para evitar redibujados innecesarios
-        if (newCardinal.x !== wps[last].x || newCardinal.y !== wps[last].y) {
-          wps[last] = { x: newCardinal.x, y: newCardinal.y }
-          // Corregir el waypoint adyacente para mantener ortogonalidad.
-          const tgtCy = tgt.y + tgt.height / 2
-          const tgtCx = tgt.x + tgt.width  / 2
-          if (Math.abs(newCardinal.y - tgtCy) < 0.5) {
-            wps[last - 1] = { x: wps[last - 1].x, y: newCardinal.y }
-          } else if (Math.abs(newCardinal.x - tgtCx) < 0.5) {
-            wps[last - 1] = { x: newCardinal.x, y: wps[last - 1].y }
-          }
-          modified = true
-        }
+        d = gatewayVertexDock(tgt, prevToEnd, context.__tgtFace)
+        context.__tgtFace = d.face
+      }
+      if (d.x !== wps[last].x || d.y !== wps[last].y) {
+        wps[last] = { x: d.x, y: d.y, original: { x: d.x, y: d.y } }
+        if (d.face === 'left' || d.face === 'right') wps[last - 1] = { x: wps[last - 1].x, y: d.y }
+        else wps[last - 1] = { x: d.x, y: wps[last - 1].y }
+        modified = true
       }
     }
 
-    if (isFirstSeg && connection.source?.width) {
-      const src = connection.source
+    const src = connection.source
+    if (src?.width && (isGroupShape(src) || isGatewayShape(src))) {
       const nextToStart = wps[1]
-
+      let d: { x: number; y: number; face: Face }
       if (isGroupShape(src)) {
-        const d = freeEdgeDock(src, nextToStart)
-        if (d.x !== wps[0].x || d.y !== wps[0].y) {
-          wps[0] = { x: d.x, y: d.y }
-          if (d.face === 'left' || d.face === 'right') wps[1] = { x: wps[1].x, y: d.y }
-          else wps[1] = { x: d.x, y: wps[1].y }
-          modified = true
-        }
+        d = freeEdgeDock(src, nextToStart)
       } else {
-        const newCardinal = nearestCardinalWithThreshold(src, nextToStart, SEGMENT_CARDINAL_SWITCH_THRESHOLD)
-        if (newCardinal.x !== wps[0].x || newCardinal.y !== wps[0].y) {
-          wps[0] = { x: newCardinal.x, y: newCardinal.y }
-          const srcCy = src.y + src.height / 2
-          const srcCx = src.x + src.width  / 2
-          if (Math.abs(newCardinal.y - srcCy) < 0.5) {
-            wps[1] = { x: wps[1].x, y: newCardinal.y }
-          } else if (Math.abs(newCardinal.x - srcCx) < 0.5) {
-            wps[1] = { x: newCardinal.x, y: wps[1].y }
-          }
-          modified = true
-        }
+        d = gatewayVertexDock(src, nextToStart, context.__srcFace)
+        context.__srcFace = d.face
+      }
+      if (d.x !== wps[0].x || d.y !== wps[0].y) {
+        wps[0] = { x: d.x, y: d.y, original: { x: d.x, y: d.y } }
+        if (d.face === 'left' || d.face === 'right') wps[1] = { x: wps[1].x, y: d.y }
+        else wps[1] = { x: d.x, y: wps[1].y }
+        modified = true
       }
     }
 
-    // Redibujar con los waypoints corregidos.
-    // Necesario porque bpmn-js ya llamó redrawConnection con la versión sin corregir.
+    // Un solo redibujo extra y solo si corregimos algo (los shapes rect ya
+    // quedaron bien dibujados por el handler nativo).
     if (modified) {
       context.newWaypoints = wps  // sincronizar para que move.end use la versión correcta
       graphicsFactory.update('connection', connection, event.data.connectionGfx)
     }
   })
-  //
-  // Devuelve el cardinal del shape más cercano al punto dado,
-  // con un umbral opcional: requiere que el punto esté N píxeles
-  // MÁS ALLÁ del centro del shape antes de cambiar de cardinal.
-  function nearestCardinalWithThreshold(
-    shape: any,
-    point: { x: number; y: number },
-    threshold: number
-  ): { x: number; y: number } {
-    const cx = shape.x + shape.width  / 2
-    const cy = shape.y + shape.height / 2
-  
-    const cardinals = [
-      { x: cx,                    y: shape.y                }, // top
-      { x: cx,                    y: shape.y + shape.height }, // bottom
-      { x: shape.x,               y: cy                     }, // left
-      { x: shape.x + shape.width, y: cy                     }, // right
-    ]
-  
-    // Sin threshold: simplemente el cardinal más cercano al punto previo
-    if (threshold === 0) {
-      return cardinals.reduce((nearest, cardinal) => {
-        const dNearest = Math.hypot(nearest.x - point.x, nearest.y - point.y)
-        const dCurrent = Math.hypot(cardinal.x - point.x, cardinal.y - point.y)
-        return dCurrent < dNearest ? cardinal : nearest
-      })
-    }
-  
-    // Con threshold: el punto debe estar N píxeles más allá del centro
-    // en el eje dominante para cambiar de cardinal
-    const dx = point.x - cx
-    const dy = point.y - cy
-  
-    if (Math.abs(dx) >= Math.abs(dy)) {
-      // Eje horizontal domina
-      if (dx > threshold)       return cardinals[3]  // right
-      if (dx < -threshold)      return cardinals[2]  // left
-      return Math.abs(dx) > Math.abs(dy) ? cardinals[dx > 0 ? 3 : 2] : cardinals[dy > 0 ? 1 : 0]
-    } else {
-      // Eje vertical domina
-      if (dy > threshold)       return cardinals[1]  // bottom
-      if (dy < -threshold)      return cardinals[0]  // top
-      return Math.abs(dy) > Math.abs(dx) ? cardinals[dy > 0 ? 1 : 0] : cardinals[dx > 0 ? 3 : 2]
-    }
-  }
-
-  function snapToCardinal(shape: any, point: { x: number; y: number }): { x: number; y: number } {   //FIX BUG-09
-    const cardinals = [
-      { x: shape.x + shape.width / 2, y: shape.y },                    // top
-      { x: shape.x + shape.width / 2, y: shape.y + shape.height },     // bottom
-      { x: shape.x,                   y: shape.y + shape.height / 2 }, // left
-      { x: shape.x + shape.width,     y: shape.y + shape.height / 2 }, // right
-    ]
-    return cardinals.reduce((nearest, cardinal) => {
-      const dNearest = Math.hypot(nearest.x - point.x, nearest.y - point.y)
-      const dCurrent = Math.hypot(cardinal.x - point.x, cardinal.y - point.y)
-      return dCurrent < dNearest ? cardinal : nearest
-    })
-  }
 
   // Public API — matches native Bendpoints so other services can call these
   this.addHandles = addHandles

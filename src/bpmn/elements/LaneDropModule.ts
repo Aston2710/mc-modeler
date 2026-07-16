@@ -1,10 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-import RuleProvider from 'diagram-js/lib/features/rules/RuleProvider'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-import inherits from 'inherits-browser'
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObj = any
 

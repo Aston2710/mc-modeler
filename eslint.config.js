@@ -1,0 +1,102 @@
+// ESLint 9 flat config — migración del setup .eslintrc previo (ver package.json).
+// Solo producción: src/**. design-prototype/ es referencia visual read-only.
+import js from '@eslint/js'
+import tsPlugin from '@typescript-eslint/eslint-plugin'
+import tsParser from '@typescript-eslint/parser'
+import reactHooks from 'eslint-plugin-react-hooks'
+
+export default [
+  {
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'design-prototype/**',
+      'appscript/**',
+      '.syntesis/**',
+      'supabase/**',
+      'fix_doc/**',
+      '*.config.js',
+      '*.config.ts',
+    ],
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        ecmaVersion: 'latest',
+        sourceType: 'module',
+        ecmaFeatures: { jsx: true },
+      },
+      globals: {
+        window: 'readonly',
+        document: 'readonly',
+        console: 'readonly',
+        navigator: 'readonly',
+        localStorage: 'readonly',
+        sessionStorage: 'readonly',
+        fetch: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        requestAnimationFrame: 'readonly',
+        cancelAnimationFrame: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        Blob: 'readonly',
+        File: 'readonly',
+        FileReader: 'readonly',
+        FormData: 'readonly',
+        crypto: 'readonly',
+        performance: 'readonly',
+        AbortController: 'readonly',
+        MutationObserver: 'readonly',
+        ResizeObserver: 'readonly',
+        IntersectionObserver: 'readonly',
+        WebSocket: 'readonly',
+        Image: 'readonly',
+        HTMLElement: 'readonly',
+        HTMLInputElement: 'readonly',
+        HTMLTextAreaElement: 'readonly',
+        HTMLCanvasElement: 'readonly',
+        SVGElement: 'readonly',
+        SVGSVGElement: 'readonly',
+        KeyboardEvent: 'readonly',
+        MouseEvent: 'readonly',
+        WheelEvent: 'readonly',
+        Event: 'readonly',
+        CustomEvent: 'readonly',
+        DOMParser: 'readonly',
+        XMLSerializer: 'readonly',
+        Node: 'readonly',
+        NodeJS: 'readonly',
+        alert: 'readonly',
+        confirm: 'readonly',
+        prompt: 'readonly',
+        atob: 'readonly',
+        btoa: 'readonly',
+        structuredClone: 'readonly',
+        queueMicrotask: 'readonly',
+        globalThis: 'readonly',
+        CSS: 'readonly',
+      },
+    },
+    plugins: { '@typescript-eslint': tsPlugin, 'react-hooks': reactHooks },
+    rules: {
+      ...js.configs.recommended.rules,
+      ...tsPlugin.configs.recommended.rules,
+      // TypeScript ya valida identificadores/duplicados — la versión JS da falsos positivos
+      'no-undef': 'off',
+      'no-redeclare': 'off',
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      // Convenciones existentes del repo: @ts-ignore para imports de bpmn-js
+      // sin tipos, y el patrón `const self = this` de los módulos diagram-js.
+      '@typescript-eslint/ban-ts-comment': ['error', { 'ts-ignore': false }],
+      '@typescript-eslint/no-this-alias': 'off',
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
+    },
+  },
+]

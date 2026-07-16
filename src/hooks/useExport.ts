@@ -272,7 +272,7 @@ export function useExport() {
 
   const run = useCallback(async (opts: ExportOptions) => {
     const { format, diagramName, getXml, getSvg } = opts
-    const safeName  = diagramName.replace(/[^a-z0-9_\-]/gi, '_').toLowerCase()
+    const safeName  = diagramName.replace(/[^a-z0-9_-]/gi, '_').toLowerCase()
     const theme     = opts.theme ?? 'current'
     const themeName = resolveThemeName(theme)
     const bg        = resolveBg(theme)

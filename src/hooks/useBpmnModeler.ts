@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react'
 // bpmn-js ships CommonJS with incomplete types — cast throughout via any
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+ 
 // @ts-ignore
 import BpmnModeler from 'bpmn-js/lib/Modeler'
 import { useUIStore } from '@/store/uiStore'
@@ -130,9 +130,11 @@ export function useBpmnModeler(
 
       if (meta && key === 'c') {
         try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const selection = (modeler as any).get('selection').get()
           if (selection && selection.length > 0) {
             e.preventDefault()
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             ;(modeler as any).get('editorActions').trigger('copy')
           }
         } catch { /* ignore */ }
@@ -143,6 +145,7 @@ export function useBpmnModeler(
         if (readOnly) { e.preventDefault(); return }
         try {
           e.preventDefault()
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           ;(modeler as any).get('editorActions').trigger('paste')
         } catch { /* ignore */ }
         return
@@ -395,7 +398,7 @@ export function useBpmnModeler(
 
       let shape
       if (bpmnType === 'bpmn:Participant') {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const processBO = m.get('bpmnFactory').create('bpmn:Process', { isExecutable: false })
         shape = m.get('elementFactory').createShape({
           type: 'bpmn:Participant',
