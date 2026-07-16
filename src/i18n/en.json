@@ -106,6 +106,7 @@
     "empty": "No images here. Upload or drag files.",
     "deleteTitle": "Delete image",
     "deleteConfirm": "Delete \"{{name}}\"? If linked in diagrams, the link will break.",
+    "deleteError": "Could not delete the image",
     "usedIn_one": "Used in {{count}} diagram",
     "usedIn_other": "Used in {{count}} diagrams",
     "linkImage": "Link image",

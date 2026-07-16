@@ -98,12 +98,20 @@ export class SupabaseImageRepository implements IImageRepository {
   }
 
   async delete(id: string): Promise<void> {
-    const { data, error: selErr } = await this.sb.from('images').select('storage_path').eq('id', id).maybeSingle()
-    if (selErr) throw selErr
-    const { error } = await this.sb.from('images').delete().eq('id', id)
+    // .delete().select() devuelve las filas borradas: si RLS bloquea, `data` viene
+    // vacío SIN error → lo tratamos como fallo explícito (antes era silencioso).
+    const { data, error } = await this.sb.from('images').delete().eq('id', id).select('storage_path')
     if (error) throw error
-    const path = (data as { storage_path: string } | null)?.storage_path
-    if (path) await this.sb.storage.from(BUCKET).remove([path])
+    if (!data || data.length === 0) {
+      throw new Error('No se pudo eliminar la imagen (sin permiso o ya no existe).')
+    }
+    const path = (data[0] as { storage_path: string }).storage_path
+    if (path) {
+      const { error: rmErr } = await this.sb.storage.from(BUCKET).remove([path])
+      // El objeto de Storage es best-effort: la fila ya se borró; si el blob queda
+      // huérfano no rompe nada (solo ocupa espacio). No hacemos fallar el borrado.
+      if (rmErr) console.warn('[images] fila borrada pero el archivo de Storage no:', rmErr)
+    }
   }
 
   async getImageData(image: LibraryImage): Promise<string | null> {

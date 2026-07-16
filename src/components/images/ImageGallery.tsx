@@ -230,7 +230,15 @@ export function ImageGallery({ projectId, onClose, onPick }: ImageGalleryProps) 
             <div className="modal-body"><p style={{ margin: 0, fontSize: 13 }}>{t('images.deleteConfirm', { name: confirmDelete.name })}</p></div>
             <div className="modal-footer">
               <button className="btn-ghost" onClick={() => setConfirmDelete(null)}>{t('common.cancel')}</button>
-              <button className="btn-primary" style={{ background: 'var(--error)' }} onClick={() => { void remove(confirmDelete.id); setConfirmDelete(null) }}>
+              <button className="btn-primary" style={{ background: 'var(--error)' }} onClick={async () => {
+                const target = confirmDelete
+                setConfirmDelete(null)
+                try {
+                  await remove(target.id)
+                } catch (e) {
+                  addToast({ type: 'error', title: t('images.deleteError'), message: e instanceof Error ? e.message : undefined })
+                }
+              }}>
                 {t('common.delete')}
               </button>
             </div>

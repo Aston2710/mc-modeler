@@ -106,6 +106,7 @@
     "empty": "No hay imágenes aquí. Sube o arrastra archivos.",
     "deleteTitle": "Eliminar imagen",
     "deleteConfirm": "¿Eliminar \"{{name}}\"? Si está vinculada en diagramas, el enlace quedará roto.",
+    "deleteError": "No se pudo eliminar la imagen",
     "usedIn_one": "Usada en {{count}} diagrama",
     "usedIn_other": "Usada en {{count}} diagramas",
     "linkImage": "Vincular imagen",
