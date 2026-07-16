@@ -767,6 +767,10 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   transform: scale(1.1) !important;
   z-index: 1 !important;
 }
+/* diagram-js envuelve cada grupo en <div class="group"> (block) → cada grupo
+   salta de línea y deja huecos. display:contents disuelve ese wrapper: todas las
+   entradas fluyen como hermanas y se empaquetan sin espacios en blanco. */
+.djs-context-pad .group { display: contents !important; }
 
 /* Append Task → azul (como las tareas) */
 .djs-context-pad .entry.bpmn-icon-task {
