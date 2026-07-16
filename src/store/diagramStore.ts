@@ -6,6 +6,7 @@ import { DiagramConflictError } from '@/persistence/IDiagramRepository'
 import { generateDiagramId } from '@/utils/idGenerator'
 import { normalizeBpmnXml } from '@/utils/normalizeBpmnXml'
 import { externalizeImages, rehomeImages, deleteDiagramImages } from '@/utils/imageStorage'
+import { perfStart } from '@/utils/perf'
 
 /**
  * Validación mínima antes de persistir: no guardar XML vacío o que no parezca
@@ -87,6 +88,13 @@ interface DiagramState {
   ensureXml: (id: string) => Promise<string>
   /** Fuerza re-fetch del XML desde el servidor (ignora el caché) y actualiza el store. */
   refreshXml: (id: string) => Promise<string>
+  /**
+   * Actualiza SOLO el XML en memoria (sin escribir al repositorio). Se usa al
+   * ceder una pestaña con guardado en background: deja el XML fresco en el
+   * caché al instante para que, si el usuario vuelve a la pestaña antes de que
+   * termine el guardado, ensureXml devuelva lo último y no una versión vieja.
+   */
+  cacheXml: (id: string, xml: string) => void
   closeTab: (id: string) => void
   setActiveTab: (id: string) => void
   saveDiagram: (id: string, xml: string, elementCount?: number, thumbnail?: string | null) => Promise<void>
@@ -154,9 +162,14 @@ export const useDiagramStore = create<DiagramState>()(
 
     ensureXml: async (id) => {
       const existing = get().diagrams.find((d) => d.id === id)
-      if (existing && existing.xml) return existing.xml
+      if (existing && existing.xml) {
+        perfStart('diagram:ensureXml:cacheHit', { diagramId: id })()
+        return existing.xml
+      }
       // La lista no trae el XML; se pide el diagrama completo la primera vez y se cachea.
+      const endFetch = perfStart('diagram:ensureXml:fetch', { diagramId: id })
       const full = await diagramRepository.getById(id)
+      endFetch({ bytes: full?.xml?.length ?? 0 })
       const xml = full?.xml ?? ''
       if (xml) {
         set((s) => {
@@ -165,6 +178,13 @@ export const useDiagramStore = create<DiagramState>()(
         })
       }
       return xml
+    },
+
+    cacheXml: (id, xml) => {
+      set((s) => {
+        const d = s.diagrams.find((d) => d.id === id)
+        if (d) d.xml = xml
+      })
     },
 
     refreshXml: async (id) => {
@@ -562,3 +582,10 @@ export const useDiagramStore = create<DiagramState>()(
 
   }))
 )
+
+// Solo dev: expone el store para instrumentación de rendimiento (Fase 0).
+// Permite manejar apertura/cambio de pestañas desde un driver externo igual
+// que lo hace la UI. Sin efecto en producción.
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  ;(window as unknown as { __diagStore?: typeof useDiagramStore }).__diagStore = useDiagramStore
+}

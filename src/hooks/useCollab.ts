@@ -10,6 +10,7 @@ import { colorForUser, type CursorState } from '@/collab/presence'
 import { uint8ToBase64, base64ToUint8 } from '@/collab/yBpmnModel'
 import { YjsBpmnBinding, REMOTE_ORIGIN } from '@/collab/YjsBpmnBinding'
 import { isCanvasReadyFor } from '@/collab/canvasSession'
+import { perfStart } from '@/utils/perf'
 import {
   createBroadcastCoalescer,
   encodeOwnStateVector,
@@ -63,6 +64,10 @@ export function useCollab(
     let pendingImportHandler: (() => void) | null = null
     let pendingRetryTimer: ReturnType<typeof setTimeout> | null = null
     const bindWaitStartedAt = Date.now()
+    // Mide desde que arranca el effect de colaboración hasta que el binding Yjs
+    // queda activo (canvas confirmado + binding.start). Es el "tiempo hasta
+    // colaboración lista" que se paga en cada cambio de pestaña en modo nube.
+    const endBindReady = perfStart('collab:bindReady', { diagramId })
 
     const clearPendingImportWait = () => {
       if (pendingImportHandler) {
@@ -114,6 +119,7 @@ export function useCollab(
       if (!isCanvasReadyFor(diagramId)) return
       binding = new YjsBpmnBinding(modeler, doc)
       binding.start()
+      endBindReady()
     }
 
     // No inferimos "listo" de heurísticas sobre el contenido del canvas

@@ -204,7 +204,10 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
       document.addEventListener('mouseup', onUp)
     }, [modeler])
 
-    // Actualizar thumbs cuando el viewbox cambia
+    // Actualizar thumbs cuando el viewbox cambia. Depende de activeVersion: con
+    // el cache de pestañas (Fase 2) la instancia activa cambia sin re-montar el
+    // componente, así que hay que re-vincular el listener a la nueva instancia.
+    // Se captura `m` para que el cleanup haga off() sobre la MISMA instancia.
     useEffect(() => {
       const m = modeler.modelerRef.current
       if (!m) return
@@ -212,9 +215,9 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
         const eventBus = m.get('eventBus')
         eventBus.on('canvas.viewbox.changed', updateScrollThumbs)
         updateScrollThumbs()
-        return () => eventBus.off('canvas.viewbox.changed', updateScrollThumbs)
+        return () => { try { eventBus.off('canvas.viewbox.changed', updateScrollThumbs) } catch { /* ignore */ } }
       } catch { /* ignore */ }
-    }, [modeler, updateScrollThumbs])
+    }, [modeler, updateScrollThumbs, modeler.activeVersion])
 
     // Drag and drop nativo para archivos de imagen (evitando que bpmn-js se trague el evento)
     useEffect(() => {

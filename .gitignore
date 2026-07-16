@@ -78,6 +78,7 @@ web_modules/
 .env.test.local
 .env.production.local
 .env.local
+.env*
 
 # Backups locales de diagramas (contienen TODO el contenido de la org — nunca a git)
 backups/
@@ -149,3 +150,4 @@ referencias_csharp/
 .syntesis/
 docs/
 scripts/
+kpi/
