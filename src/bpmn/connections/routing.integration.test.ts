@@ -461,6 +461,23 @@ describe('no-invasión de shapes (bug del screenshot)', () => {
     expect(isOrthogonal(fd.waypoints)).toBe(true)
   })
 
+  it('mover el target lejos → entra por el cardinal más corto (no sobrepasa a la cara lejana)', async () => {
+    const { modeling, registry } = await createModeler(GW_DIAGRAM)
+    const td = registry.get('TD')  // (380,300), entra por left desde el gateway
+    const fd = registry.get('FD')
+    // mover TD a la derecha: el camino más corto sigue siendo entrar por la
+    // IZQUIERDA; la ruta no debe rodearlo para entrar por la derecha.
+    modeling.moveShape(td, { x: 250, y: 0 }) // TD → (630,300)
+    const wps = fd.waypoints
+    expect(isOrthogonal(wps)).toBe(true)
+    expect(routeInvades(wps, td)).toBe(false)
+    const end = wps[wps.length - 1]
+    // el extremo entra por la cara izquierda (x ≈ td.x), no por la derecha
+    expect(Math.abs(end.x - td.x)).toBeLessThan(Math.abs(end.x - (td.x + td.width)))
+    // y ningún waypoint sobrepasa el borde derecho del shape
+    expect(Math.max(...wps.map((p: Any) => p.x))).toBeLessThanOrEqual(td.x + td.width + 1)
+  })
+
   it('Capa 4: soltar un shape encima del camino de una flecha ajena la aparta', async () => {
     const { modeling, registry, elementFactory } = await createModeler()
     // Flow_AB va recto de Task_A(100..200) a Task_B(400..500) en y≈140

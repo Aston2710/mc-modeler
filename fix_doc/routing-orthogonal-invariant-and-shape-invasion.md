@@ -114,6 +114,14 @@ Todos los behaviors son `CommandInterceptor` (requieren `X.prototype = Object.cr
 
 ---
 
+## 5b. Optimización de cara al mover un shape (ruta corta, no sobrepaso)
+
+**Síntoma relacionado:** mover un shape a otro lado del recorrido dejaba la flecha entrando por la cara **lejana** (p. ej. rodeando el shape para entrar por la derecha cuando la izquierda era la más corta). No es invasión (la ruta es limpia), solo sub-óptima — por eso las Capas 2/3 no la tocan (solo disparan ante invasión/diagonal; la optimalidad no es un invariante para no arriesgar churn/ping-pong Yjs).
+
+**Causa:** misma familia que el bug de invasión. Para conexiones auto, al mover un shape el layouter hereda (a) la **cara del hint viejo** (`nearestFace(tgt, dockViejo+delta)`) y (b) la **forma vieja** (reuso de `existingWaypoints`, que el router solo "repara"). Nada recomputa "¿cuál cardinal es el más corto ahora?".
+
+**Fix** (`BizagiLayouter.layoutConnection`, cierre de la rama auto): al haber hint de movimiento se calcula también la ruta **geométrica fresca** (caras `sGeo`/`tGeo` desde la posición actual, sin reusar waypoints) y se prefiere **solo si es estrictamente más simple** — métrica `routeCost` = longitud Manhattan + 20px por codo. Como la conexión es auto no hay preferencia de lado del usuario que respetar (el arrastre manual va por la otra rama). Se excluyen message flows y boundary events (tienen su propia lógica de cara) y los pares con ≥2 paralelas (perderían su separación ±10px, que sí trae la ruta preservada). Reutiliza `computeRoute`/`isClean`/caras geométricas de la Capa 2 — sin arquitectura nueva.
+
 ## 6. Efectos secundarios / limitaciones conocidas
 
 - **Costo del fallback de caras (Capa 2):** hasta 17 `calculateRoute` extra, pero solo cuando la ruta primaria invade (raro). Ruta normal = 0 extra (idempotente).

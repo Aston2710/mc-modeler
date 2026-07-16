@@ -531,11 +531,21 @@ BizagiLayouter.prototype.layoutConnection = function (connection: Connection, hi
     return router.calculateRoute(s, e, sF, tF, obstacles, undefined, undefined, undefined, srcObs, tgtObs)
   }
 
+  // Caras GEOMÉTRICAS desde la posición actual (ignorando el hint viejo).
+  const sGeo: Face = isGateway(src) ? gatewayExitFace(src, tgt) : naturalFace(src, tgt)
+  const tGeo: Face = isGateway(tgt) ? gatewayFace(tgt, src)     : naturalFace(tgt, src)
+
+  // Costo de una ruta: longitud Manhattan + penalización por codo. Sirve para
+  // comparar "preservada" vs "geométrica fresca" y quedarse con la más simple.
+  const routeCost = (wps: Point[]): number => {
+    let len = 0
+    for (let i = 1; i < wps.length; i++) len += Math.abs(wps[i].x - wps[i - 1].x) + Math.abs(wps[i].y - wps[i - 1].y)
+    return len + wps.length * 20
+  }
+
   const ensureClean = (primary: Point[]): Point[] => {
     if (assoc || isClean(primary)) return primary
-    // caras geométricas (desde la posición ACTUAL, no el hint) como primer intento
-    const sGeo: Face = isGateway(src) ? gatewayExitFace(src, tgt) : naturalFace(src, tgt)
-    const tGeo: Face = isGateway(tgt) ? gatewayFace(tgt, src)     : naturalFace(tgt, src)
+    // caras geométricas como primer intento del fallback
     const FACES: Face[] = ['top', 'bottom', 'left', 'right']
     const candidates: [Face, Face][] = [[sGeo, tGeo]]
     for (const a of FACES) for (const b of FACES) candidates.push([a, b])
@@ -588,7 +598,28 @@ BizagiLayouter.prototype.layoutConnection = function (connection: Connection, hi
     return cleaned
   }
 
-  return ensureClean(fresh)
+  const cleaned = ensureClean(fresh)
+
+  // Optimización de cara al MOVER un shape (solo autos): la ruta preservada
+  // hereda el lado y la forma viejos (hint = dock anterior + delta, y reuso de
+  // existingWaypoints), lo que hace que la flecha sobrepase el shape para
+  // entrar por la cara lejana. Se calcula la ruta GEOMÉTRICA (cardinal más
+  // cercano, fresca) y se prefiere solo si es estrictamente más simple. Como
+  // la conexión es auto, no hay preferencia de lado del usuario que respetar
+  // (el arrastre manual va por la otra rama). Se excluyen msgFlow/boundary
+  // (tienen su propia lógica de cara) y los pares con ≥2 paralelas (perderían
+  // la separación ±10px que sí trae la ruta preservada).
+  if (hasMovedAnchor && !assoc && !msgFlow && !(isBoundaryEvent(src) && src.host)) {
+    const parallelCount =
+      ((src.outgoing || []) as Connection[]).filter((c: Connection) => c.target === tgt).length +
+      ((src.incoming || []) as Connection[]).filter((c: Connection) => c.source === tgt).length
+    if (parallelCount < 2) {
+      const geo = computeRoute(sGeo, tGeo)
+      if (isClean(geo) && routeCost(geo) + 1 < routeCost(cleaned)) return geo
+    }
+  }
+
+  return cleaned
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
