@@ -261,12 +261,31 @@ export class YjsBpmnBinding {
       const source = snap.source && registry.get(snap.source)
       const target = snap.target && registry.get(snap.target)
       if (!source || !target) return // sus nodos aún no existen; se reintentará en el próximo update
-      const parent = (snap.parent && registry.get(snap.parent)) || source.parent
-      m.get('modeling').createConnection(source, target, { id: snap.id, type: snap.type }, parent)
-      const conn = registry.get(snap.id)
-      if (conn && snap.manualRoute) {
-        conn.businessObject?.set?.('flujo:manualRoute', true)
+
+      // Dedup NO destructivo para datos ya corruptos (diagramas guardados antes
+      // del fix de identidad): si ya existe una conexión con mismo source→target
+      // y tipo Y waypoints idénticos, es la MISMA flecha lógica con id divergente
+      // — no dibujar una segunda. Se compara por waypoints exactos para no
+      // confundir flechas paralelas legítimas (que tienen waypoints distintos).
+      if (sameConnectionExists(source, target, snap)) {
+        console.warn('[collab] createConnection: duplicado estructural evitado', snap.id)
+        return
       }
+
+      const parent = (snap.parent && registry.get(snap.parent)) || source.parent
+
+      // Construir el businessObject y FIJAR su id = snap.id (espejo de
+      // createShape). Sin esto bpmn-js asigna un id automático al bo, que diverge
+      // del id del elemento y de la clave del Y.Doc; tras export/import el doc no
+      // reconoce la flecha y crea un DUPLICADO. Fijar el id lo mantiene coherente
+      // element.id == businessObject.id == clave del doc a través del round-trip.
+      const bpmnFactory = m.get('bpmnFactory')
+      const businessObject = bpmnFactory.create(snap.type)
+      businessObject.id = snap.id
+      if (snap.manualRoute) businessObject.set?.('flujo:manualRoute', true)
+
+      m.get('modeling').createConnection(source, target, { id: snap.id, type: snap.type, businessObject }, parent)
+      const conn = registry.get(snap.id)
       if (snap.waypoints && snap.waypoints.length >= 2 && conn) {
         m.get('modeling').updateWaypoints(conn, snap.waypoints)
       }
@@ -421,6 +440,32 @@ export class YjsBpmnBinding {
 
 function isConnectionSnap(snap: ElementSnapshot): boolean {
   return snap.source !== undefined || snap.target !== undefined || snap.waypoints !== undefined
+}
+
+/**
+ * ¿Ya existe en el canvas una conexión que es la MISMA flecha lógica que `snap`
+ * pero con OTRO id? (dedup no destructivo para datos con ids divergentes).
+ *
+ * Criterio estricto para no confundir flechas paralelas legítimas: mismo tipo,
+ * mismo target, y waypoints IDÉNTICOS (redondeados). Dos paralelas reales nunca
+ * comparten waypoints exactos (van separadas). Si el snap no trae waypoints, se
+ * exige solo tipo+target (caso degradado: mejor no duplicar).
+ */
+function sameConnectionExists(source: Any, target: Any, snap: ElementSnapshot): boolean {
+  const out: Any[] = source?.outgoing || []
+  const wp = snap.waypoints
+  for (const c of out) {
+    if (c.id === snap.id) continue
+    if (c.target !== target || c.type !== snap.type) continue
+    if (!wp || wp.length < 2) return true
+    const cw: Array<{ x: number; y: number }> = c.waypoints || []
+    if (cw.length !== wp.length) continue
+    const identical = cw.every((p, i) =>
+      Math.round(p.x) === Math.round(wp[i].x) && Math.round(p.y) === Math.round(wp[i].y)
+    )
+    if (identical) return true
+  }
+  return false
 }
 
 /** Registro mínimo que necesita resolveParentOrSkip (subconjunto de elementRegistry). */

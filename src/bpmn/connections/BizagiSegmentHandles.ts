@@ -297,10 +297,19 @@ function BizagiSegmentHandles(
     if (!wps || wps.length < 2) return
     const last = wps.length - 1
 
+    // Solo re-anclar el extremo cuyo segmento ADYACENTE se está arrastrando.
+    // Antes se re-anclaban ambos extremos en cada frame → al arrastrar un
+    // segmento lejano, el gateway "peleaba" y clavaba su tramo. Ahora el origen
+    // solo se re-ancla si arrastras el primer segmento, y el destino solo si
+    // arrastras el último.
+    const origLen = context.originalWaypoints?.length ?? wps.length
+    const draggingFirst = context.segmentStartIndex === 0
+    const draggingLast = context.segmentEndIndex === origLen - 1
+
     let modified = false
 
     const tgt = connection.target
-    if (tgt?.width && (isGroupShape(tgt) || isGatewayShape(tgt))) {
+    if (draggingLast && tgt?.width && (isGroupShape(tgt) || isGatewayShape(tgt))) {
       const prevToEnd = wps[last - 1]
       let d: { x: number; y: number; face: Face }
       if (isGroupShape(tgt)) {
@@ -318,7 +327,7 @@ function BizagiSegmentHandles(
     }
 
     const src = connection.source
-    if (src?.width && (isGroupShape(src) || isGatewayShape(src))) {
+    if (draggingFirst && src?.width && (isGroupShape(src) || isGatewayShape(src))) {
       const nextToStart = wps[1]
       let d: { x: number; y: number; face: Face }
       if (isGroupShape(src)) {

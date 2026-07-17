@@ -162,9 +162,10 @@ export function OrthogonalityBehavior(this: any, injector: AnyObj, modeling: Any
       const tAnchor = touchesShape(tgt, wps[wps.length - 1]) ? wps[wps.length - 1] : (wps[wps.length - 2] ?? wps[0])
       const tDock = dockPoint(tgt, tAnchor, isGateway(tgt) ? 'gateway' : 'rect')
       wps = repairChainFromEnd(wps, tDock, tDock.face)
-      if (!isOrthogonal(wps)) {
-        // la reparación en cadena no bastó → ruta fresca; la edición manual
-        // ya no tiene sentido geométrico
+      // Solo se descarta la forma manual cuando la reparación no logra una ruta
+      // VÁLIDA (queda diagonal o metida dentro de un extremo). Mientras sea
+      // ortogonal y no invada src/tgt, la edición del usuario se respeta.
+      if (!isOrthogonal(wps) || routeInvades(wps, src) || routeInvades(wps, tgt)) {
         wps = layouter.layoutConnection(conn, { source: src, target: tgt, forceReroute: true })
         manualDiscarded = true
       }
@@ -219,7 +220,10 @@ export function OrthogonalityBehavior(this: any, injector: AnyObj, modeling: Any
     if (!movedRects.length) return
 
     elementRegistry.forEach((conn: AnyObj) => {
-      if (!isConnection(conn) || fixing.has(conn.id) || isAssociation(conn)) return
+      // Autos únicamente: una ruta MANUAL invadida por un shape ajeno se respeta
+      // (prioridad a la decisión del usuario; él la ajusta si quiere). Solo las
+      // automáticas se apartan al plantarles un shape encima.
+      if (!isConnection(conn) || fixing.has(conn.id) || isAssociation(conn) || isManual(conn)) return
       for (const s of movedRects) {
         if (conn.source === s || conn.target === s) continue // sus propias conexiones ya se trataron
         if (routeInvades(conn.waypoints, s)) {

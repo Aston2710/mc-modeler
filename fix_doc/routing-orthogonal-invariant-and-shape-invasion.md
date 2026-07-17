@@ -122,6 +122,19 @@ Todos los behaviors son `CommandInterceptor` (requieren `X.prototype = Object.cr
 
 **Fix** (`BizagiLayouter.layoutConnection`, cierre de la rama auto): al haber hint de movimiento se calcula también la ruta **geométrica fresca** (caras `sGeo`/`tGeo` desde la posición actual, sin reusar waypoints) y se prefiere **solo si es estrictamente más simple** — métrica `routeCost` = longitud Manhattan + 20px por codo. Como la conexión es auto no hay preferencia de lado del usuario que respetar (el arrastre manual va por la otra rama). Se excluyen message flows y boundary events (tienen su propia lógica de cara) y los pares con ≥2 paralelas (perderían su separación ±10px, que sí trae la ruta preservada). Reutiliza `computeRoute`/`isClean`/caras geométricas de la Capa 2 — sin arquitectura nueva.
 
+## 5c. Prioridad a la ruta manual del usuario (relajación de §14)
+
+**Síntoma:** al modelar diagramas reales (flechas largas cruzando carriles), las rutas dibujadas a mano "volvían al inicio" al mover cualquier shape, y el botón fix no ayudaba. El arreglo automático se sentía intrusivo.
+
+**Causa dominante:** el criterio de simplicidad de §14 — conservar la ruta reparada solo si `repaired.length <= fresh.length`. Una ruta manual larga SIEMPRE tiene más codos que la canónica → la condición fallaba → se descartaba la edición del usuario. Contribuían además: (b) el handler de segmento re-anclaba el extremo gateway/grupo en **cada frame** aunque arrastraras un segmento lejano (peleaba la parte cercana al gateway); (c) la Capa 4 re-ruteaba también rutas manuales de terceros al plantarles un shape encima.
+
+**Fix (decisión de producto):** la ruta manual del usuario tiene **prioridad**; el arreglo automático solo actúa cuando la ruta es **inválida**. "Inválida" = no ortogonal, extremos desanclados, o metida dentro de su propio src/tgt. Se eliminó el criterio de longitud y el chequeo de cruce con obstáculos de terceros del "keep-decision" de rutas manuales.
+- `BizagiLayouter` rama manual: `if (valid) return repaired` — sin `≤ fresh` ni obstáculos. Válida = ortogonal + anclada + (no-assoc) no invade src/tgt.
+- `BizagiSegmentHandles`: re-dock del extremo gateway/grupo **solo** cuando se arrastra su segmento adyacente (`segmentStartIndex===0` / `segmentEndIndex===last`).
+- `OrthogonalityBehavior` Capa 4: exime conexiones **manuales** (solo autos se apartan). `repair()` manual: descarta la forma solo si tras reparar sigue no-ortogonal o invadiendo src/tgt.
+
+**Trade-off:** el diagrama puede acumular rutas manuales subóptimas — pero son las que el usuario dibujó a propósito. La garantía de **no-invasión de src/tgt** y de **ortogonalidad** se mantiene (esas sí se auto-corrigen). El botón "fix" (`forceReroute`) sigue disponible para re-canonizar a voluntad. Cambio de semántica respecto a §14 estricto, elegido explícitamente ("la ruta manual del usuario tiene prioridad; solo cuando algo es inválido se hace la ruta automática").
+
 ## 6. Efectos secundarios / limitaciones conocidas
 
 - **Costo del fallback de caras (Capa 2):** hasta 17 `calculateRoute` extra, pero solo cuando la ruta primaria invade (raro). Ruta normal = 0 extra (idempotente).

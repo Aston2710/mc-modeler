@@ -574,26 +574,30 @@ BizagiLayouter.prototype.layoutConnection = function (connection: Connection, hi
     const tDock = dockPoint(tgt, tHint ?? repaired[repaired.length - 2] ?? repaired[0], isGateway(tgt) ? 'gateway' : 'rect')
     repaired = repairChainFromEnd(repaired, tDock, tDock.face)
 
-    // Criterio Bizagi (findings §14): conservar la reparada solo si es válida
-    // (ortogonal, anclada y SIN invadir src/tgt/obstáculos) y no más compleja
-    // que la fresca. Si no, gana la fresca (ya saneada por ensureClean) y se
-    // señala la limpieza del flag manual VÍA HINTS (canal del comando:
-    // context.hints es el mismo objeto — lo lee ManualRouteBehavior en
-    // postExecuted). No se muta la conexión: una llamada fuera de comando
-    // descarta sus hints y no deja markers huérfanos.
+    // PRIORIDAD A LA RUTA MANUAL DEL USUARIO: se conserva SIEMPRE que sea
+    // "válida", sin importar cuántos codos tenga. Solo cuando es inválida se
+    // cae a la ruta automática. Válida =
+    //   - ortogonal (no genera flechas diagonales), y
+    //   - anclada a ambos shapes, y
+    //   - (no-association) no entra DENTRO de su propio src/tgt.
+    // Deliberadamente NO se exige ni "≤ fresca" (criterio de simplicidad §14,
+    // eliminado: descartaba rutas largas legítimas) ni ausencia de cruce con
+    // obstáculos de terceros (el usuario puede rutear cerca/entre shapes si
+    // quiere; solo el arreglo automático evita eso, no la edición manual).
     const valid = repaired.length >= 2
       && isOrthogonal(repaired)
       && touchesShape(src, repaired[0])
       && touchesShape(tgt, repaired[repaired.length - 1])
-      && !routeInvades(repaired, srcObs)
-      && !routeInvades(repaired, tgtObs)
-      && !obstacles.some(o => routeInvades(repaired, o))
+      && (assoc || (!routeInvades(repaired, srcObs) && !routeInvades(repaired, tgtObs)))
 
-    // Associations: sin criterio de simplicidad — la forma del usuario manda
-    // mientras sea válida.
+    if (valid) return repaired
+
+    // Inválida → ruta automática (ya saneada por ensureClean). La limpieza del
+    // flag manual se señala VÍA HINTS (canal del comando: context.hints es el
+    // mismo objeto — lo lee ManualRouteBehavior en postExecuted). No se muta la
+    // conexión: una llamada fuera de comando descarta sus hints, sin markers
+    // huérfanos.
     const cleaned = ensureClean(fresh)
-    if (valid && (assoc || repaired.length <= cleaned.length)) return repaired
-
     if (!assoc) hints.orthoAutoRerouted = true
     return cleaned
   }
