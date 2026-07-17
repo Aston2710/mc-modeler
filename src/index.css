@@ -2160,8 +2160,8 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .ig-folder:hover .ig-folder-del { opacity: 0.7; }
 .ig-newfolder { margin-top: 6px; justify-content: flex-start; }
 .ig-grid {
-  flex: 1; overflow-y: auto; display: grid; gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); align-content: start;
+  flex: 1; overflow-y: auto; display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); align-content: start;
 }
 .ig-card {
   border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
@@ -2169,10 +2169,29 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 }
 .ig-card.pickable { cursor: pointer; transition: border-color .12s, transform .12s; }
 .ig-card.pickable:hover { border-color: var(--accent); transform: translateY(-1px); }
-.ig-card-thumb { aspect-ratio: 4 / 3; background: var(--bg-2); overflow: hidden; }
-.ig-card-name { padding: 6px 8px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ig-card-actions { display: flex; align-items: center; gap: 4px; padding: 0 6px 6px; }
-.ig-move { flex: 1; min-width: 0; font-size: 11px; padding: 2px 4px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-2); color: var(--text-2); }
+/* Miniatura grande y algo apaisada; el contenido se ancla arriba (ImageThumb). */
+.ig-card-thumb { position: relative; aspect-ratio: 4 / 3; background: var(--bg-2); overflow: hidden; }
+.ig-card-name { padding: 8px 10px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Acciones: overlay sobre la parte baja de la imagen, visibles solo en hover
+   → la tarjeta en reposo es toda imagen (máxima legibilidad). */
+.ig-card-actions {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: center; gap: 6px; padding: 8px;
+  background: linear-gradient(to top, rgba(0,0,0,.75), rgba(0,0,0,0));
+  opacity: 0; transition: opacity .12s; pointer-events: none;
+}
+.ig-card:hover .ig-card-actions,
+.ig-card-actions:focus-within { opacity: 1; pointer-events: auto; }
+.ig-card-actions .icon-btn {
+  flex-shrink: 0; width: 28px; height: 28px; padding: 0; display: grid; place-items: center;
+  background: rgba(255,255,255,.92); color: #111; border: none; border-radius: 6px;
+}
+.ig-card-actions .icon-btn:hover { background: #fff; }
+.ig-move {
+  flex: 1 1 auto; min-width: 0; font-size: 11px; padding: 3px 20px 3px 8px;
+  border-radius: 6px; border: none; background: rgba(255,255,255,.92); color: #111;
+  text-overflow: ellipsis;
+}
 .ig-empty { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px 0; color: var(--text-3); }
 .ig-empty p { margin: 0; font-size: 13px; }
 
@@ -2190,7 +2209,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 
 /* ── Lightbox ───────────────────────────────────────────────────── */
 .lightbox-backdrop {
-  position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.82);
+  position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.82);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
 }
 .lightbox-img { max-width: 90vw; max-height: 78vh; object-fit: contain; border-radius: 6px; box-shadow: 0 8px 40px rgba(0,0,0,.5); }
@@ -2198,8 +2217,9 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .lightbox-title { font-size: 14px; font-weight: 500; max-width: 50vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lightbox-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #fff; cursor: pointer; font-size: 13px; }
 .lightbox-btn:hover { background: rgba(255,255,255,.18); }
-.lightbox-close { position: fixed; top: 20px; right: 24px; }
 .lightbox-nav { position: fixed; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.2); color: #fff; width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center; cursor: pointer; }
 .lightbox-nav:hover { background: rgba(255,255,255,.2); }
 .lightbox-prev { left: 20px; }
 .lightbox-next { right: 20px; }
+/* Cerrar: esquina superior derecha (anula el top:50%/transform de .lightbox-nav) */
+.lightbox-close { top: 20px; right: 24px; left: auto; bottom: auto; transform: none; }

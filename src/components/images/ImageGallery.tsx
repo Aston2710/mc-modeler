@@ -118,7 +118,7 @@ export function ImageGallery({ projectId, onClose, onPick }: ImageGalleryProps) 
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal image-gallery" style={{ width: 'min(880px, 94vw)', maxHeight: '88vh' }} onClick={(e) => e.stopPropagation()}>
+      <div className="modal image-gallery" style={{ width: 'min(1200px, 95vw)', height: '90vh', maxHeight: '90vh' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
             <div className="modal-title">{onPick ? t('images.pickTitle') : t('images.title')}</div>
@@ -186,30 +186,30 @@ export function ImageGallery({ projectId, onClose, onPick }: ImageGalleryProps) 
                 <div key={img.id} className={`ig-card ${onPick ? 'pickable' : ''}`} onClick={() => onPick?.(img)}>
                   <div className="ig-card-thumb">
                     <ImageThumb imageId={img.id} alt={img.name} />
+                    {!onPick && (
+                      <div className="ig-card-actions">
+                        <button className="icon-btn" title={t('images.rename')} onClick={(e) => { e.stopPropagation(); void handleRename(img) }}>
+                          <Pencil size={13} />
+                        </button>
+                        {scopeFolders.length > 0 && (
+                          <select
+                            className="ig-move"
+                            value={img.folderId ?? ''}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => void move(img.id, e.target.value || null)}
+                            title={t('images.moveToFolder')}
+                          >
+                            <option value="">{t('images.noFolder')}</option>
+                            {scopeFolders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                          </select>
+                        )}
+                        <button className="icon-btn" title={t('common.delete')} onClick={(e) => { e.stopPropagation(); setConfirmDelete(img) }}>
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <div className="ig-card-name" title={img.name}>{img.name}</div>
-                  {!onPick && (
-                    <div className="ig-card-actions">
-                      <button className="icon-btn" title={t('images.rename')} onClick={(e) => { e.stopPropagation(); void handleRename(img) }}>
-                        <Pencil size={12} />
-                      </button>
-                      {scopeFolders.length > 0 && (
-                        <select
-                          className="ig-move"
-                          value={img.folderId ?? ''}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => void move(img.id, e.target.value || null)}
-                          title={t('images.moveToFolder')}
-                        >
-                          <option value="">{t('images.noFolder')}</option>
-                          {scopeFolders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-                        </select>
-                      )}
-                      <button className="icon-btn" title={t('common.delete')} onClick={(e) => { e.stopPropagation(); setConfirmDelete(img) }}>
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  )}
                 </div>
               ))}
               {scopeImages.length === 0 && (

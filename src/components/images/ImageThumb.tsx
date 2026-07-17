@@ -28,5 +28,7 @@ export function ImageThumb({ imageId, alt, className }: ImageThumbProps) {
       </div>
     )
   }
-  return <img src={src} alt={alt ?? ''} className={className} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
+  // object-position: top — en documentos el dato identificador vive arriba
+  // (título, "Pedido", "Observaciones"); recortar por el centro los ocultaba.
+  return <img src={src} alt={alt ?? ''} className={className} style={{ objectFit: 'cover', objectPosition: 'top', width: '100%', height: '100%' }} />
 }
