@@ -1,8 +1,14 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
+import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { ImageFolder, LibraryImage } from '@/domain/types'
 import { imageRepository } from '@/persistence'
+import { supabase } from '@/lib/supabase'
 import { generateDiagramId } from '@/utils/idGenerator'
+
+// Estado del canal Realtime fuera del store (no serializable en immer).
+let rtChannel: RealtimeChannel | null = null
+let rtDebounce: ReturnType<typeof setTimeout> | null = null
 
 interface ImageState {
   images: LibraryImage[]
@@ -20,6 +26,8 @@ interface ImageState {
   renameFolder: (id: string, name: string) => Promise<void>
   deleteFolder: (id: string) => Promise<void>
   getById: (id: string) => LibraryImage | undefined
+  startRealtime: () => void
+  stopRealtime: () => void
 }
 
 export const useImageStore = create<ImageState>()(
@@ -99,5 +107,28 @@ export const useImageStore = create<ImageState>()(
     },
 
     getById: (id) => get().images.find((x) => x.id === id),
+
+    // Realtime: cualquier INSERT/UPDATE/DELETE en images/image_folders (de este u
+    // otro colaborador) refresca el catálogo — con debounce para agrupar ráfagas.
+    // RLS aplica al refetch, así que solo trae lo accesible. El caché `resolved`
+    // (bytes) se conserva; las imágenes nuevas se resuelven bajo demanda.
+    startRealtime: () => {
+      if (!supabase || rtChannel) return
+      const bump = () => {
+        if (rtDebounce) clearTimeout(rtDebounce)
+        rtDebounce = setTimeout(() => { void get().loadAll() }, 300)
+      }
+      const ch = supabase.channel('image-library')
+      ch.on('postgres_changes', { event: '*', schema: 'public', table: 'images' }, bump)
+      ch.on('postgres_changes', { event: '*', schema: 'public', table: 'image_folders' }, bump)
+      ch.subscribe()
+      rtChannel = ch
+    },
+
+    stopRealtime: () => {
+      if (rtDebounce) { clearTimeout(rtDebounce); rtDebounce = null }
+      if (rtChannel && supabase) { void supabase.removeChannel(rtChannel) }
+      rtChannel = null
+    },
   }))
 )

@@ -95,6 +95,7 @@
     "allImages": "Todas",
     "newFolder": "Nueva carpeta",
     "newFolderPrompt": "Nombre de la carpeta",
+    "folderExists": "La carpeta \"{{name}}\" ya existe",
     "noFolder": "Sin carpeta",
     "moveToFolder": "Mover a carpeta",
     "upload": "Subir",

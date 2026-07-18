@@ -81,8 +81,14 @@ export function ImageGallery({ projectId, onClose, onPick }: ImageGalleryProps) 
   }
 
   const handleNewFolder = async () => {
-    const name = window.prompt(t('images.newFolderPrompt'))
-    if (name?.trim()) await createFolder(name.trim(), projectId)
+    const name = window.prompt(t('images.newFolderPrompt'))?.trim()
+    if (!name) return
+    // No duplicar nombres dentro del mismo ámbito (case-insensitive).
+    if (scopeFolders.some((f) => f.name.trim().toLowerCase() === name.toLowerCase())) {
+      addToast({ type: 'error', title: t('images.folderExists', { name }) })
+      return
+    }
+    await createFolder(name, projectId)
   }
 
   const handleRename = async (image: LibraryImage) => {
