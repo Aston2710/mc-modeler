@@ -95,6 +95,7 @@
     "allImages": "All",
     "newFolder": "New folder",
     "newFolderPrompt": "Folder name",
+    "folderExists": "Folder \"{{name}}\" already exists",
     "noFolder": "No folder",
     "moveToFolder": "Move to folder",
     "upload": "Upload",

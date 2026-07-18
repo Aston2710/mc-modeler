@@ -120,6 +120,14 @@ export default function App() {
     return () => useNotificationStore.getState().stop()
   }, [sessionUserId])
 
+  // Biblioteca de imágenes en vivo: imágenes/carpetas que crea otro colaborador
+  // aparecen sin recargar (Realtime sobre images/image_folders).
+  useEffect(() => {
+    if (!isSupabaseConfigured || !sessionUserId) return
+    useImageStore.getState().startRealtime()
+    return () => useImageStore.getState().stopRealtime()
+  }, [sessionUserId])
+
   // Estado del proyecto que se está compartiendo (modal shareProject).
   const [shareProjectInfo, setShareProjectInfo] = useState<{ id: string; name: string } | null>(null)
 
