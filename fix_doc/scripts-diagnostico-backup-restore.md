@@ -42,6 +42,7 @@ Los scripts leen/escriben con la **service_role key** de Supabase (ignora RLS �
 - `getClient()` — cliente Supabase con service_role (sale con error guía si falta la key).
 - Cargador de `.env.local`/`.env` (resuelve la raíz del proyecto vía `import.meta.url`, no depende del cwd).
 - `fetchAll(sb, tabla, columnas)` — SELECT paginado (>1000 filas).
+- `fetchAllOptional(sb, tabla, columnas)` — como `fetchAll` pero **tolera que la tabla no exista** (devuelve `[]` ante `does not exist/relation/not found/schema cache`). **Se usa para las tablas Yjs (`yjs_documents`/`yjs_updates`)**, dropeadas en la Etapa 6 del pivote: los scripts que las leían (`diagram-backup`, `scan-dup-arrows`, `scan-pool-location`, `fix-ghost`, `migrate-comments`) siguen corriendo solo-XML tras el drop. `diagram-restore` hace el mismo best-effort en sus escrituras Yjs (omite si la tabla ya no está). Ver `plan-limpieza-duplicados-y-cierre-pivote.md`.
 - `xmlPoolIds(xml)` — ids de `<participant>` (regex agnóstico al prefijo: `bpmn:` o sin prefijo).
 - `buildDoc(snapshotB64, updatesB64[])` — reconstruye el `Y.Doc` (snapshot + tail del log).
 - `mergedStateB64(doc)` — `Y.encodeStateAsUpdate` en base64 (estado fusionado, para backup/restore exacto).

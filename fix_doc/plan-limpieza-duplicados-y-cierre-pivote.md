@@ -3,7 +3,20 @@
 **Proyecto:** mc-modeler
 **Fecha:** 2026-07-17
 **Base:** `ADR-persistence-source-of-truth.md`, `plan-implementacion-pivote-ADR.md`, `collab-duplicate-arrows-connection-id-divergence.md`, `routing-orthogonal-invariant-and-shape-invasion.md`
-**Estado:** propuesto (pendiente de ejecución)
+**Estado:** en ejecución (actualizado 2026-07-18)
+
+---
+
+## Estado de ejecución (2026-07-18)
+
+| Fase | Estado | Nota |
+|---|---|---|
+| FASE 0 — cerrar el grifo | ✅ fix vivo (`a53241e`) | Gate multiusuario formal lo corre el usuario. |
+| FASE 1 — backup | ✅ | `backups/pre-drop-yjs-2026-07-19T00-50-39-184Z.json` (121 diagramas) archivado. |
+| FASE 2 — limpiar duplicados | ✅ **10/13 limpios**, 3 diferidos | Diferidos por estructura malformada (2 procesos / 1 plano) → la red de verificación bloqueó la escritura (sin corrupción). Los maneja el usuario a mano. Diferidos: `Pruebas` (svargas), `Proceso de Gestión de Translados` suelto (svargas), `Ciclo de Vida` (jhosberynojosa). |
+| FASE 3 — Etapa 6 (drop Yjs) | ✅ **completa** | Borrado `yjsPersistence.ts` + migración `0018_drop_yjs_tables.sql` (`ba23580`). **DROP aplicado en producción 2026-07-18** (migración `20260719014131`): `yjs_documents`/`yjs_updates` eliminadas; 121 diagramas intactos, 0 sin XML. Scripts endurecidos con `fetchAllOptional`. |
+
+**Corrección importante (descubierta 2026-07-18):** `YjsCommentBinding.ts` **NO es código muerto** — lo usa `useCommentSetup.ts` en **modo local** (persistencia de comentarios vía `localforage`, no toca las tablas Supabase `yjs_*`). El plan original lo listaba para borrar en Etapa 6; **se conserva**. Solo `yjsPersistence.ts` era muerto y se borró.
 
 ---
 
@@ -102,13 +115,13 @@ Estado: el fix ya está deployado. Falta verificación formal.
 
 Cierra la arquitectura. No urge (el Yjs congelado no afecta lo que se ve), pero elimina la basura y el riesgo de confusión futura.
 
-1. **Backup final archivado** del estado Yjs (el de FASE 1 sirve; etiquetarlo "pre-drop-yjs" y guardarlo aparte por si se necesita recuperar contenido pre-pivote).
-2. `drop table yjs_updates; drop table yjs_documents;` + quitarlas de publicaciones Realtime / policies.
-3. Borrar código muerto: `src/collab/yjsPersistence.ts`, `src/collab/YjsCommentBinding.ts`; ramas de compat en scripts (`buildDoc`, `yjsMergedState` del backup → el backup pasa a solo-XML + comentarios-en-tablas).
-4. Endurecer `resolveParentOrSkip`: parent no resoluble = **descartar siempre** (§6bis probó que no existen pools solo-en-Yjs). Ajustar `YjsBpmnBinding.guard.test.ts`.
-5. Actualizar docs: `scripts-diagnostico-backup-restore.md`, ADR §6 → estados ✅.
+1. **Backup final archivado** del estado Yjs — ✅ `backups/pre-drop-yjs-2026-07-19T00-50-39-184Z.json` (121 diagramas).
+2. `drop table yjs_updates; drop table yjs_documents;` + quitarlas de publicaciones Realtime / policies — ✅ **aplicado 2026-07-18** (migración `20260719014131 / 0018_drop_yjs_tables`). Pre-flight verificado: 92 docs / 1183 updates, 0 FK, fuera de la publicación realtime. Post-drop: tablas no existen, 121 diagramas intactos, 0 sin XML.
+3. Borrar código muerto: `src/collab/yjsPersistence.ts` — ✅ borrado. **`YjsCommentBinding.ts` NO se borra** (no es muerto: modo local lo usa vía `localforage`; ver corrección arriba). Scripts: **NO** se quitan las ramas de compat (`buildDoc`, `yjsMergedState`) — en su lugar se endurecieron con `fetchAllOptional` (tolera tablas ausentes → devuelve `[]`), así los scripts de diagnóstico/backup siguen funcionando solo-XML tras el drop.
+4. ~~Endurecer `resolveParentOrSkip`~~ — **diferido** (no bloquea el cierre; el candado actual ya descarta parents no resolubles en la práctica). Anotado como deuda menor.
+5. Actualizar docs: `scripts-diagnostico-backup-restore.md`, ADR §6, este plan — ✅ (esta actualización).
 
-**Gate de salida:** app funcionando sin las tablas; suite verde; scan sin regresiones.
+**Gate de salida:** ✅ app funcionando sin las tablas; suite verde (tsc + lint + 148 tests + build); scan sin regresiones; DROP aplicado.
 
 ---
 
@@ -123,4 +136,4 @@ Cierra la arquitectura. No urge (el Yjs congelado no afecta lo que se ve), pero 
 | Duplicado nuevo en multiusuario tras limpiar | 0 | Fix deployado + gate multiusuario antes de limpiar |
 
 ## Resumen en una frase
-El código ya cumple (XML manda, no se persiste Yjs, no se duplica al crear/mover). Falta sanear **datos**: borrar los 534 duplicados de `current_xml` con bpmn-js headless (dry-run + rollout incremental + rollback por-diagrama) y, como cierre, dropear el Yjs congelado (Etapa 6). Sin perder ni un diagrama.
+El código cumple (XML manda, no se persiste Yjs, no se duplica al crear/mover) y los **datos** ya se sanearon: **10/13 diagramas limpios** (3 diferidos por estructura malformada, los maneja el usuario). Cierre de arquitectura (Etapa 6) **completo**: código committeado (`ba23580`) + **DROP de las tablas Yjs aplicado en producción 2026-07-18** (121 diagramas intactos). Sin perder ni un diagrama.

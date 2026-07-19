@@ -144,7 +144,7 @@ Decisiones #1/#4 del ADR, materializadas **sin migración** (prod-safe):
 
 Ver `plan-implementacion-pivote-ADR.md` (plan + estado). Resumen:
 - **Comentarios → tablas** `comment_threads`/`comment_replies` + Realtime (§2a): `SupabaseCommentBinding` + `useComments`; datos migrados (idempotente, UUID v5). Yjs ya no transporta comentarios.
-- **Yjs solo-transporte** (§2c): `useCollab` ya no carga ni persiste estado Yjs — doc vacío por sesión, broadcast en vivo, handshake late-joiner. `yjs_documents`/`yjs_updates` congeladas (drop en limpieza final).
+- **Yjs solo-transporte** (§2c): `useCollab` ya no carga ni persiste estado Yjs — doc vacío por sesión, broadcast en vivo, handshake late-joiner. **Etapa 6 (2026-07-18): ✅ completa** — `yjsPersistence.ts` borrado + `yjs_documents`/`yjs_updates` **dropeadas en producción** (migración `20260719014131 / 0018_drop_yjs_tables`; `ba23580`). 121 diagramas intactos. Backup archivado. Ver `plan-limpieza-duplicados-y-cierre-pivote.md`.
 - **Serialización canónica** (pendiente 4): `normalizeBpmnXml` en import + `forceCanonicalBpmnPrefix` post-import en canvas → un solo dialecto; legacy migra solo al guardar. `looksLikeBpmn` + DOMParser.
 - **Imágenes → Storage** (pendiente 1): bucket privado `diagram-images` (RLS por diagrama), refs `storage://` en XML, inline al exportar, rehome al duplicar. Migración retroactiva: `scripts/migrate-images.mjs` (pendiente de correr con usuarios en pausa).
 - **UI de conflicto** (pendiente 5): doble conflicto CAS → toast persistente con "cargar versión del servidor" / "guardar mi copia como duplicado".
