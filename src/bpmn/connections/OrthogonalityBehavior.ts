@@ -19,7 +19,7 @@
  
 // @ts-ignore
 import CommandInterceptor from 'diagram-js/lib/command/CommandInterceptor'
-import { isOrthogonal, repairChainFromStart, repairChainFromEnd, dockPoint, routeInvades, type Point } from './orthogonal'
+import { isOrthogonal, repairChainFromStart, repairChainFromEnd, dockPoint, routeInvades, isExactOrthogonal, snapOrthogonal, type Point } from './orthogonal'
 import { isManual } from './manualRoute'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -178,7 +178,8 @@ export function OrthogonalityBehavior(this: any, injector: AnyObj, modeling: Any
       if (import.meta.env?.DEV) {
         console.warn('[ortho] invariante violado, reparando', conn.id)
       }
-      modeling.updateWaypoints(conn, wps.map((p: Point) => ({ x: Math.round(p.x), y: Math.round(p.y) })))
+      // Commit en ortogonal EXACTA (enteros, 0px) — garantiza arrastrabilidad.
+      modeling.updateWaypoints(conn, snapOrthogonal(wps))
       if (manualDiscarded && conn.businessObject) {
         modeling.updateModdleProperties(conn, conn.businessObject, { 'flujo:manualRoute': undefined })
       }
@@ -251,21 +252,26 @@ export function OrthogonalityBehavior(this: any, injector: AnyObj, modeling: Any
         }
         continue
       }
-      // Redondeo de floats (residuo del crop por intersección de paths) DENTRO
-      // del comando — antes lo hacía WaypointRounder desde connection.changed,
-      // fuera de comando, contaminando la pila de undo/redo.
+      // Snap a ortogonal EXACTA (enteros, 0px de desalineación) DENTRO del comando.
+      // Garantiza que TODO segmento sea arrastrable: diagram-js exige alineación
+      // (ALIGNED_THRESHOLD) para crear el handle y no abortar el segment-move.
+      // Espejo de SetSolution de Bizagi: los puntos commiteados SON siempre la
+      // solución ortogonal exacta → nunca un segmento "que no se mueve".
+      // Ver fix_doc/routing-orthogonal-invariant-and-shape-invasion.md §5d.
       const wps: AnyObj[] = conn.waypoints
-      const rounded = wps.map((p: AnyObj) => ({
-        x: Math.round(p.x),
-        y: Math.round(p.y),
-        ...(p.original ? { original: { x: Math.round(p.original.x), y: Math.round(p.original.y) } } : {}),
-      }))
-      if (wps.some((p: AnyObj, i: number) => p.x !== rounded[i].x || p.y !== rounded[i].y)) {
-        fixing.add(conn.id)
-        try {
-          modeling.updateWaypoints(conn, rounded)
-        } finally {
-          fixing.delete(conn.id)
+      if (!isExactOrthogonal(wps)) {
+        const snapped: AnyObj[] = snapOrthogonal(wps)
+        // preservar 'original' por índice si no hubo colapso (hint de docking del drag)
+        if (snapped.length === wps.length) {
+          snapped.forEach((p, i) => { if (wps[i].original) p.original = { x: Math.round(wps[i].original.x), y: Math.round(wps[i].original.y) } })
+        }
+        if (snapped.length >= 2) {
+          fixing.add(conn.id)
+          try {
+            modeling.updateWaypoints(conn, snapped)
+          } finally {
+            fixing.delete(conn.id)
+          }
         }
       }
     }

@@ -18,7 +18,7 @@ import BizagiConnectionDocking from './BizagiConnectionDocking'
 import OrthogonalityBehavior from './OrthogonalityBehavior'
 import ManualRouteBehavior from './ManualRouteBehavior'
 import { isManual, markManual } from './manualRoute'
-import { isOrthogonal, routeInvades } from './orthogonal'
+import { isOrthogonal, routeInvades, isExactOrthogonal } from './orthogonal'
 import flujoModdle from '../moddle/flujo.json'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -502,6 +502,37 @@ const GW_DIAGRAM = `<?xml version="1.0" encoding="UTF-8"?>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
 </bpmn:definitions>`
+
+describe('arrastrabilidad: todo segmento queda exacto-ortogonal tras cada operación', () => {
+  it('mover shapes en diagonal deja la ruta exacta-ortogonal (enteros, 0px)', async () => {
+    const { modeling, registry } = await createModeler()
+    modeling.moveShape(registry.get('Task_B'), { x: 137, y: 93 })
+    const fd = registry.get('Flow_AB')
+    expect(isExactOrthogonal(fd.waypoints)).toBe(true)
+  })
+
+  it('updateWaypoints con fracciones y casi-diagonal → se snapea a exacto', async () => {
+    const { modeling, registry } = await createModeler()
+    const flow = registry.get('Flow_AB')
+    modeling.updateWaypoints(flow, [
+      { x: 200.3, y: 140.4 },
+      { x: 300.1, y: 141 },   // ~1px desalineado (casi-horizontal)
+      { x: 300.2, y: 200.6 },
+      { x: 400, y: 200.1 },
+    ], { segmentMove: {} })
+    expect(isExactOrthogonal(flow.waypoints)).toBe(true)
+  })
+
+  it('ruta manual válida queda exacta-ortogonal tras mover el shape', async () => {
+    const { modeling, registry } = await createModeler()
+    const flow = registry.get('Flow_AB')
+    modeling.updateWaypoints(flow, [
+      { x: 200, y: 140 }, { x: 300, y: 140 }, { x: 300, y: 260 }, { x: 400, y: 260 },
+    ], { segmentMove: {} })
+    modeling.moveShape(registry.get('Task_A'), { x: 0, y: 17 })
+    expect(isExactOrthogonal(flow.waypoints)).toBe(true)
+  })
+})
 
 describe('no-invasión de shapes (bug del screenshot)', () => {
   it('mover el target debajo del gateway (solapando x) NO deja la flecha dentro del shape', async () => {
