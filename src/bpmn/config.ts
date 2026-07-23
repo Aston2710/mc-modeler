@@ -28,6 +28,7 @@ import SubProcessInterceptorModule from './elements/SubProcessInterceptorModule'
 import PhaseModule from './elements/PhaseModule'
 import PhaseLabelEditingModule from './elements/PhaseLabelEditingModule'
 import GroupConnectionRulesModule from './elements/GroupConnectionRulesModule'
+import ConnectionEndpointRulesModule from './elements/ConnectionEndpointRulesModule'
 import StickyLaneLabelsModule from './canvas/StickyLaneLabelsModule'
 import CommentContextPadModule from './elements/CommentContextPadModule'
 import ReadOnlyModule from './elements/ReadOnlyModule'
@@ -66,6 +67,7 @@ export const MODELER_CONFIG = {
     PhaseModule,
     PhaseLabelEditingModule,
     GroupConnectionRulesModule,
+    ConnectionEndpointRulesModule,
     StickyLaneLabelsModule,
     CommentContextPadModule,
     ReadOnlyModule,

@@ -20,6 +20,7 @@ import ManualRouteBehavior from './ManualRouteBehavior'
 import { isManual, markManual } from './manualRoute'
 import { isOrthogonal, routeInvades, isExactOrthogonal } from './orthogonal'
 import flujoModdle from '../moddle/flujo.json'
+import { sanitizeBpmnXml, hasNonFiniteCoords } from '../../utils/sanitizeBpmnXml'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any
@@ -617,5 +618,75 @@ describe('self-loops', () => {
       { x: 220, y: 210 },
     ])
     expect(isManual(loop)).toBe(true)
+  })
+})
+
+// Fixture fiel a la corrupción real de "se corrompio, abro ticket":
+// Association cuyo sourceRef apunta a OTRA Association + DI con waypoints NaN.
+const CORRUPT_ASSOC_DIAGRAM = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+    xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+    xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+    id="Defs_corrupt" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:collaboration id="Collab_c">
+    <bpmn:participant id="Part_c" processRef="Process_c" />
+    <bpmn:textAnnotation id="Note_1"><bpmn:text>nota A</bpmn:text></bpmn:textAnnotation>
+    <bpmn:Association id="Assoc_ok" associationDirection="None" sourceRef="Task_c1" targetRef="Note_1" />
+    <bpmn:textAnnotation id="Note_2"><bpmn:text>nota B</bpmn:text></bpmn:textAnnotation>
+    <bpmn:Association id="Assoc_bad" associationDirection="None" sourceRef="Assoc_ok" targetRef="Note_2" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_c" isExecutable="false">
+    <bpmn:task id="Task_c1" name="Modifica" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diag_c">
+    <bpmndi:BPMNPlane id="Plane_c" bpmnElement="Collab_c">
+      <bpmndi:BPMNShape id="Part_c_di" bpmnElement="Part_c" isHorizontal="true">
+        <dc:Bounds x="100" y="100" width="600" height="250" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_c1_di" bpmnElement="Task_c1">
+        <dc:Bounds x="200" y="180" width="90" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Note_1_di" bpmnElement="Note_1">
+        <dc:Bounds x="360" y="120" width="100" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Note_2_di" bpmnElement="Note_2">
+        <dc:Bounds x="2970" y="167" width="100" height="112" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Assoc_ok_di" bpmnElement="Assoc_ok">
+        <di:waypoint x="245" y="180" />
+        <di:waypoint x="360" y="150" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Assoc_bad_di" bpmnElement="Assoc_bad">
+        <di:waypoint x="NaN" y="NaN" />
+        <di:waypoint x="3084" y="NaN" />
+        <di:waypoint x="3020" y="167" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>`
+
+describe('corrupción NaN / Association a conexión (regresión "se corrompio, abro ticket")', () => {
+  it('el XML saneado importa sin lanzar y deja un diagrama usable', async () => {
+    const sane = sanitizeBpmnXml(CORRUPT_ASSOC_DIAGRAM)
+    // saneo esperado: quita la association inválida y su DI, no deja NaN
+    expect(sane.removedConnections).toContain('Assoc_bad')
+    expect(hasNonFiniteCoords(sane.xml)).toBe(false)
+
+    // importar por el engine REAL con la capa de routing no debe lanzar
+    const { modeling, registry } = await createModeler(sane.xml)
+    // la task y la association válida sobreviven; la inválida no
+    expect(registry.get('Task_c1')).toBeTruthy()
+    expect(registry.get('Assoc_ok')).toBeTruthy()
+    expect(registry.get('Assoc_bad')).toBeFalsy()
+
+    // mover la task no lanza y ninguna conexión queda con waypoints NaN
+    expect(() => modeling.moveShape(registry.get('Task_c1'), { x: 40, y: 0 })).not.toThrow()
+    registry.getAll()
+      .filter((el: Any) => Array.isArray(el.waypoints))
+      .forEach((c: Any) => c.waypoints.forEach((p: Any) => {
+        expect(Number.isFinite(p.x)).toBe(true)
+        expect(Number.isFinite(p.y)).toBe(true)
+      }))
   })
 })

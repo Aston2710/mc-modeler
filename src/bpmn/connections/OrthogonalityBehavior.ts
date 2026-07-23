@@ -34,6 +34,23 @@ function isConnection(el: AnyObj): boolean {
   return Array.isArray(el?.waypoints) && !!el.source && !!el.target
 }
 
+// ── Guardas anti-NaN ────────────────────────────────────────────────────────
+// Una Association cuyo extremo es otra conexión (BPMN inválido) no tiene bounds
+// → el docking produce NaN → bpmn-js core lanza al re-rutear y CORROMPE el
+// diagrama de forma persistente. Nunca operar sobre extremos sin bounds ni
+// escribir waypoints no finitos. Ver docs/plan-canvas-y-fix-corrupcion.md.
+function isFinitePt(p: Point): boolean {
+  return Number.isFinite(p?.x) && Number.isFinite(p?.y)
+}
+function allFinite(wps: Point[] | null | undefined): boolean {
+  return Array.isArray(wps) && wps.length >= 2 && wps.every(isFinitePt)
+}
+function endpointsHaveBounds(conn: AnyObj): boolean {
+  const s = conn?.source, t = conn?.target
+  return Number.isFinite(s?.x) && Number.isFinite(s?.width) &&
+         Number.isFinite(t?.x) && Number.isFinite(t?.width)
+}
+
 // Associations (a anotaciones/data) pueden cruzar shapes: se excluyen del
 // chequeo de invasión (igual que en el layouter).
 function isAssociation(conn: AnyObj): boolean {
@@ -98,8 +115,9 @@ export function OrthogonalityBehavior(this: any, injector: AnyObj, modeling: Any
   // que el layouter descarte la forma manual y devuelva la solución fresca ya
   // saneada por ensureClean; si era manual, se limpia el flag en el mismo comando.
   function rerouteClean(conn: AnyObj): void {
+    if (!endpointsHaveBounds(conn)) return
     const wps = layouter.layoutConnection(conn, { source: conn.source, target: conn.target, forceReroute: true })
-    if (wps?.length >= 2) {
+    if (wps?.length >= 2 && allFinite(wps)) {
       modeling.updateWaypoints(conn, round(wps))
       if (isManual(conn) && conn.businessObject) {
         modeling.updateModdleProperties(conn, conn.businessObject, { 'flujo:manualRoute': undefined })
@@ -174,12 +192,13 @@ export function OrthogonalityBehavior(this: any, injector: AnyObj, modeling: Any
       wps = layouter.layoutConnection(conn, { source: src, target: tgt })
     }
 
-    if (wps?.length >= 2) {
+    const snapped = wps?.length >= 2 ? snapOrthogonal(wps) : null
+    if (snapped && allFinite(snapped)) {
       if (import.meta.env?.DEV) {
         console.warn('[ortho] invariante violado, reparando', conn.id)
       }
       // Commit en ortogonal EXACTA (enteros, 0px) — garantiza arrastrabilidad.
-      modeling.updateWaypoints(conn, snapOrthogonal(wps))
+      modeling.updateWaypoints(conn, snapped)
       if (manualDiscarded && conn.businessObject) {
         modeling.updateModdleProperties(conn, conn.businessObject, { 'flujo:manualRoute': undefined })
       }
@@ -243,6 +262,10 @@ export function OrthogonalityBehavior(this: any, injector: AnyObj, modeling: Any
     const connections = collectConnections(event.command, event.context)
     for (const conn of connections) {
       if (fixing.has(conn.id)) continue
+      // Extremo sin bounds (p. ej. Association a otra conexión, BPMN inválido):
+      // el layouter derivaría NaN. No tocar — la regla de conexión impide crear
+      // esto, y el saneo de import descarta su DI.
+      if (!endpointsHaveBounds(conn)) continue
       if (violatesInvariant(conn)) {
         fixing.add(conn.id)
         try {
@@ -265,7 +288,7 @@ export function OrthogonalityBehavior(this: any, injector: AnyObj, modeling: Any
         if (snapped.length === wps.length) {
           snapped.forEach((p, i) => { if (wps[i].original) p.original = { x: Math.round(wps[i].original.x), y: Math.round(wps[i].original.y) } })
         }
-        if (snapped.length >= 2) {
+        if (snapped.length >= 2 && allFinite(snapped)) {
           fixing.add(conn.id)
           try {
             modeling.updateWaypoints(conn, snapped)
