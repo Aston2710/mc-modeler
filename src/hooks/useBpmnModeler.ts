@@ -12,6 +12,7 @@ import { getLinkedDiagram as readLink, setLinkedDiagram as writeLink } from '@/b
 import { getLinkedImages as readImages, addLinkedImage as addImage, removeLinkedImage as removeImage } from '@/bpmn/elements/imageLink'
 import { beginImport, completeImport } from '@/collab/canvasSession'
 import { forceCanonicalBpmnPrefix } from '@/utils/normalizeBpmnXml'
+import { sanitizeBpmnXml, hasNonFiniteCoords } from '@/utils/sanitizeBpmnXml'
 import { isBpmnReadOnly } from '@/bpmn/readOnlyState'
 
 
@@ -265,8 +266,20 @@ export function useBpmnModeler(
     // transición y debe esperar, en vez de asumir que el contenido actual
     // (todavía el diagrama anterior) ya pertenece al nuevo.
     const token = beginImport()
+    // Saneo defensivo: quitar geometría inválida (Associations a conexiones,
+    // waypoints NaN) ANTES de importar, para que bpmn-js core no lance y deje el
+    // modeler compartido roto. Un diagrama ya corrupto abre degradado pero usable
+    // y se auto-repara al guardarse. Ver docs/plan-canvas-y-fix-corrupcion.md.
+    const sane = sanitizeBpmnXml(xml)
+    if (sane.changed) {
+      console.warn('[Flujo] XML saneado antes de importar', {
+        diagramId,
+        removedConnections: sane.removedConnections,
+        strippedEdgeDi: sane.strippedEdgeDi,
+      })
+    }
     try {
-      await modeler.importXML(xml)
+      await modeler.importXML(sane.xml)
     } catch (err) {
       if (modelerRef.current !== modeler) return
       throw err
@@ -292,6 +305,13 @@ export function useBpmnModeler(
     const modeler = modelerRef.current as any
     if (!modeler) throw new Error('Modeler not initialized')
     const { xml } = await modeler.saveXML({ format: true })
+    // Guarda de persistencia: NUNCA devolver XML con coordenadas no finitas. Es
+    // lo que convirtió un glitch transitorio en corrupción durable (el autosave
+    // guardó NaN). Lanzar aquí hace que el autosave reintente y el guardado
+    // manual avise, en vez de persistir basura. Ver docs/plan-canvas-y-fix-corrupcion.md.
+    if (hasNonFiniteCoords(xml as string)) {
+      throw new Error('Coordenadas no finitas (NaN/Infinity) en el diagrama — guardado abortado para no corromper el dato.')
+    }
     return xml as string
   }, [])
 
