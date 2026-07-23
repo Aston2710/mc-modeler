@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Search, Upload, Plus, FileText, Sun, Moon, X, FolderPlus, Folder, Share2, ArrowLeft, Trash2, LogOut, ArrowUpDown, ArrowUp, ArrowDown, Clock, CalendarDays, ArrowDownAZ, Shapes, ImageIcon } from 'lucide-react'
 import { ImageGallery } from '@/components/images/ImageGallery'
+import { Brand } from '@/components/layout/Brand'
 import { useDiagramStore } from '@/store/diagramStore'
 import { useUIStore } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
@@ -106,16 +107,7 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
   return (
     <div className="home">
       <div className="home-toolbar">
-        <button className="brand" onClick={() => {}}>
-          <div className="brand-mark">
-            <svg viewBox="0 0 24 24" fill="none">
-              <circle cx="6" cy="6" r="3" stroke="white" strokeWidth="2" />
-              <path d="M9 6h6M15 6l-3 3M15 6l-3-3" stroke="white" strokeWidth="2" strokeLinecap="round" />
-              <rect x="14" y="9" width="6" height="6" rx="1" stroke="white" strokeWidth="2" />
-            </svg>
-          </div>
-          <span className="brand-name">Flujo<span className="dot">.</span></span>
-        </button>
+        <Brand />
         <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
           / {t('toolbar.myDiagrams')}
         </span>
