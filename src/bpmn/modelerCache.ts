@@ -38,12 +38,9 @@ export interface ModelerEntry {
 export const DEFAULT_MAX_LIVE = 6
 
 /**
- * Flag del cache de instancias (Fase 2).
- *
- * EN LA RAMA tabs-cache: ON por defecto para poder probar el multicanva. Se puede
- * desactivar explícitamente con `localStorage.setItem('flujo:tabsCache','0')`.
- * ANTES DE MERGEAR A MAIN: volver a OFF por defecto (=== '1') hasta cerrar el
- * checkpoint de colaboración con verificación multiusuario en nube.
+ * Flag del cache de instancias (Fase 2). **ON por defecto** (multicanva activo).
+ * `localStorage.setItem('flujo:tabsCache','0')` es el killswitch: vuelve al canvas
+ * único (comportamiento previo) sin redeploy, por si aparece un problema.
  */
 export function isTabsCacheEnabled(): boolean {
   if (typeof localStorage === 'undefined') return false
