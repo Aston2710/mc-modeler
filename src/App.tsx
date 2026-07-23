@@ -20,6 +20,7 @@ import { useExport, type ExportFormat, type PngScale, type PdfOrientation, type 
 import { buildThumbnail, topPoolCrop } from '@/utils/thumbnailUtils'
 import { isCanvasReadyFor } from '@/collab/canvasSession'
 import { setBpmnReadOnly } from '@/bpmn/readOnlyState'
+import { perfStart } from '@/utils/perf'
 
 import { validateDiagram } from '@/domain/validation'
 
@@ -227,20 +228,28 @@ export default function App() {
     const { activeTabId: id } = useDiagramStore.getState()
     const canvas = canvasRef.current
     if (!id || !canvas) return
+    // Mide el camino completo de "mostrar diagrama activo": ensureXml + importXml.
+    const endLoad = perfStart('diagram:load', { diagramId: id })
     // Resetear antes: evita que el evento commandStack.changed de importXML
     // marque el diagrama como "con cambios" al simplemente abrirlo.
     useUIStore.getState().setUnsavedChanges(false)
     // La lista no trae el XML (carga liviana); se pide bajo demanda al abrir.
     void useDiagramStore.getState().ensureXml(id)
       .then((xml) => {
-        if (!xml) return
+        if (!xml) { endLoad({ skipped: true }); return }
         // Si el usuario cambió de pestaña mientras cargaba el XML, no importar el obsoleto.
-        if (useDiagramStore.getState().activeTabId !== id) return
+        if (useDiagramStore.getState().activeTabId !== id) { endLoad({ stale: true }); return }
         return canvas.importXml(xml, id).then(() => {
           // Resetear después también: bpmn-js puede disparar commandStack.changed
           // de forma asíncrona al terminar de procesar el XML.
           useUIStore.getState().setUnsavedChanges(false)
           currentCanvasTabRef.current = id
+          // Cache de pestañas (Fase 2): cada instancia tiene su propia pila de
+          // undo. Al re-adjuntar no hay commandStack.changed, así que refrescamos
+          // el estado de los botones aquí (sin marcar "sin guardar").
+          setCanUndo(canvasRef.current?.canUndo() ?? false)
+          setCanRedo(canvasRef.current?.canRedo() ?? false)
+          endLoad()
         })
       })
       .catch((err: unknown) => {
@@ -310,7 +319,15 @@ export default function App() {
     if (!activeTabId || view !== 'editor' || !isCanvasReadyRef.current) return
     const leaving = currentCanvasTabRef.current
     if (leaving && leaving !== activeTabId) {
-      void persistCanvasTab().then(() => importActiveDiagram())
+      // Camino crítico del cambio de pestaña. Con guardado en background (Fase 1)
+      // el persist solo captura XML+thumbnail (rápido) y devuelve; la escritura
+      // al repositorio corre fuera del camino crítico.
+      // Flag de A/B (solo para medición): localStorage flujo:noBgSave='1' fuerza
+      // el comportamiento previo (guardado esperado) para comparar contra el
+      // background en la MISMA build. En uso normal (flag ausente) va en background.
+      const bg = !(typeof localStorage !== 'undefined' && localStorage.getItem('flujo:noBgSave') === '1')
+      const endSwitch = perfStart('tab:switch', { from: leaving, to: activeTabId })
+      void persistCanvasTab({ background: bg }).then(() => { importActiveDiagram(); endSwitch() })
     } else {
       importActiveDiagram()
     }
@@ -336,7 +353,16 @@ export default function App() {
 
   // Persiste la pestaña que está actualmente en el canvas (antes de cargar otra).
   // El canvas es único; sin esto, cambiar de pestaña descarta los cambios no guardados.
-  const persistCanvasTab = useCallback(async () => {
+  //
+  // background=true (cambio de pestaña): captura XML+thumbnail del canvas que se
+  // deja (rápido, ~15-84ms), deja el XML en el caché en memoria al instante, y
+  // dispara el guardado al repositorio SIN esperarlo — así la red/persistencia
+  // sale del camino crítico del cambio de pestaña. La captura DEBE ocurrir antes
+  // de importar el destino (el canvas es único y cambia de contenido).
+  //
+  // background=false (ir a home / abrir enlace): espera el guardado, porque se
+  // abandona el editor y conviene garantizar durabilidad antes de navegar.
+  const persistCanvasTab = useCallback(async (opts?: { background?: boolean }) => {
     const tabId = currentCanvasTabRef.current
     if (!tabId || !canvasRef.current) return
     if (!useUIStore.getState().unsavedChanges) return
@@ -345,14 +371,35 @@ export default function App() {
     // (o algo dejó currentCanvasTabRef desincronizado), no exportar/guardar —
     // se guardaría contenido que no pertenece a `tabId`.
     if (!isCanvasReadyFor(tabId)) return
+    const endPersist = perfStart('tab:persist', { diagramId: tabId, background: !!opts?.background })
     try {
+      const endExport = perfStart('bpmn:exportXML', { diagramId: tabId })
       const xml = await canvasRef.current.exportXml()
+      endExport({ bytes: xml.length })
+      const endThumb = perfStart('thumbnail:build', { diagramId: tabId })
       const thumbnail = await buildThumbnail(getSvg, getThumbCrop).catch(() => undefined)
-      await saveDiagram(tabId, xml, undefined, thumbnail)
+      endThumb()
+      // Stash en memoria ANTES de disparar el guardado: si el usuario vuelve a
+      // esta pestaña mientras el guardado en background sigue en vuelo, ensureXml
+      // devuelve este XML fresco y no la versión previa del repositorio.
+      useDiagramStore.getState().cacheXml(tabId, xml)
+      const doSave = async () => {
+        const endSave = perfStart('diagram:save', { diagramId: tabId })
+        try { await saveDiagram(tabId, xml, undefined, thumbnail) } finally { endSave() }
+      }
+      if (opts?.background) {
+        // No esperar: el guardado corre serializado en saveChain. Si falla, el
+        // XML sigue en memoria (cacheXml) → no se pierde el trabajo.
+        void doSave().catch((e) => console.warn('[Flujo] guardado en background falló:', e))
+      } else {
+        await doSave()
+      }
       setUnsavedChanges(false)
     } catch (e) {
-      // no bloquear el cambio de pestaña si falla el guardado
+      // no bloquear el cambio de pestaña si falla la captura/guardado
       console.warn('[Flujo] guardado al cambiar de pestaña falló:', e)
+    } finally {
+      endPersist()
     }
   }, [getSvg, getThumbCrop, saveDiagram, setUnsavedChanges])
 

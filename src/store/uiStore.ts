@@ -73,3 +73,9 @@ export const useUIStore = create<UIState>()(
     setImageUploadContext: (ctx) => set((s) => { s.imageUploadContext = ctx }),
   }))
 )
+
+// Solo dev: expone el store para instrumentación de rendimiento (Fase 0). Permite
+// simular "cambios sin guardar" y medir el peor caso del cambio de pestaña.
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  ;(window as unknown as { __uiStore?: typeof useUIStore }).__uiStore = useUIStore
+}

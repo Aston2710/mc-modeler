@@ -32,9 +32,11 @@ function pickAnchor(elements: AnyObj[]): AnyObj | null {
 
 interface Props {
   modelerRef: React.RefObject<AnyObj>
+  // Cache de pestañas (Fase 2): re-vincular a la instancia activa. Flag OFF → 0.
+  activeVersion?: number
 }
 
-export function SelectionCommentTrigger({ modelerRef }: Props) {
+export function SelectionCommentTrigger({ modelerRef, activeVersion = 0 }: Props) {
   const [commentable, setCommentable] = useState<AnyObj[]>([])
 
   // Track selection changes
@@ -58,7 +60,7 @@ export function SelectionCommentTrigger({ modelerRef }: Props) {
         setCommentable([])
       }
     } catch { /* noop */ }
-  }, [modelerRef])
+  }, [modelerRef, activeVersion])
 
   // Mount / remove the bpmn-js overlay whenever commentable list changes
   useEffect(() => {

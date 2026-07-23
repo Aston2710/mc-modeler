@@ -1,6 +1,6 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 // bpmn-js ships CommonJS with incomplete types — cast throughout via any
- 
+
 // @ts-ignore
 import BpmnModeler from 'bpmn-js/lib/Modeler'
 import { useUIStore } from '@/store/uiStore'
@@ -14,6 +14,14 @@ import { beginImport, completeImport } from '@/collab/canvasSession'
 import { forceCanonicalBpmnPrefix } from '@/utils/normalizeBpmnXml'
 import { sanitizeBpmnXml, hasNonFiniteCoords } from '@/utils/sanitizeBpmnXml'
 import { isBpmnReadOnly } from '@/bpmn/readOnlyState'
+import { perfStart } from '@/utils/perf'
+import {
+  isTabsCacheEnabled,
+  getOrCreate as cacheGetOrCreate,
+  attach as cacheAttach,
+  markImported as cacheMarkImported,
+  disposeAll as cacheDisposeAll,
+} from '@/bpmn/modelerCache'
 
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,6 +42,10 @@ export function useBpmnModeler(
   const modelerRef = useRef<any>(null)
   const setZoom = useUIStore((s) => s.setZoom)
   const setSelectedElements = useUIStore((s) => s.setSelectedElements)
+  // Se incrementa cada vez que la instancia ACTIVA cambia (cache de pestañas).
+  // Los sistemas auxiliares (scrollbars, overlays) dependen de esto para
+  // re-vincularse a la nueva instancia. Con el flag OFF nunca cambia tras el 1º.
+  const [activeVersion, setActiveVersion] = useState(0)
 
   const onReadyRef = useRef(options.onReady)
   const onChangedRef = useRef(options.onChanged)
@@ -44,13 +56,12 @@ export function useBpmnModeler(
   onSelectionChangeRef.current = options.onSelectionChange
   onSubProcessOpenRef.current = options.onSubProcessOpen
 
-  useEffect(() => {
-    if (!containerRef.current) return
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const modeler = new BpmnModeler({ container: containerRef.current, ...MODELER_CONFIG }) as any
-    modelerRef.current = modeler
-
+  // Cablea los listeners POR-INSTANCIA (context pad + eventBus) a un modeler.
+  // Se ejecuta una vez por instancia: para la única (flag OFF) o para cada
+  // instancia del cache al crearse (flag ON). Los listeners GLOBALES (teclado,
+  // etc.) se registran aparte, una sola vez, y leen modelerRef.current.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const wireInstance = useCallback((modeler: any) => {
     try {
       const contextPad = modeler.get('contextPad')
       if (contextPad && typeof contextPad.getPad === 'function') {
@@ -111,6 +122,41 @@ export function useBpmnModeler(
     eventBus.on('subProcess.open', (event: AnyObj) => {
       onSubProcessOpenRef.current?.(event.elementId)
     })
+  }, [setZoom, setSelectedElements])
+
+  // Re-tematiza (light/dark) todos los elementos de un modeler forzando redraw.
+  // Se usa al cambiar de tema (observer) y al re-adjuntar una instancia que
+  // estuvo oculta durante un cambio de tema (no recibió el evento).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const applyThemeTo = useCallback((modeler: any) => {
+    if (!modeler) return
+    try {
+      const registry = modeler.get('elementRegistry')
+      const drawingModule = modeler.get('graphicsFactory')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      registry.getAll().forEach((element: any) => {
+        try {
+          const gfx = registry.getGraphics(element)
+          if (gfx) drawingModule.update(element.waypoints ? 'connection' : 'shape', element, gfx)
+        } catch { /* ignorar errores individuales */ }
+      })
+    } catch { /* modeler no listo */ }
+  }, [])
+
+  useEffect(() => {
+    if (!containerRef.current) return
+    const cacheOn = isTabsCacheEnabled()
+
+    // Flag OFF (comportamiento actual): una única instancia ligada al container.
+    // Flag ON: no se crea nada aquí — la primera importXml crea/adjunta la
+    // instancia del cache (por diagrama).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let singleModeler: any = null
+    if (!cacheOn) {
+      singleModeler = new BpmnModeler({ container: containerRef.current, ...MODELER_CONFIG })
+      modelerRef.current = singleModeler
+      wireInstance(singleModeler)
+    }
 
     // Signal that the modeler is ready — callers can now safely call importXml
     onReadyRef.current?.()
@@ -133,11 +179,11 @@ export function useBpmnModeler(
       if (meta && key === 'c') {
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const selection = (modeler as any).get('selection').get()
+          const selection = (modelerRef.current as any)?.get('selection').get()
           if (selection && selection.length > 0) {
             e.preventDefault()
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ;(modeler as any).get('editorActions').trigger('copy')
+            ;(modelerRef.current as any)?.get('editorActions').trigger('copy')
           }
         } catch { /* ignore */ }
         return
@@ -148,7 +194,7 @@ export function useBpmnModeler(
         try {
           e.preventDefault()
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ;(modeler as any).get('editorActions').trigger('paste')
+          ;(modelerRef.current as any)?.get('editorActions').trigger('paste')
         } catch { /* ignore */ }
         return
       }
@@ -162,11 +208,11 @@ export function useBpmnModeler(
       if (e.key === 'Delete' || e.key === 'Backspace') {
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const selection = (modeler as any).get('selection').get()
+          const selection = (modelerRef.current as any)?.get('selection').get()
           if (selection && selection.length > 0) {
             e.preventDefault()
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ;(modeler as any).get('editorActions').trigger('removeSelection')
+            ;(modelerRef.current as any)?.get('editorActions').trigger('removeSelection')
           }
         } catch {
           // modeler may be unmounting or editorActions not available
@@ -174,12 +220,12 @@ export function useBpmnModeler(
       } else if (e.key.startsWith('Arrow')) {
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const selection = (modeler as any).get('selection').get()
+          const selection = (modelerRef.current as any)?.get('selection').get()
           if (selection && selection.length > 0) {
             e.preventDefault()
             const direction = e.key.replace('Arrow', '').toLowerCase()
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ;(modeler as any).get('editorActions').trigger('moveSelection', {
+            ;(modelerRef.current as any)?.get('editorActions').trigger('moveSelection', {
               direction,
               accelerated: e.shiftKey || e.ctrlKey || e.metaKey
             })
@@ -211,34 +257,8 @@ export function useBpmnModeler(
 
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
-        if (
-          mutation.type === 'attributes' &&
-          mutation.attributeName === 'data-theme' &&
-          modelerRef.current
-        ) {
-          try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const m = modelerRef.current as any
-            const registry = m.get('elementRegistry')
-            const drawingModule = m.get('graphicsFactory')
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            registry.getAll().forEach((element: any) => {
-              try {
-                const gfx = registry.getGraphics(element)
-                if (gfx) {
-                  drawingModule.update(
-                    element.waypoints ? 'connection' : 'shape',
-                    element,
-                    gfx
-                  )
-                }
-              } catch {
-                // ignorar errores individuales de elementos
-              }
-            })
-          } catch {
-            // modeler no listo aún
-          }
+        if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+          applyThemeTo(modelerRef.current)
         }
       }
     })
@@ -250,13 +270,65 @@ export function useBpmnModeler(
       window.removeEventListener('contextmenu', handleContextMenu, true)
       window.removeEventListener('focus', handleFocus, true)
       observer.disconnect()
-      modeler.destroy()
+      // Flag ON: destruir TODAS las instancias del cache (salir del editor =
+      // cerrar todas las pestañas, patrón Camunda/Bizagi). Flag OFF: destruir
+      // la única instancia.
+      if (cacheOn) cacheDisposeAll()
+      else singleModeler?.destroy()
       modelerRef.current = null
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerRef])
+  }, [containerRef, wireInstance, applyThemeTo])
 
   const importXml = useCallback(async (xml: string, diagramId: string) => {
+    // ── Flag ON: cache de instancias por diagrama (Fase 2) ──
+    // App llama importXml en cada cambio de pestaña. Con el cache: la 1ª vez por
+    // diagrama se crea instancia + importa; las siguientes solo se re-adjunta la
+    // instancia viva (conserva render/zoom/selección/undo) — SIN re-importar,
+    // que es el bloqueo de segundos que queremos eliminar.
+    if (isTabsCacheEnabled()) {
+      const container = containerRef.current
+      if (!container) return
+      const { entry, isNew } = cacheGetOrCreate(diagramId)
+      if (isNew) wireInstance(entry.modeler)
+      modelerRef.current = entry.modeler
+      cacheAttach(diagramId, container)
+      // Señal a los auxiliares (scrollbars/overlays) de que la instancia activa
+      // cambió → se re-vinculan a esta.
+      setActiveVersion((v) => v + 1)
+      if (entry.imported) {
+        // Ya renderizado: solo re-adjuntado. Señalar canvas listo (fencing) sin
+        // importar ni re-encuadrar (preservamos la vista previa del usuario).
+        const token = beginImport()
+        completeImport(token, diagramId)
+        // Re-tematizar: esta instancia pudo estar oculta durante un cambio de
+        // tema y no recibió el evento del observer.
+        applyThemeTo(entry.modeler)
+        perfStart('bpmn:reattach', { diagramId })()
+        return
+      }
+      // Saneo defensivo antes de importar (ver docs/plan-canvas-y-fix-corrupcion.md).
+      const sane = sanitizeBpmnXml(xml)
+      if (sane.changed) {
+        console.warn('[Flujo] XML saneado antes de importar', {
+          diagramId, removedConnections: sane.removedConnections, strippedEdgeDi: sane.strippedEdgeDi,
+        })
+      }
+      const token = beginImport()
+      const endImport = perfStart('bpmn:importXML', { diagramId, bytes: sane.xml.length, cache: true })
+      try {
+        await entry.modeler.importXML(sane.xml)
+      } finally {
+        endImport()
+      }
+      if (modelerRef.current !== entry.modeler) return // cambió de pestaña mientras importaba
+      try { forceCanonicalBpmnPrefix(entry.modeler.getDefinitions()) } catch { /* noop */ }
+      cacheMarkImported(diagramId)
+      completeImport(token, diagramId)
+      try { entry.modeler.get('canvas').zoom('fit-viewport', 'all') } catch { /* noop */ }
+      return
+    }
+
+    // ── Flag OFF: comportamiento actual (instancia única, siempre re-importa) ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const modeler = modelerRef.current as any
     if (!modeler) return
@@ -265,24 +337,25 @@ export function useBpmnModeler(
     // guardado) que consulte isCanvasReadyFor() sabe que el canvas está en
     // transición y debe esperar, en vez de asumir que el contenido actual
     // (todavía el diagrama anterior) ya pertenece al nuevo.
-    const token = beginImport()
     // Saneo defensivo: quitar geometría inválida (Associations a conexiones,
     // waypoints NaN) ANTES de importar, para que bpmn-js core no lance y deje el
-    // modeler compartido roto. Un diagrama ya corrupto abre degradado pero usable
-    // y se auto-repara al guardarse. Ver docs/plan-canvas-y-fix-corrupcion.md.
+    // modeler roto. Un diagrama ya corrupto abre degradado pero usable y se
+    // auto-repara al guardarse. Ver docs/plan-canvas-y-fix-corrupcion.md.
     const sane = sanitizeBpmnXml(xml)
     if (sane.changed) {
       console.warn('[Flujo] XML saneado antes de importar', {
-        diagramId,
-        removedConnections: sane.removedConnections,
-        strippedEdgeDi: sane.strippedEdgeDi,
+        diagramId, removedConnections: sane.removedConnections, strippedEdgeDi: sane.strippedEdgeDi,
       })
     }
+    const token = beginImport()
+    const endImport = perfStart('bpmn:importXML', { diagramId, bytes: sane.xml.length })
     try {
       await modeler.importXML(sane.xml)
     } catch (err) {
       if (modelerRef.current !== modeler) return
       throw err
+    } finally {
+      endImport()
     }
     if (modelerRef.current !== modeler) return
     // Serialización canónica (ADR §6.4): bpmn-js preserva el dialecto del XML
@@ -298,7 +371,7 @@ export function useBpmnModeler(
     } catch {
       // empty canvas — nothing to fit
     }
-  }, [])
+  }, [containerRef, wireInstance, applyThemeTo])
 
   const exportXml = useCallback(async (): Promise<string> => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -419,7 +492,7 @@ export function useBpmnModeler(
 
       let shape
       if (bpmnType === 'bpmn:Participant') {
-         
+
         const processBO = m.get('bpmnFactory').create('bpmn:Process', { isExecutable: false })
         shape = m.get('elementFactory').createShape({
           type: 'bpmn:Participant',
@@ -505,6 +578,7 @@ export function useBpmnModeler(
 
   return {
     modelerRef,
+    activeVersion,
     importXml,
     exportXml,
     exportSvg,

@@ -15,7 +15,9 @@ import { isCanvasReadyFor } from '@/collab/canvasSession'
  */
 export function useCommentSetup(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  modelerRef: React.RefObject<any>
+  modelerRef: React.RefObject<any>,
+  // Cache de pestañas (Fase 2): re-adjuntar el binding a la instancia activa.
+  activeVersion = 0
 ) {
   const activeTabId = useDiagramStore((s) => s.activeTabId)
   const user = useAuthStore((s) => s.user)
@@ -67,5 +69,5 @@ export function useCommentSetup(
       doc.destroy()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTabId, isCollabMode])
+  }, [activeTabId, isCollabMode, activeVersion])
 }
