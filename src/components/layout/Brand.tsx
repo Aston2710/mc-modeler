@@ -17,7 +17,7 @@ export function Brand({ onClick }: BrandProps) {
           <rect x="14" y="9" width="6" height="6" rx="1" stroke="white" strokeWidth="2" />
         </svg>
       </div>
-      <span className="brand-name">Modeler<span className="dot">.</span></span>
+      <span className="brand-name">Modeler</span>
     </button>
   )
 }
