@@ -114,6 +114,24 @@ Todos los behaviors son `CommandInterceptor` (requieren `X.prototype = Object.cr
 
 ---
 
+## 5d. Arrastrabilidad garantizada: snap a ortogonal EXACTA en el commit (mirror de Bizagi)
+
+**Síntoma:** a veces un segmento del MEDIO de una flecha no se podía arrastrar; tras otras operaciones, el mismo segmento sí. Intermitente y auto-curable.
+
+**Causa (diagram-js):** un segmento solo es arrastrable si está alineado al eje dentro de `ALIGNED_THRESHOLD = 2px`. Dos compuertas usan `pointsAligned`: `createSegmentDraggers` (no crea handle si no está alineado) y `ConnectionSegmentMove.start` (`if (!pointsAligned) return` — aborta en silencio, "do not move diagonal connection"). Un segmento transitoriamente torcido (>2px, o >1px que nuestro invariante toleraba) → sin handle + move abortado → "no hace nada". Se curaba porque el siguiente comando re-layouteaba a ortogonal.
+
+**Cómo lo maneja Bizagi** (`.syntesis/Router/findings.md` §9,§14,§16): NO lo maneja como caso — lo hace imposible. Los puntos del conector SON siempre la solución ortogonal del router (`isSolutionValid` rechaza diagonales), y crea **un handle por segmento** (`CreateHandles`, tipado LeftRight/UpDown) regenerado en cada `Route()`. Nunca hay segmento no-ortogonal ni sin handle. Previene el estado, no lo parchea.
+
+**Fix (opción A) — endurecer el invariante de "≤1px" a EXACTO (0px, entero):** primitivas puras en `orthogonal.ts`:
+- `isExactOrthogonal(wps)` — todos los puntos enteros y cada segmento 0px alineado.
+- `snapOrthogonal(wps)` — redondea a enteros + alinea cada segmento al eje dominante (propaga hacia adelante) + colapsa degenerados. La entrada ya viene casi-ortogonal (≤tol) → solo elimina residuos, no reforma.
+
+Aplicado en el commit de `OrthogonalityBehavior` (el único choke point de todo comando de conexión): tras cada comando, si `!isExactOrthogonal(wps)` → `snapOrthogonal` + `updateWaypoints` (rama barata); el `repair()` también commitea con `snapOrthogonal`. Resultado: **toda ruta commiteada es ortogonal exacta entera** → la compuerta de diagram-js siempre pasa → todo segmento siempre tiene handle y siempre se arrastra. Es la garantía de `SetSolution` de Bizagi aplicada a nuestro modelo, **sin sacrificar la libertad manual** (se snapea la forma del usuario a exacta, no se re-rutea) ni pelear con diagram-js.
+
+Descartadas: (B) bajar/quitar la compuerta de 2px → pelea con la librería y permitiría arrastrar diagonales; (C) mirror completo (re-rutear todo en cada cambio, como Bizagi) → mataría la libertad manual que elegimos.
+
+Tests: `orthogonal.test.ts` (isExactOrthogonal/snapOrthogonal) + `routing.integration.test.ts` (tras mover/updateWaypoints/mover-con-manual, `isExactOrthogonal(waypoints)` es true).
+
 ## 5b. Optimización de cara al mover un shape (ruta corta, no sobrepaso)
 
 **Síntoma relacionado:** mover un shape a otro lado del recorrido dejaba la flecha entrando por la cara **lejana** (p. ej. rodeando el shape para entrar por la derecha cuando la izquierda era la más corta). No es invasión (la ruta es limpia), solo sub-óptima — por eso las Capas 2/3 no la tocan (solo disparan ante invasión/diagonal; la optimalidad no es un invariante para no arriesgar churn/ping-pong Yjs).
@@ -121,6 +139,19 @@ Todos los behaviors son `CommandInterceptor` (requieren `X.prototype = Object.cr
 **Causa:** misma familia que el bug de invasión. Para conexiones auto, al mover un shape el layouter hereda (a) la **cara del hint viejo** (`nearestFace(tgt, dockViejo+delta)`) y (b) la **forma vieja** (reuso de `existingWaypoints`, que el router solo "repara"). Nada recomputa "¿cuál cardinal es el más corto ahora?".
 
 **Fix** (`BizagiLayouter.layoutConnection`, cierre de la rama auto): al haber hint de movimiento se calcula también la ruta **geométrica fresca** (caras `sGeo`/`tGeo` desde la posición actual, sin reusar waypoints) y se prefiere **solo si es estrictamente más simple** — métrica `routeCost` = longitud Manhattan + 20px por codo. Como la conexión es auto no hay preferencia de lado del usuario que respetar (el arrastre manual va por la otra rama). Se excluyen message flows y boundary events (tienen su propia lógica de cara) y los pares con ≥2 paralelas (perderían su separación ±10px, que sí trae la ruta preservada). Reutiliza `computeRoute`/`isClean`/caras geométricas de la Capa 2 — sin arquitectura nueva.
+
+## 5c. Prioridad a la ruta manual del usuario (relajación de §14)
+
+**Síntoma:** al modelar diagramas reales (flechas largas cruzando carriles), las rutas dibujadas a mano "volvían al inicio" al mover cualquier shape, y el botón fix no ayudaba. El arreglo automático se sentía intrusivo.
+
+**Causa dominante:** el criterio de simplicidad de §14 — conservar la ruta reparada solo si `repaired.length <= fresh.length`. Una ruta manual larga SIEMPRE tiene más codos que la canónica → la condición fallaba → se descartaba la edición del usuario. Contribuían además: (b) el handler de segmento re-anclaba el extremo gateway/grupo en **cada frame** aunque arrastraras un segmento lejano (peleaba la parte cercana al gateway); (c) la Capa 4 re-ruteaba también rutas manuales de terceros al plantarles un shape encima.
+
+**Fix (decisión de producto):** la ruta manual del usuario tiene **prioridad**; el arreglo automático solo actúa cuando la ruta es **inválida**. "Inválida" = no ortogonal, extremos desanclados, o metida dentro de su propio src/tgt. Se eliminó el criterio de longitud y el chequeo de cruce con obstáculos de terceros del "keep-decision" de rutas manuales.
+- `BizagiLayouter` rama manual: `if (valid) return repaired` — sin `≤ fresh` ni obstáculos. Válida = ortogonal + anclada + (no-assoc) no invade src/tgt.
+- `BizagiSegmentHandles`: re-dock del extremo gateway/grupo **solo** cuando se arrastra su segmento adyacente (`segmentStartIndex===0` / `segmentEndIndex===last`).
+- `OrthogonalityBehavior` Capa 4: exime conexiones **manuales** (solo autos se apartan). `repair()` manual: descarta la forma solo si tras reparar sigue no-ortogonal o invadiendo src/tgt.
+
+**Trade-off:** el diagrama puede acumular rutas manuales subóptimas — pero son las que el usuario dibujó a propósito. La garantía de **no-invasión de src/tgt** y de **ortogonalidad** se mantiene (esas sí se auto-corrigen). El botón "fix" (`forceReroute`) sigue disponible para re-canonizar a voluntad. Cambio de semántica respecto a §14 estricto, elegido explícitamente ("la ruta manual del usuario tiene prioridad; solo cuando algo es inválido se hace la ruta automática").
 
 ## 6. Efectos secundarios / limitaciones conocidas
 

@@ -42,6 +42,53 @@ export function firstDiagonalIndex(wps: readonly Point[] | null | undefined, tol
   return -1
 }
 
+/**
+ * true si TODOS los segmentos están perfectamente alineados (0px) y con
+ * coordenadas ENTERAS. Es la garantía que diagram-js exige para que un segmento
+ * sea arrastrable (ALIGNED_THRESHOLD=2, pero exigimos exacto para no depender
+ * de la tolerancia). Espejo de la garantía de Bizagi (los puntos SON la solución
+ * ortogonal). Ver fix_doc/routing-orthogonal-invariant-and-shape-invasion.md §5d.
+ */
+export function isExactOrthogonal(wps: readonly Point[] | null | undefined): boolean {
+  if (!wps || wps.length < 2) return true
+  for (const p of wps) {
+    if (!Number.isInteger(p.x) || !Number.isInteger(p.y)) return false
+  }
+  for (let i = 1; i < wps.length; i++) {
+    if (wps[i].x !== wps[i - 1].x && wps[i].y !== wps[i - 1].y) return false
+  }
+  return true
+}
+
+/**
+ * Snap a ortogonal EXACTA con coordenadas enteras: redondea todos los puntos y
+ * alinea cada segmento al eje dominante (el delta menor se colapsa a 0),
+ * propagando hacia adelante. La entrada ya viene "casi ortogonal" (≤tol del
+ * invariante), así que esto solo elimina residuos sub-píxel y fracciones — no
+ * reforma la ruta. Colapsa puntos degenerados al final.
+ *
+ * Garantiza: `isExactOrthogonal(snapOrthogonal(wps)) === true` (mientras la
+ * entrada sea ya casi-ortogonal, ≤ tol). Devuelve un array nuevo.
+ */
+export function snapOrthogonal(wps: readonly Point[] | null | undefined, tol = TOL): Point[] {
+  if (!wps || wps.length < 2) return wps ? wps.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })) : []
+  const out = wps.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) }))
+  // Alinear cada segmento propagando hacia adelante: el primer punto es ancla;
+  // para cada siguiente, si el segmento es casi-horizontal o casi-vertical,
+  // forzar la coordenada compartida al valor del punto previo (0px exacto).
+  for (let i = 1; i < out.length; i++) {
+    const a = out[i - 1], b = out[i]
+    const dx = Math.abs(b.x - a.x), dy = Math.abs(b.y - a.y)
+    if (dx === 0 || dy === 0) continue // ya alineado
+    // dentro de tolerancia en un eje → colapsar ese eje al del ancla
+    if (dx <= tol && dy > tol) b.x = a.x        // casi-vertical → misma x
+    else if (dy <= tol && dx > tol) b.y = a.y   // casi-horizontal → misma y
+    else if (dx <= dy) b.x = a.x                // diagonal residual: colapsa el eje menor
+    else b.y = a.y
+  }
+  return collapseColinear(out, 0)
+}
+
 /** Elimina puntos colineales y duplicados. Devuelve un array nuevo. */
 export function collapseColinear(wps: readonly Point[], tol = TOL): Point[] {
   const out = wps.map(p => ({ x: p.x, y: p.y }))

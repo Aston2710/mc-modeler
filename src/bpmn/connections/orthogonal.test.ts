@@ -11,6 +11,8 @@ import {
   pointInRectInterior,
   segmentClipsRect,
   routeInvades,
+  isExactOrthogonal,
+  snapOrthogonal,
   type Point,
 } from './orthogonal'
 
@@ -145,6 +147,43 @@ describe('gatewayVertexDock', () => {
     const d = gatewayVertexDock(gw, { x: 52, y: 120 }, 'right')
     expect(d.face).toBe('bottom')
     expect(d).toMatchObject({ x: 25, y: 50 })
+  })
+})
+
+describe('isExactOrthogonal / snapOrthogonal (arrastrabilidad garantizada)', () => {
+  it('isExactOrthogonal: exige enteros y 0px de desalineación', () => {
+    expect(isExactOrthogonal([{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 80 }])).toBe(true)
+    expect(isExactOrthogonal([{ x: 0, y: 0 }, { x: 100, y: 0.4 }])).toBe(false) // 0.4px desalineado
+    expect(isExactOrthogonal([{ x: 0, y: 0.5 }, { x: 0, y: 80 }])).toBe(false)  // fracción
+    expect(isExactOrthogonal([{ x: 0, y: 0 }, { x: 50, y: 40 }])).toBe(false)   // diagonal
+  })
+
+  it('snapOrthogonal: residuo sub-píxel → exacto ortogonal entero', () => {
+    const wps = [{ x: 0, y: 0.3 }, { x: 100.2, y: 0.7 }, { x: 100.1, y: 80.4 }]
+    const out = snapOrthogonal(wps)
+    expect(isExactOrthogonal(out)).toBe(true)
+    expect(out).toEqual([{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 80 }])
+  })
+
+  it('snapOrthogonal: no reforma una ruta ya ortogonal entera', () => {
+    const wps = [{ x: 10, y: 10 }, { x: 200, y: 10 }, { x: 200, y: 300 }]
+    expect(snapOrthogonal(wps)).toEqual(wps)
+    expect(isExactOrthogonal(wps)).toBe(true)
+  })
+
+  it('snapOrthogonal: colapsa segmento degenerado (ambos ejes ≤tol)', () => {
+    const wps = [{ x: 0, y: 0 }, { x: 0.4, y: 0.3 }, { x: 0, y: 80 }]
+    const out = snapOrthogonal(wps)
+    expect(isExactOrthogonal(out)).toBe(true)
+  })
+
+  it('snapOrthogonal: ruta larga multi-codo casi-ortogonal → todos los segmentos alineados', () => {
+    const wps = [
+      { x: 0, y: 0.2 }, { x: 60.1, y: 0.1 }, { x: 60.3, y: 40.4 },
+      { x: 120.2, y: 40.1 }, { x: 120.1, y: 100.3 },
+    ]
+    const out = snapOrthogonal(wps)
+    expect(isExactOrthogonal(out)).toBe(true)
   })
 })
 

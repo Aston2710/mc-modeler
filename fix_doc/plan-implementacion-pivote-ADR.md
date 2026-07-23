@@ -115,7 +115,7 @@ Comportamiento:
 Cambios en archivos existentes:
 - `src/store/commentStore.ts` — sin cambios estructurales (la interfaz ya es agnóstica). `createdAt: number` ↔ `timestamptz`: convertir en el binding.
 - `src/hooks/useCollab.ts` — quitar `YjsCommentBinding`; instanciar `SupabaseCommentBinding` (o mover a `useComments`).
-- `src/collab/YjsCommentBinding.ts` — se borra en Etapa 6 (mantener mientras exista el script de migración por referencia).
+- `src/collab/YjsCommentBinding.ts` — ~~se borra en Etapa 6~~ **CORRECCIÓN (2026-07-18): NO se borra.** Resultó NO ser código muerto: `useCommentSetup.ts` lo usa en **modo local** para persistir comentarios vía `localforage` (no toca las tablas Supabase `yjs_*`). Se conserva.
 
 ### 1.3 Migración de datos (script local, service_role)
 
@@ -239,11 +239,13 @@ Hoy (`diagramStore.saveDiagram`): doble conflicto CAS → acepta el estado del o
 
 ## Etapa 6 — Limpieza final (tras ≥2 semanas estables post-pivote)
 
-1. Backup final del estado Yjs (`diagram-backup.mjs create -m "pre-drop-yjs"`) → archivar.
-2. `drop table yjs_updates; drop table yjs_documents;` (+ quitar de publicaciones/policies).
-3. Borrar código muerto: `src/collab/yjsPersistence.ts`, `src/collab/YjsCommentBinding.ts`, ramas de compat en scripts (`buildDoc`, `yjsMergedState` en backup — el backup pasa a solo-XML+comentarios-en-tablas).
-4. Simplificar `resolveParentOrSkip`: el caso "canvas sin pools → permitir parent no resoluble" existía para diagramas con pool solo-en-Yjs; §6bis demostró que no existen → **parent no resoluble = descartar siempre** (candado más duro). Ajustar `YjsBpmnBinding.guard.test.ts`.
-5. Actualizar docs: `scripts-diagnostico-backup-restore.md` (scan pierde la columna POOL-YJS; taxonomía se reduce), ADR §6 → estados ✅.
+> **Estado (2026-07-18): ✅ completa.** Código committeado (`ba23580`) + **DROP aplicado en producción** (migración `20260719014131`). Detalle de ejecución en `plan-limpieza-duplicados-y-cierre-pivote.md`.
+
+1. Backup final del estado Yjs (`diagram-backup.mjs create -m "pre-drop-yjs"`) → archivar — ✅ `backups/pre-drop-yjs-2026-07-19T00-50-39-184Z.json`.
+2. `drop table yjs_updates; drop table yjs_documents;` (+ quitar de publicaciones/policies) — ✅ **aplicado 2026-07-18** (`20260719014131 / 0018_drop_yjs_tables`). Post-drop: tablas no existen, 121 diagramas intactos, 0 sin XML.
+3. Borrar código muerto: `src/collab/yjsPersistence.ts` ✅ borrado. **`src/collab/YjsCommentBinding.ts` NO** (no es muerto — modo local vía `localforage`; ver corrección en Etapa 1). Scripts: ramas de compat (`buildDoc`, `yjsMergedState`) **se conservan**, endurecidas con `fetchAllOptional` (tolera tablas ausentes).
+4. ~~Simplificar `resolveParentOrSkip`~~ — **diferido** (deuda menor; no bloquea el cierre).
+5. Actualizar docs: `scripts-diagnostico-backup-restore.md`, ADR §6, `plan-limpieza-...md` → ✅ (2026-07-18).
 
 ---
 

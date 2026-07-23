@@ -14,6 +14,8 @@ import GroupMoveModule from './elements/GroupMoveModule'
 import LassoIntersectionModule from './canvas/LassoIntersectionModule'
 import LaneDropModule from './elements/LaneDropModule'
 import ImageContextPadModule from './elements/ImageContextPadModule'
+import ImageLinkContextPadModule from './elements/ImageLinkContextPadModule'
+import ImageBadgeModule from './elements/ImageBadgeModule'
 import DataObjectContextPadModule from './elements/DataObjectContextPadModule'
 import BizagiLayouter from './connections/BizagiLayouter'
 import BizagiConnectionDocking from './connections/BizagiConnectionDocking'
@@ -26,6 +28,7 @@ import SubProcessInterceptorModule from './elements/SubProcessInterceptorModule'
 import PhaseModule from './elements/PhaseModule'
 import PhaseLabelEditingModule from './elements/PhaseLabelEditingModule'
 import GroupConnectionRulesModule from './elements/GroupConnectionRulesModule'
+import ConnectionEndpointRulesModule from './elements/ConnectionEndpointRulesModule'
 import StickyLaneLabelsModule from './canvas/StickyLaneLabelsModule'
 import CommentContextPadModule from './elements/CommentContextPadModule'
 import ReadOnlyModule from './elements/ReadOnlyModule'
@@ -55,6 +58,8 @@ export const MODELER_CONFIG = {
     LassoIntersectionModule,
     LaneDropModule,
     ImageContextPadModule,
+    ImageLinkContextPadModule,
+    ImageBadgeModule,
     DataObjectContextPadModule,
     ConnectionEndpointCirclesModule,
     ConnectionContextPadModule,
@@ -62,6 +67,7 @@ export const MODELER_CONFIG = {
     PhaseModule,
     PhaseLabelEditingModule,
     GroupConnectionRulesModule,
+    ConnectionEndpointRulesModule,
     StickyLaneLabelsModule,
     CommentContextPadModule,
     ReadOnlyModule,

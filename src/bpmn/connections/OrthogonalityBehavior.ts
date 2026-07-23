@@ -19,7 +19,7 @@
  
 // @ts-ignore
 import CommandInterceptor from 'diagram-js/lib/command/CommandInterceptor'
-import { isOrthogonal, repairChainFromStart, repairChainFromEnd, dockPoint, routeInvades, type Point } from './orthogonal'
+import { isOrthogonal, repairChainFromStart, repairChainFromEnd, dockPoint, routeInvades, isExactOrthogonal, snapOrthogonal, type Point } from './orthogonal'
 import { isManual } from './manualRoute'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,6 +32,23 @@ function isGateway(el: AnyObj): boolean {
 
 function isConnection(el: AnyObj): boolean {
   return Array.isArray(el?.waypoints) && !!el.source && !!el.target
+}
+
+// ── Guardas anti-NaN ────────────────────────────────────────────────────────
+// Una Association cuyo extremo es otra conexión (BPMN inválido) no tiene bounds
+// → el docking produce NaN → bpmn-js core lanza al re-rutear y CORROMPE el
+// diagrama de forma persistente. Nunca operar sobre extremos sin bounds ni
+// escribir waypoints no finitos. Ver docs/plan-canvas-y-fix-corrupcion.md.
+function isFinitePt(p: Point): boolean {
+  return Number.isFinite(p?.x) && Number.isFinite(p?.y)
+}
+function allFinite(wps: Point[] | null | undefined): boolean {
+  return Array.isArray(wps) && wps.length >= 2 && wps.every(isFinitePt)
+}
+function endpointsHaveBounds(conn: AnyObj): boolean {
+  const s = conn?.source, t = conn?.target
+  return Number.isFinite(s?.x) && Number.isFinite(s?.width) &&
+         Number.isFinite(t?.x) && Number.isFinite(t?.width)
 }
 
 // Associations (a anotaciones/data) pueden cruzar shapes: se excluyen del
@@ -98,8 +115,9 @@ export function OrthogonalityBehavior(this: any, injector: AnyObj, modeling: Any
   // que el layouter descarte la forma manual y devuelva la solución fresca ya
   // saneada por ensureClean; si era manual, se limpia el flag en el mismo comando.
   function rerouteClean(conn: AnyObj): void {
+    if (!endpointsHaveBounds(conn)) return
     const wps = layouter.layoutConnection(conn, { source: conn.source, target: conn.target, forceReroute: true })
-    if (wps?.length >= 2) {
+    if (wps?.length >= 2 && allFinite(wps)) {
       modeling.updateWaypoints(conn, round(wps))
       if (isManual(conn) && conn.businessObject) {
         modeling.updateModdleProperties(conn, conn.businessObject, { 'flujo:manualRoute': undefined })
@@ -162,9 +180,10 @@ export function OrthogonalityBehavior(this: any, injector: AnyObj, modeling: Any
       const tAnchor = touchesShape(tgt, wps[wps.length - 1]) ? wps[wps.length - 1] : (wps[wps.length - 2] ?? wps[0])
       const tDock = dockPoint(tgt, tAnchor, isGateway(tgt) ? 'gateway' : 'rect')
       wps = repairChainFromEnd(wps, tDock, tDock.face)
-      if (!isOrthogonal(wps)) {
-        // la reparación en cadena no bastó → ruta fresca; la edición manual
-        // ya no tiene sentido geométrico
+      // Solo se descarta la forma manual cuando la reparación no logra una ruta
+      // VÁLIDA (queda diagonal o metida dentro de un extremo). Mientras sea
+      // ortogonal y no invada src/tgt, la edición del usuario se respeta.
+      if (!isOrthogonal(wps) || routeInvades(wps, src) || routeInvades(wps, tgt)) {
         wps = layouter.layoutConnection(conn, { source: src, target: tgt, forceReroute: true })
         manualDiscarded = true
       }
@@ -173,11 +192,13 @@ export function OrthogonalityBehavior(this: any, injector: AnyObj, modeling: Any
       wps = layouter.layoutConnection(conn, { source: src, target: tgt })
     }
 
-    if (wps?.length >= 2) {
+    const snapped = wps?.length >= 2 ? snapOrthogonal(wps) : null
+    if (snapped && allFinite(snapped)) {
       if (import.meta.env?.DEV) {
         console.warn('[ortho] invariante violado, reparando', conn.id)
       }
-      modeling.updateWaypoints(conn, wps.map((p: Point) => ({ x: Math.round(p.x), y: Math.round(p.y) })))
+      // Commit en ortogonal EXACTA (enteros, 0px) — garantiza arrastrabilidad.
+      modeling.updateWaypoints(conn, snapped)
       if (manualDiscarded && conn.businessObject) {
         modeling.updateModdleProperties(conn, conn.businessObject, { 'flujo:manualRoute': undefined })
       }
@@ -219,7 +240,10 @@ export function OrthogonalityBehavior(this: any, injector: AnyObj, modeling: Any
     if (!movedRects.length) return
 
     elementRegistry.forEach((conn: AnyObj) => {
-      if (!isConnection(conn) || fixing.has(conn.id) || isAssociation(conn)) return
+      // Autos únicamente: una ruta MANUAL invadida por un shape ajeno se respeta
+      // (prioridad a la decisión del usuario; él la ajusta si quiere). Solo las
+      // automáticas se apartan al plantarles un shape encima.
+      if (!isConnection(conn) || fixing.has(conn.id) || isAssociation(conn) || isManual(conn)) return
       for (const s of movedRects) {
         if (conn.source === s || conn.target === s) continue // sus propias conexiones ya se trataron
         if (routeInvades(conn.waypoints, s)) {
@@ -238,6 +262,10 @@ export function OrthogonalityBehavior(this: any, injector: AnyObj, modeling: Any
     const connections = collectConnections(event.command, event.context)
     for (const conn of connections) {
       if (fixing.has(conn.id)) continue
+      // Extremo sin bounds (p. ej. Association a otra conexión, BPMN inválido):
+      // el layouter derivaría NaN. No tocar — la regla de conexión impide crear
+      // esto, y el saneo de import descarta su DI.
+      if (!endpointsHaveBounds(conn)) continue
       if (violatesInvariant(conn)) {
         fixing.add(conn.id)
         try {
@@ -247,21 +275,26 @@ export function OrthogonalityBehavior(this: any, injector: AnyObj, modeling: Any
         }
         continue
       }
-      // Redondeo de floats (residuo del crop por intersección de paths) DENTRO
-      // del comando — antes lo hacía WaypointRounder desde connection.changed,
-      // fuera de comando, contaminando la pila de undo/redo.
+      // Snap a ortogonal EXACTA (enteros, 0px de desalineación) DENTRO del comando.
+      // Garantiza que TODO segmento sea arrastrable: diagram-js exige alineación
+      // (ALIGNED_THRESHOLD) para crear el handle y no abortar el segment-move.
+      // Espejo de SetSolution de Bizagi: los puntos commiteados SON siempre la
+      // solución ortogonal exacta → nunca un segmento "que no se mueve".
+      // Ver fix_doc/routing-orthogonal-invariant-and-shape-invasion.md §5d.
       const wps: AnyObj[] = conn.waypoints
-      const rounded = wps.map((p: AnyObj) => ({
-        x: Math.round(p.x),
-        y: Math.round(p.y),
-        ...(p.original ? { original: { x: Math.round(p.original.x), y: Math.round(p.original.y) } } : {}),
-      }))
-      if (wps.some((p: AnyObj, i: number) => p.x !== rounded[i].x || p.y !== rounded[i].y)) {
-        fixing.add(conn.id)
-        try {
-          modeling.updateWaypoints(conn, rounded)
-        } finally {
-          fixing.delete(conn.id)
+      if (!isExactOrthogonal(wps)) {
+        const snapped: AnyObj[] = snapOrthogonal(wps)
+        // preservar 'original' por índice si no hubo colapso (hint de docking del drag)
+        if (snapped.length === wps.length) {
+          snapped.forEach((p, i) => { if (wps[i].original) p.original = { x: Math.round(wps[i].original.x), y: Math.round(wps[i].original.y) } })
+        }
+        if (snapped.length >= 2 && allFinite(snapped)) {
+          fixing.add(conn.id)
+          try {
+            modeling.updateWaypoints(conn, snapped)
+          } finally {
+            fixing.delete(conn.id)
+          }
         }
       }
     }

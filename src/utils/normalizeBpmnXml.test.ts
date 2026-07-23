@@ -52,6 +52,15 @@ describe('normalizeBpmnXml', () => {
     expect(out).toContain('flujo:linkedDiagram="d-123"')
   })
 
+  it('preserva flujo:linkedImages (biblioteca) en el round-trip', async () => {
+    const withImgs = NO_PREFIX_XML.replace(
+      '<startEvent id="Start_np" />',
+      '<userTask id="U_np" xmlns:flujo="http://flujo.app/schema/bpmn" flujo:linkedImages="img-1,img-2" />'
+    )
+    const out = await normalizeBpmnXml(withImgs)
+    expect(out).toContain('flujo:linkedImages="img-1,img-2"')
+  })
+
   it('rechaza basura no-BPMN', async () => {
     await expect(normalizeBpmnXml('<html><body>no</body></html>')).rejects.toThrow()
   })

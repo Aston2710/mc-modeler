@@ -18,8 +18,9 @@ import BizagiConnectionDocking from './BizagiConnectionDocking'
 import OrthogonalityBehavior from './OrthogonalityBehavior'
 import ManualRouteBehavior from './ManualRouteBehavior'
 import { isManual, markManual } from './manualRoute'
-import { isOrthogonal, routeInvades } from './orthogonal'
+import { isOrthogonal, routeInvades, isExactOrthogonal } from './orthogonal'
 import flujoModdle from '../moddle/flujo.json'
+import { sanitizeBpmnXml, hasNonFiniteCoords } from '../../utils/sanitizeBpmnXml'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any
@@ -204,10 +205,12 @@ describe('semántica Bizagi repair-or-reroute (rutas manuales)', () => {
     expect(isManual(flow)).toBe(true)
   })
 
-  it('ruta manual más compleja que la fresca se re-rutea y limpia el flag (§14)', async () => {
+  it('PRIORIDAD MANUAL: una ruta manual válida pero "compleja" (más codos que la fresca) se PRESERVA al mover el shape', async () => {
+    // Cambio de semántica deliberado (antes §14 la descartaba por el criterio
+    // de simplicidad): la decisión del usuario manda mientras sea válida.
     const { modeling, registry } = await createModeler()
     const flow = registry.get('Flow_AB')
-    // desvío en U injustificado (6 puntos donde bastan 2)
+    // desvío en U de 6 puntos, ortogonal, anclado — más complejo que la fresca
     modeling.updateWaypoints(flow, [
       { x: 200, y: 140 },
       { x: 250, y: 140 },
@@ -218,12 +221,80 @@ describe('semántica Bizagi repair-or-reroute (rutas manuales)', () => {
     ], { segmentMove: {} })
     expect(isManual(flow)).toBe(true)
 
-    // mover el target lejos: la U reparada queda más compleja que la fresca
-    modeling.moveShape(registry.get('Task_B'), { x: 300, y: 250 })
+    // mover el target: la ruta manual sigue siendo válida (ortogonal, anclada,
+    // sin invadir) → se conserva su forma, NO se re-rutea a la canónica
+    modeling.moveShape(registry.get('Task_B'), { x: 0, y: 40 })
     expect(isOrthogonal(flow.waypoints)).toBe(true)
-    // ganó la ruta fresca → menos puntos que la U y flag limpio
-    expect(flow.waypoints.length).toBeLessThan(6)
-    expect(isManual(flow)).toBe(false)
+    expect(flow.waypoints.length).toBeGreaterThanOrEqual(5) // conserva la U
+    expect(isManual(flow)).toBe(true)                        // sigue manual
+  })
+
+  it('ruta manual INVÁLIDA (bend estrictamente dentro del target) sí se re-rutea y limpia el flag', async () => {
+    const { modeling, registry } = await createModeler(GW_DIAGRAM)
+    const td = registry.get('TD') // (380,300) 100×80 → interior x∈(381,479) y∈(301,379)
+    const fd = registry.get('FD')
+    // bend en (430,340): estrictamente DENTRO de TD → ruta inválida
+    modeling.updateWaypoints(fd, [
+      { x: 250, y: 180 },
+      { x: 430, y: 180 },
+      { x: 430, y: 340 }, // interior de TD
+      { x: 380, y: 340 }, // sale por el borde izquierdo
+    ], { segmentMove: {} })
+    // el invariante la detecta inválida (invade TD) → ruta automática limpia
+    expect(routeInvades(fd.waypoints, td)).toBe(false)
+    expect(isOrthogonal(fd.waypoints)).toBe(true)
+    expect(isManual(fd)).toBe(false)
+  })
+})
+
+describe('prioridad de la ruta manual del usuario', () => {
+  it('ruta manual larga multi-codo se preserva al mover un shape conectado', async () => {
+    const { modeling, registry } = await createModeler()
+    const flow = registry.get('Flow_AB')
+    // ruta larga en escalera (8 puntos), válida
+    const manual = [
+      { x: 200, y: 140 },
+      { x: 260, y: 140 },
+      { x: 260, y: 260 },
+      { x: 320, y: 260 },
+      { x: 320, y: 120 },
+      { x: 360, y: 120 },
+      { x: 360, y: 140 },
+      { x: 400, y: 140 },
+    ]
+    modeling.updateWaypoints(flow, manual, { segmentMove: {} })
+    const lenBefore = flow.waypoints.length
+    expect(isManual(flow)).toBe(true)
+
+    modeling.moveShape(registry.get('Task_A'), { x: 0, y: 15 })
+    expect(isOrthogonal(flow.waypoints)).toBe(true)
+    // conserva la forma (nº de codos similar); no colapsa a la canónica de 2
+    expect(flow.waypoints.length).toBeGreaterThanOrEqual(lenBefore - 1)
+    expect(isManual(flow)).toBe(true)
+  })
+
+  it('mover un shape AJENO no destruye una ruta manual invadida (se respeta)', async () => {
+    const { modeling, registry, elementFactory } = await createModeler()
+    const flow = registry.get('Flow_AB')
+    // ruta manual en U por debajo
+    modeling.updateWaypoints(flow, [
+      { x: 200, y: 140 },
+      { x: 250, y: 140 },
+      { x: 250, y: 300 },
+      { x: 350, y: 300 },
+      { x: 350, y: 140 },
+      { x: 400, y: 140 },
+    ], { segmentMove: {} })
+    const shape = flow.waypoints.map((p: Any) => ({ x: p.x, y: p.y }))
+
+    // soltar un shape ajeno encima del tramo inferior de la U
+    const root = registry.get('Process_1') ?? modeler.get('canvas').getRootElement()
+    const blocker = elementFactory.createShape({ type: 'bpmn:Task' })
+    modeling.createShape(blocker, { x: 300, y: 300 }, root)
+
+    // la ruta manual NO se re-rutea (Capa 4 solo toca autos); sigue manual
+    expect(isManual(flow)).toBe(true)
+    expect(flow.waypoints.map((p: Any) => ({ x: p.x, y: p.y }))).toEqual(shape)
   })
 })
 
@@ -433,6 +504,37 @@ const GW_DIAGRAM = `<?xml version="1.0" encoding="UTF-8"?>
   </bpmndi:BPMNDiagram>
 </bpmn:definitions>`
 
+describe('arrastrabilidad: todo segmento queda exacto-ortogonal tras cada operación', () => {
+  it('mover shapes en diagonal deja la ruta exacta-ortogonal (enteros, 0px)', async () => {
+    const { modeling, registry } = await createModeler()
+    modeling.moveShape(registry.get('Task_B'), { x: 137, y: 93 })
+    const fd = registry.get('Flow_AB')
+    expect(isExactOrthogonal(fd.waypoints)).toBe(true)
+  })
+
+  it('updateWaypoints con fracciones y casi-diagonal → se snapea a exacto', async () => {
+    const { modeling, registry } = await createModeler()
+    const flow = registry.get('Flow_AB')
+    modeling.updateWaypoints(flow, [
+      { x: 200.3, y: 140.4 },
+      { x: 300.1, y: 141 },   // ~1px desalineado (casi-horizontal)
+      { x: 300.2, y: 200.6 },
+      { x: 400, y: 200.1 },
+    ], { segmentMove: {} })
+    expect(isExactOrthogonal(flow.waypoints)).toBe(true)
+  })
+
+  it('ruta manual válida queda exacta-ortogonal tras mover el shape', async () => {
+    const { modeling, registry } = await createModeler()
+    const flow = registry.get('Flow_AB')
+    modeling.updateWaypoints(flow, [
+      { x: 200, y: 140 }, { x: 300, y: 140 }, { x: 300, y: 260 }, { x: 400, y: 260 },
+    ], { segmentMove: {} })
+    modeling.moveShape(registry.get('Task_A'), { x: 0, y: 17 })
+    expect(isExactOrthogonal(flow.waypoints)).toBe(true)
+  })
+})
+
 describe('no-invasión de shapes (bug del screenshot)', () => {
   it('mover el target debajo del gateway (solapando x) NO deja la flecha dentro del shape', async () => {
     const { modeling, registry } = await createModeler(GW_DIAGRAM)
@@ -516,5 +618,75 @@ describe('self-loops', () => {
       { x: 220, y: 210 },
     ])
     expect(isManual(loop)).toBe(true)
+  })
+})
+
+// Fixture fiel a la corrupción real de "se corrompio, abro ticket":
+// Association cuyo sourceRef apunta a OTRA Association + DI con waypoints NaN.
+const CORRUPT_ASSOC_DIAGRAM = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+    xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+    xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+    id="Defs_corrupt" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:collaboration id="Collab_c">
+    <bpmn:participant id="Part_c" processRef="Process_c" />
+    <bpmn:textAnnotation id="Note_1"><bpmn:text>nota A</bpmn:text></bpmn:textAnnotation>
+    <bpmn:Association id="Assoc_ok" associationDirection="None" sourceRef="Task_c1" targetRef="Note_1" />
+    <bpmn:textAnnotation id="Note_2"><bpmn:text>nota B</bpmn:text></bpmn:textAnnotation>
+    <bpmn:Association id="Assoc_bad" associationDirection="None" sourceRef="Assoc_ok" targetRef="Note_2" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_c" isExecutable="false">
+    <bpmn:task id="Task_c1" name="Modifica" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diag_c">
+    <bpmndi:BPMNPlane id="Plane_c" bpmnElement="Collab_c">
+      <bpmndi:BPMNShape id="Part_c_di" bpmnElement="Part_c" isHorizontal="true">
+        <dc:Bounds x="100" y="100" width="600" height="250" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_c1_di" bpmnElement="Task_c1">
+        <dc:Bounds x="200" y="180" width="90" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Note_1_di" bpmnElement="Note_1">
+        <dc:Bounds x="360" y="120" width="100" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Note_2_di" bpmnElement="Note_2">
+        <dc:Bounds x="2970" y="167" width="100" height="112" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Assoc_ok_di" bpmnElement="Assoc_ok">
+        <di:waypoint x="245" y="180" />
+        <di:waypoint x="360" y="150" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Assoc_bad_di" bpmnElement="Assoc_bad">
+        <di:waypoint x="NaN" y="NaN" />
+        <di:waypoint x="3084" y="NaN" />
+        <di:waypoint x="3020" y="167" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>`
+
+describe('corrupción NaN / Association a conexión (regresión "se corrompio, abro ticket")', () => {
+  it('el XML saneado importa sin lanzar y deja un diagrama usable', async () => {
+    const sane = sanitizeBpmnXml(CORRUPT_ASSOC_DIAGRAM)
+    // saneo esperado: quita la association inválida y su DI, no deja NaN
+    expect(sane.removedConnections).toContain('Assoc_bad')
+    expect(hasNonFiniteCoords(sane.xml)).toBe(false)
+
+    // importar por el engine REAL con la capa de routing no debe lanzar
+    const { modeling, registry } = await createModeler(sane.xml)
+    // la task y la association válida sobreviven; la inválida no
+    expect(registry.get('Task_c1')).toBeTruthy()
+    expect(registry.get('Assoc_ok')).toBeTruthy()
+    expect(registry.get('Assoc_bad')).toBeFalsy()
+
+    // mover la task no lanza y ninguna conexión queda con waypoints NaN
+    expect(() => modeling.moveShape(registry.get('Task_c1'), { x: 40, y: 0 })).not.toThrow()
+    registry.getAll()
+      .filter((el: Any) => Array.isArray(el.waypoints))
+      .forEach((c: Any) => c.waypoints.forEach((p: Any) => {
+        expect(Number.isFinite(p.x)).toBe(true)
+        expect(Number.isFinite(p.y)).toBe(true)
+      }))
   })
 })

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 // bpmn-js ships CommonJS with incomplete types — cast throughout via any
- 
+
 // @ts-ignore
 import BpmnModeler from 'bpmn-js/lib/Modeler'
 import { useUIStore } from '@/store/uiStore'
@@ -9,8 +9,10 @@ import { BPMN_ELEMENTS } from '@/domain/bpmnElements'
 import { ELEMENT_SIZES } from '@/bpmn/ElementSizes'
 import { PHASE_ID_PREFIX, isPhase, setPhaseName, setPhaseColor } from '@/bpmn/elements/phaseUtil'
 import { getLinkedDiagram as readLink, setLinkedDiagram as writeLink } from '@/bpmn/elements/subProcessLink'
+import { getLinkedImages as readImages, addLinkedImage as addImage, removeLinkedImage as removeImage } from '@/bpmn/elements/imageLink'
 import { beginImport, completeImport } from '@/collab/canvasSession'
 import { forceCanonicalBpmnPrefix } from '@/utils/normalizeBpmnXml'
+import { sanitizeBpmnXml, hasNonFiniteCoords } from '@/utils/sanitizeBpmnXml'
 import { isBpmnReadOnly } from '@/bpmn/readOnlyState'
 import { perfStart } from '@/utils/perf'
 import {
@@ -304,10 +306,17 @@ export function useBpmnModeler(
         perfStart('bpmn:reattach', { diagramId })()
         return
       }
+      // Saneo defensivo antes de importar (ver docs/plan-canvas-y-fix-corrupcion.md).
+      const sane = sanitizeBpmnXml(xml)
+      if (sane.changed) {
+        console.warn('[Flujo] XML saneado antes de importar', {
+          diagramId, removedConnections: sane.removedConnections, strippedEdgeDi: sane.strippedEdgeDi,
+        })
+      }
       const token = beginImport()
-      const endImport = perfStart('bpmn:importXML', { diagramId, bytes: xml.length, cache: true })
+      const endImport = perfStart('bpmn:importXML', { diagramId, bytes: sane.xml.length, cache: true })
       try {
-        await entry.modeler.importXML(xml)
+        await entry.modeler.importXML(sane.xml)
       } finally {
         endImport()
       }
@@ -328,10 +337,20 @@ export function useBpmnModeler(
     // guardado) que consulte isCanvasReadyFor() sabe que el canvas está en
     // transición y debe esperar, en vez de asumir que el contenido actual
     // (todavía el diagrama anterior) ya pertenece al nuevo.
+    // Saneo defensivo: quitar geometría inválida (Associations a conexiones,
+    // waypoints NaN) ANTES de importar, para que bpmn-js core no lance y deje el
+    // modeler roto. Un diagrama ya corrupto abre degradado pero usable y se
+    // auto-repara al guardarse. Ver docs/plan-canvas-y-fix-corrupcion.md.
+    const sane = sanitizeBpmnXml(xml)
+    if (sane.changed) {
+      console.warn('[Flujo] XML saneado antes de importar', {
+        diagramId, removedConnections: sane.removedConnections, strippedEdgeDi: sane.strippedEdgeDi,
+      })
+    }
     const token = beginImport()
-    const endImport = perfStart('bpmn:importXML', { diagramId, bytes: xml.length })
+    const endImport = perfStart('bpmn:importXML', { diagramId, bytes: sane.xml.length })
     try {
-      await modeler.importXML(xml)
+      await modeler.importXML(sane.xml)
     } catch (err) {
       if (modelerRef.current !== modeler) return
       throw err
@@ -359,6 +378,13 @@ export function useBpmnModeler(
     const modeler = modelerRef.current as any
     if (!modeler) throw new Error('Modeler not initialized')
     const { xml } = await modeler.saveXML({ format: true })
+    // Guarda de persistencia: NUNCA devolver XML con coordenadas no finitas. Es
+    // lo que convirtió un glitch transitorio en corrupción durable (el autosave
+    // guardó NaN). Lanzar aquí hace que el autosave reintente y el guardado
+    // manual avise, en vez de persistir basura. Ver docs/plan-canvas-y-fix-corrupcion.md.
+    if (hasNonFiniteCoords(xml as string)) {
+      throw new Error('Coordenadas no finitas (NaN/Infinity) en el diagrama — guardado abortado para no corromper el dato.')
+    }
     return xml as string
   }, [])
 
@@ -466,7 +492,7 @@ export function useBpmnModeler(
 
       let shape
       if (bpmnType === 'bpmn:Participant') {
-         
+
         const processBO = m.get('bpmnFactory').create('bpmn:Process', { isExecutable: false })
         shape = m.get('elementFactory').createShape({
           type: 'bpmn:Participant',
@@ -528,6 +554,28 @@ export function useBpmnModeler(
     if (el) writeLink(m.get('modeling'), el, diagramId)
   }, [])
 
+  // ── Vínculo de imágenes de biblioteca a elementos ──
+  const getLinkedImages = useCallback((elementId: string): string[] => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = modelerRef.current as any
+    const el = m?.get('elementRegistry').get(elementId)
+    return el ? readImages(el) : []
+  }, [])
+
+  const linkImage = useCallback((elementId: string, imageId: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = modelerRef.current as any
+    const el = m?.get('elementRegistry').get(elementId)
+    if (el) addImage(m.get('modeling'), el, imageId)
+  }, [])
+
+  const unlinkImage = useCallback((elementId: string, imageId: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = modelerRef.current as any
+    const el = m?.get('elementRegistry').get(elementId)
+    if (el) removeImage(m.get('modeling'), el, imageId)
+  }, [])
+
   return {
     modelerRef,
     activeVersion,
@@ -547,5 +595,8 @@ export function useBpmnModeler(
     startCreate,
     getLinkedDiagram,
     setLinkedDiagram,
+    getLinkedImages,
+    linkImage,
+    unlinkImage,
   }
 }

@@ -19,6 +19,32 @@ export interface Folder {
   createdAt: string
 }
 
+/** Carpeta de la biblioteca de imágenes (independiente de las de diagramas). */
+export interface ImageFolder {
+  id: string
+  name: string
+  projectId: string | null
+  createdAt: string
+}
+
+/**
+ * Imagen de la biblioteca: entidad de primera clase. Los elementos BPMN la
+ * vinculan por `id` (atributo flujo:linkedImages), nunca embeben sus bytes.
+ * `ref` resuelve los bytes bajo demanda: `storage://diagram-images/...` en la
+ * nube, `local://<id>` en modo local.
+ */
+export interface LibraryImage {
+  id: string
+  name: string
+  projectId: string | null
+  folderId: string | null
+  mime: string
+  size: number
+  ref: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Project {
   id: string
   name: string
@@ -85,6 +111,9 @@ export type ActiveModal =
   | 'newProject'
   | 'shareProject'
   | 'linkDiagram'
+  | 'imageGallery'
+  | 'imagePicker'
+  | 'imageViewer'
   | null
 
 export type CollaboratorRole = 'owner' | 'editor' | 'viewer'

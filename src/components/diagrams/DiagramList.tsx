@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, Upload, Plus, FileText, Sun, Moon, X, FolderPlus, Folder, Share2, ArrowLeft, Trash2, LogOut, ArrowUpDown, ArrowUp, ArrowDown, Clock, CalendarDays, ArrowDownAZ, Shapes } from 'lucide-react'
+import { Search, Upload, Plus, FileText, Sun, Moon, X, FolderPlus, Folder, Share2, ArrowLeft, Trash2, LogOut, ArrowUpDown, ArrowUp, ArrowDown, Clock, CalendarDays, ArrowDownAZ, Shapes, ImageIcon } from 'lucide-react'
+import { ImageGallery } from '@/components/images/ImageGallery'
 import { useDiagramStore } from '@/store/diagramStore'
 import { useUIStore } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
@@ -38,6 +39,7 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
   const rolesByProject = useCollabStore((s) => s.rolesByProject)
   const diagramSort = usePreferencesStore((s) => s.diagramSort)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [galleryOpen, setGalleryOpen] = useState(false)
   // Persistir el proyecto abierto para que sobreviva ir al editor y volver.
   const [openProjectId, setOpenProjectIdState] = useState<string | null>(
     () => sessionStorage.getItem('flujo:openProject')
@@ -169,6 +171,10 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
               <Upload size={14} />
               {t('toolbar.import')}
             </button>
+            <button className="btn-ghost" onClick={() => setGalleryOpen(true)}>
+              <ImageIcon size={14} />
+              {t('images.libraryButton')}
+            </button>
             {!openProject && isSupabaseConfigured && onNewProject && (
               <button className="btn-ghost" onClick={onNewProject}>
                 <FolderPlus size={14} />
@@ -271,6 +277,10 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
           ))}
         </div>
       </div>
+
+      {galleryOpen && (
+        <ImageGallery projectId={openProjectId} onClose={() => setGalleryOpen(false)} />
+      )}
 
       {confirmDeleteId && (
         <div className="modal-backdrop" onClick={() => setConfirmDeleteId(null)}>
