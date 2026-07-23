@@ -244,6 +244,11 @@ export default function App() {
           // de forma asíncrona al terminar de procesar el XML.
           useUIStore.getState().setUnsavedChanges(false)
           currentCanvasTabRef.current = id
+          // Cache de pestañas (Fase 2): cada instancia tiene su propia pila de
+          // undo. Al re-adjuntar no hay commandStack.changed, así que refrescamos
+          // el estado de los botones aquí (sin marcar "sin guardar").
+          setCanUndo(canvasRef.current?.canUndo() ?? false)
+          setCanRedo(canvasRef.current?.canRedo() ?? false)
           endLoad()
         })
       })

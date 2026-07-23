@@ -49,9 +49,12 @@ function scrollToAnchor(modeler: AnyObj, anchor: Anchor) {
 
 interface CommentsOverlayProps {
   modelerRef: React.RefObject<AnyObj>
+  // Cache de pestañas (Fase 2): re-vincular listeners/overlays a la instancia
+  // activa cuando cambia. Con el flag OFF vale 0 constante → sin efecto.
+  activeVersion?: number
 }
 
-export function CommentsOverlay({ modelerRef }: CommentsOverlayProps) {
+export function CommentsOverlay({ modelerRef, activeVersion = 0 }: CommentsOverlayProps) {
   const threads = useCommentStore((s) => s.threads)
   const setActiveThread = useCommentStore((s) => s.setActiveThread)
   const setPanelOpen = useCommentStore((s) => s.setPanelOpen)
@@ -71,10 +74,11 @@ export function CommentsOverlay({ modelerRef }: CommentsOverlayProps) {
       eb.on('import.done', onDone)
       return () => eb.off('import.done', onDone)
     } catch { /* noop */ }
-  }, [modelerRef])
+  }, [modelerRef, activeVersion])
 
   // Recalculate selection pin viewport positions (needs to run on viewbox change too)
   const recalcSelectionPins = useCallback(() => {
+    void activeVersion // dep-señal: re-crear al cambiar la instancia activa (cache de pestañas)
     const m = modelerRef.current
     if (!m) return
     try {
@@ -103,7 +107,7 @@ export function CommentsOverlay({ modelerRef }: CommentsOverlayProps) {
       })
       setSelectionPins(pins)
     } catch { /* noop */ }
-  }, [modelerRef, threads])
+  }, [modelerRef, threads, activeVersion])
 
   // bpmn-js overlays: element-anchored pins + highlights for both anchor types
   useEffect(() => {

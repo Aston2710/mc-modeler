@@ -67,12 +67,13 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
     const modeler = useBpmnModeler(containerRef, { onReady: handleReady, onChanged, onSelectionChange: handleSelectionChange, onSubProcessOpen })
 
     // Colaboración en tiempo real (presencia + cursores + CRDT). No-op en modo local / sin sesión.
-    useCollab(modeler.modelerRef, wrapRef)
+    // activeVersion: con el cache de pestañas (Fase 2) re-vincula a la instancia activa.
+    useCollab(modeler.modelerRef, wrapRef, modeler.activeVersion)
 
     // Comentarios modo local (sin Supabase) — persiste en localforage por diagrama.
-    useCommentSetup(modeler.modelerRef)
+    useCommentSetup(modeler.modelerRef, modeler.activeVersion)
     // Comentarios modo colaborativo — tablas Supabase + Realtime (fuera de Yjs).
-    useComments(modeler.modelerRef)
+    useComments(modeler.modelerRef, modeler.activeVersion)
 
     // Escuchar el evento del context pad para abrir el composer de comentarios.
     useEffect(() => {
@@ -313,14 +314,14 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
         <div ref={containerRef} className="canvas-container" />
 
         {/* Cursores de colaboradores en tiempo real */}
-        {ready && <RemoteCursors modelerRef={modeler.modelerRef} />}
+        {ready && <RemoteCursors modelerRef={modeler.modelerRef} activeVersion={modeler.activeVersion} />}
 
         {/* Pines y highlights de comentario — renderizados por bpmn-js overlays service.
             Gated por la preferencia "mostrar comentarios" (toggle en el toolbar). */}
-        {ready && showComments && <CommentsOverlay modelerRef={modeler.modelerRef} />}
+        {ready && showComments && <CommentsOverlay modelerRef={modeler.modelerRef} activeVersion={modeler.activeVersion} />}
 
         {/* Botón flotante para comentar selecciones múltiples */}
-        {ready && <SelectionCommentTrigger modelerRef={modeler.modelerRef} />}
+        {ready && <SelectionCommentTrigger modelerRef={modeler.modelerRef} activeVersion={modeler.activeVersion} />}
 
         {/* Panel y botón de comentarios */}
         {ready && <CommentsPanel modelerRef={modeler.modelerRef} />}

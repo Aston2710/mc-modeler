@@ -39,7 +39,11 @@ const BIND_CONFIRM_TIMEOUT_MS = 10000
 export function useCollab(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   modelerRef: React.RefObject<any>,
-  wrapRef: React.RefObject<HTMLElement | null>
+  wrapRef: React.RefObject<HTMLElement | null>,
+  // Cache de pestañas (Fase 2): se incrementa cuando la instancia ACTIVA cambia.
+  // Al re-adjuntar otra instancia (mismo o distinto diagrama), el binding Yjs
+  // debe re-vincularse a ella. Con el flag OFF vale 0 constante → sin efecto.
+  activeVersion = 0
 ) {
   const activeTabId = useDiagramStore((s) => s.activeTabId)
   const user = useAuthStore((s) => s.user)
@@ -228,5 +232,5 @@ export function useCollab(
       doc.destroy()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTabId, user?.id])
+  }, [activeTabId, user?.id, activeVersion])
 }

@@ -5,6 +5,9 @@ import { useAuthStore } from '@/store/authStore'
 interface RemoteCursorsProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   modelerRef: React.RefObject<any>
+  // Cache de pestañas (Fase 2): re-vincular el listener de viewbox a la nueva
+  // instancia activa. Con el flag OFF vale 0 constante → sin efecto.
+  activeVersion?: number
 }
 
 /**
@@ -12,7 +15,7 @@ interface RemoteCursorsProps {
  * Las coordenadas llegan en espacio de diagrama y se convierten a pantalla
  * usando el viewbox local (así se alinean aunque cada quien tenga otro zoom).
  */
-export function RemoteCursors({ modelerRef }: RemoteCursorsProps) {
+export function RemoteCursors({ modelerRef, activeVersion = 0 }: RemoteCursorsProps) {
   const participants = usePresenceStore((s) => s.participants)
   const myId = useAuthStore((s) => s.user?.id)
   const [, tick] = useReducer((x: number) => x + 1, 0)
@@ -29,7 +32,7 @@ export function RemoteCursors({ modelerRef }: RemoteCursorsProps) {
     }
     eventBus.on('canvas.viewbox.changed', tick)
     return () => eventBus.off('canvas.viewbox.changed', tick)
-  }, [modelerRef])
+  }, [modelerRef, activeVersion])
 
   const modeler = modelerRef.current
   let vb: { x: number; y: number; scale: number } | null = null
