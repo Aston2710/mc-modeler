@@ -29,6 +29,7 @@ import { TabsBar } from '@/components/layout/TabsBar'
 import { StatusBar } from '@/components/layout/StatusBar'
 import { PalettePanel } from '@/components/palette/PalettePanel'
 import { RightPanel } from '@/components/layout/RightPanel'
+import { CanvasZoomControl } from '@/components/layout/CanvasZoomControl'
 import { BpmnCanvas, type BpmnCanvasHandle } from '@/components/canvas/BpmnCanvas'
 import { DiagramList } from '@/components/diagrams/DiagramList'
 import { NewDiagramModal } from '@/components/modals/NewDiagramModal'
@@ -714,6 +715,11 @@ export default function App() {
                 onReady={handleCanvasReady}
                 onChanged={handleChanged}
                 onSubProcessOpen={handleSubProcessOpen}
+              />
+              <CanvasZoomControl
+                onZoomIn={() => canvasRef.current?.zoom(useUIStore.getState().zoom + 0.1)}
+                onZoomOut={() => canvasRef.current?.zoom(Math.max(0.25, useUIStore.getState().zoom - 0.1))}
+                onFitToScreen={() => canvasRef.current?.fitToScreen()}
               />
             </div>
 

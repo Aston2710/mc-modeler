@@ -1,14 +1,11 @@
-import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Plus, Upload, Download, CheckSquare,
-  Undo2, Redo2, ZoomIn, ZoomOut, Maximize2,
-  Sun, Moon, Save, Home, GitBranch, Share2, LogOut,
-  MessageSquare, Eye, Image as ImageIcon
+  Undo2, Redo2,
+  Sun, Moon, Save, Share2, LogOut, Eye,
 } from 'lucide-react'
 import { Brand } from '@/components/layout/Brand'
+import { MenuBar } from '@/components/layout/MenuBar'
 import { useDiagramStore } from '@/store/diagramStore'
-import { useUIStore } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { PresenceAvatars } from '@/components/collab/PresenceAvatars'
 import { NotificationBell } from '@/components/layout/NotificationBell'
@@ -44,100 +41,44 @@ export function Toolbar({
   const { t } = useTranslation()
   const activeTabId = useDiagramStore((s) => s.activeTabId)
   const diagrams = useDiagramStore((s) => s.diagrams)
-  const renameDiagram = useDiagramStore((s) => s.renameDiagram)
-  const zoom = useUIStore((s) => s.zoom)
-  const unsavedChanges = useUIStore((s) => s.unsavedChanges)
-  const validationResults = useUIStore((s) => s.validationResults)
   const language = usePreferencesStore((s) => s.language)
   const setLanguage = usePreferencesStore((s) => s.setLanguage)
   const theme = usePreferencesStore((s) => s.theme)
   const setTheme = usePreferencesStore((s) => s.setTheme)
-  const showComments = usePreferencesStore((s) => s.showComments)
-  const setShowComments = usePreferencesStore((s) => s.setShowComments)
 
   const activeDiagram = diagrams.find((d) => d.id === activeTabId)
-  const errorCount = validationResults.filter((r) => r.severity === 'error').length
 
-  const [localName, setLocalName] = useState(activeDiagram?.name ?? '')
-  useEffect(() => {
-    setLocalName(activeDiagram?.name ?? '')
-  }, [activeDiagram?.name])
-
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark')
-  }
-
-  const handleNameBlur = () => {
-    if (activeTabId && localName.trim()) renameDiagram(activeTabId, localName.trim())
-    else setLocalName(activeDiagram?.name ?? '')
-  }
+  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark')
 
   return (
     <div className="toolbar">
-      {/* Brand */}
+      {/* ── Zona izquierda: identidad + menús ── */}
+      {/* El nombre del diagrama vive en la pestaña (renombrable con doble clic);
+          aquí ya no se repite. Los menús ocupan ese lugar. */}
       <Brand onClick={onGoHome} />
 
-      {/* Diagram name + breadcrumb */}
-      {activeDiagram && (
-        <div className="diagram-name-wrap">
-          <GitBranch size={13} style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-          <input
-            className="diagram-name-input"
-            value={localName}
-            onChange={(e) => setLocalName(e.target.value)}
-            onBlur={handleNameBlur}
-            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
-            disabled={!canEdit}
-          />
-          {unsavedChanges && (
-            <span style={{ color: 'var(--warning)', fontSize: 18, lineHeight: 1 }}>•</span>
-          )}
-        </div>
-      )}
+      <MenuBar
+        onNew={onNew}
+        onGoHome={onGoHome}
+        onImport={onImport}
+        onExport={onExport}
+        onOpenImages={onOpenImages}
+        onSave={onSave}
+        onUndo={onUndo}
+        onRedo={onRedo}
+        onValidate={onValidate}
+        onZoomIn={onZoomIn}
+        onZoomOut={onZoomOut}
+        onFitToScreen={onFitToScreen}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        canEdit={canEdit}
+      />
 
       <div className="tb-spacer" />
 
-      {/* Home */}
-      <div className="tb-group">
-        <button className="icon-btn" onClick={onGoHome} title={t('toolbar.myDiagrams')}>
-          <Home size={16} />
-        </button>
-      </div>
-
-      {/* Actions */}
-      <div className="tb-group">
-        <button className="icon-btn" onClick={onNew} title={t('toolbar.newDiagram')}>
-          <Plus size={16} />
-          <span className="label">{t('toolbar.newDiagram')}</span>
-        </button>
-        <button className="icon-btn" onClick={onImport} title={t('toolbar.import')}>
-          <Upload size={16} />
-        </button>
-        <button className="icon-btn" onClick={onExport} title={t('toolbar.export')} disabled={!activeDiagram}>
-          <Download size={16} />
-        </button>
-        <button
-          className={`icon-btn ${errorCount > 0 ? 'active' : ''}`}
-          onClick={onValidate}
-          title={t('toolbar.validate')}
-          disabled={!activeDiagram}
-        >
-          <CheckSquare size={16} />
-        </button>
-        <button
-          className={`icon-btn ${showComments ? 'active' : ''}`}
-          onClick={() => setShowComments(!showComments)}
-          title={showComments ? t('toolbar.hideComments') : t('toolbar.showComments')}
-          disabled={!activeDiagram}
-        >
-          <MessageSquare size={16} />
-        </button>
-        <button className="icon-btn" onClick={onOpenImages} title={t('images.title')}>
-          <ImageIcon size={16} />
-        </button>
-      </div>
-
-      {/* Undo/Redo */}
+      {/* ── Zona derecha: sesión + colaboración ── */}
+      {/* Deshacer/Rehacer también viven en Editar ▾; se mantienen aquí como acceso rápido. */}
       <div className="tb-group">
         <button className="icon-btn" onClick={onUndo} disabled={!canUndo || !canEdit} title={t('toolbar.undo')}>
           <Undo2 size={16} />
@@ -147,50 +88,20 @@ export function Toolbar({
         </button>
       </div>
 
-      {/* Zoom */}
-      <div className="zoom-pill">
-        <button onClick={onZoomOut} title={t('toolbar.zoomOut')}>
-          <ZoomOut size={13} />
-        </button>
-        <span className="zoom-val">{Math.round(zoom * 100)}%</span>
-        <button onClick={onZoomIn} title={t('toolbar.zoomIn')}>
-          <ZoomIn size={13} />
-        </button>
-        <button onClick={onFitToScreen} title={t('toolbar.fitToScreen')}>
-          <Maximize2 size={13} />
-        </button>
-      </div>
-
       <div className="divider-v" />
 
-      {/* Language */}
       <div className="lang-toggle">
-        <button
-          className={language === 'es' ? 'active' : ''}
-          onClick={() => setLanguage('es')}
-        >
-          ES
-        </button>
-        <button
-          className={language === 'en' ? 'active' : ''}
-          onClick={() => setLanguage('en')}
-        >
-          EN
-        </button>
+        <button className={language === 'es' ? 'active' : ''} onClick={() => setLanguage('es')}>ES</button>
+        <button className={language === 'en' ? 'active' : ''} onClick={() => setLanguage('en')}>EN</button>
       </div>
 
-      {/* Theme */}
       <button className="icon-btn" onClick={toggleTheme} title={t('toolbar.toggleTheme')}>
         {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
       </button>
 
-      {/* Notificaciones */}
       {cloudMode && <NotificationBell />}
-
-      {/* Presencia en tiempo real */}
       {cloudMode && <PresenceAvatars />}
 
-      {/* Share (cloud) */}
       {cloudMode && activeDiagram && (
         <button className="icon-btn" onClick={onShare} title={t('share.title')}>
           <Share2 size={16} />
@@ -198,7 +109,6 @@ export function Toolbar({
         </button>
       )}
 
-      {/* Solo lectura: viewer no puede editar */}
       {cloudMode && activeDiagram && !canEdit && (
         <span className="readonly-badge" title={t('readonly.tooltip', 'Solo puedes ver y comentar este diagrama')}>
           <Eye size={13} />
@@ -206,7 +116,6 @@ export function Toolbar({
         </span>
       )}
 
-      {/* Save */}
       {canEdit && (
         <button className="btn-primary" onClick={onSave} disabled={!activeDiagram}>
           <Save size={14} />
@@ -214,7 +123,6 @@ export function Toolbar({
         </button>
       )}
 
-      {/* Sign out (cloud) */}
       {cloudMode && onSignOut && (
         <button className="icon-btn" onClick={onSignOut} title={t('auth.signOut')}>
           <LogOut size={16} />

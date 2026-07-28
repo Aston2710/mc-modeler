@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, Upload, Plus, FileText, Sun, Moon, X, FolderPlus, Folder, Share2, ArrowLeft, Trash2, LogOut, ArrowUpDown, ArrowUp, ArrowDown, Clock, CalendarDays, ArrowDownAZ, Shapes, ImageIcon } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { Search, Upload, Plus, FileText, Sun, Moon, FolderPlus, Folder, Share2, Trash2, LogOut, ArrowUpDown, ArrowUp, ArrowDown, Clock, CalendarDays, ArrowDownAZ, Shapes, ImageIcon, LayoutGrid, List, Clock3, ArrowLeftRight, MoreHorizontal, ChevronRight, ExternalLink } from 'lucide-react'
 import { ImageGallery } from '@/components/images/ImageGallery'
 import { Brand } from '@/components/layout/Brand'
 import { useDiagramStore } from '@/store/diagramStore'
@@ -10,7 +11,9 @@ import { useCollabStore } from '@/store/collabStore'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import { formatRelativeTime } from '@/utils/dateFormatter'
 import { compareDiagrams, compareProjects, NATURAL_DIR } from '@/utils/diagramSort'
-import type { CollaboratorRole, Diagram, DiagramSortKey } from '@/domain/types'
+import { useDiagramsPresence } from '@/hooks/useDiagramsPresence'
+import { initialsOf, type ParticipantMeta } from '@/collab/presence'
+import type { CollaboratorRole, Diagram, DiagramSortKey, DiagramListFilter } from '@/domain/types'
 
 interface DiagramListProps {
   onOpen: (id: string) => void
@@ -41,6 +44,21 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
   const diagramSort = usePreferencesStore((s) => s.diagramSort)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [galleryOpen, setGalleryOpen] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [showAllProjects, setShowAllProjects] = useState(false)
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  // ⌘K / Ctrl+K enfoca la búsqueda global.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        searchRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   // Persistir el proyecto abierto para que sobreviva ir al editor y volver.
   const [openProjectId, setOpenProjectIdState] = useState<string | null>(
     () => sessionStorage.getItem('flujo:openProject')
@@ -62,9 +80,6 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
   const scoped = diagrams.filter((d) => {
     if (openProjectId) return d.projectId === openProjectId
     if (d.projectId) {
-      // Si el proyecto padre es visible, el diagrama se navega desde su carpeta.
-      // Si no es visible (acceso solo al diagrama, sin acceso al proyecto),
-      // mostrar en raíz para que el usuario pueda acceder.
       const projectIsVisible = projects.some((p) => p.id === d.projectId)
       if (projectIsVisible) return false
     }
@@ -91,6 +106,12 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
 
   const sortedProjects = [...projects].sort(compareProjects(diagramSort, diagramCountByProject))
 
+  // Presencia en vivo por tarjeta: solo dentro de un proyecto abierto (acotado).
+  // Se usa `scoped` (todos los del proyecto), no `filtered`, para no re-suscribir
+  // al buscar/ordenar. En "Todos" no se suscribe (serían demasiados canales).
+  const presenceIds = openProjectId ? scoped.map((d) => d.id) : []
+  const presenceByDiagram = useDiagramsPresence(presenceIds)
+
   const handleDelete = async (id: string) => {
     if (id.startsWith('project:')) {
       await deleteProject(id.slice('project:'.length))
@@ -101,16 +122,30 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
   }
 
   const confirmIsProject = confirmDeleteId?.startsWith('project:') ?? false
-
   const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark')
+
+  // Navegar a un destino (Todos/Recientes/…): sale del proyecto y fija el filtro.
+  const goToFilter = (f: DiagramListFilter) => { setOpenProjectId(null); setFilter(f) }
+  // Abrir un proyecto: entra a su ámbito y muestra todo (sin filtro heredado confuso).
+  const openProjectFolder = (id: string) => { setOpenProjectId(id); setFilter('all') }
+
+  const navActive = (f: DiagramListFilter) => !openProjectId && filter === f
 
   return (
     <div className="home">
+      {/* ── Barra superior global ── */}
       <div className="home-toolbar">
         <Brand />
-        <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
-          / {t('toolbar.myDiagrams')}
-        </span>
+        <div className="home-globalsearch">
+          <Search size={15} />
+          <input
+            ref={searchRef}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('diagrams.searchAll', 'Buscar en todos los diagramas y carpetas…')}
+          />
+
+        </div>
         <div style={{ flex: 1 }} />
         <div className="lang-toggle">
           <button className={language === 'es' ? 'active' : ''} onClick={() => setLanguage('es')}>ES</button>
@@ -126,148 +161,154 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
         )}
       </div>
 
-      <div className="home-content">
-        <div className="home-hero">
-          <div>
-            {openProject ? (
-              <button className="btn-ghost" style={{ marginBottom: 8 }} onClick={() => setOpenProjectId(null)}>
-                <ArrowLeft size={14} /> {t('projects.title')}
-              </button>
-            ) : null}
-            <h1>{openProject ? openProject.name : t('diagrams.title')}</h1>
-            <p>
-              {openProject
-                ? t('projects.count', { count: filtered.length })
-                : t('diagrams.subtitle_other', { count: diagrams.length })}
-            </p>
-          </div>
-          <div className="home-actions">
-            <div className="home-search">
-              <Search size={14} />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={t('toolbar.myDiagrams') + '...'}
-              />
-            </div>
-            {openProject && onShareProject && (rolesByProject[openProject.id] === 'owner') && (
-              <button className="btn-ghost" onClick={() => onShareProject(openProject.id, openProject.name)}>
-                <Share2 size={14} />
-                {t('projects.share')}
+      {/* ── Cuerpo: sidebar de navegación + contenido ── */}
+      <div className="home-shell">
+        <aside className="home-side">
+          <nav className="home-nav-group">
+            <button className={`home-nav ${navActive('all') ? 'active' : ''}`} onClick={() => goToFilter('all')}>
+              <LayoutGrid size={16} />
+              <span className="hn-label">{t('diagrams.filters.all')}</span>
+              <span className="hn-count">{diagrams.length}</span>
+            </button>
+            <button className={`home-nav ${navActive('recent') ? 'active' : ''}`} onClick={() => goToFilter('recent')}>
+              <Clock3 size={16} />
+              <span className="hn-label">{t('diagrams.filters.recent')}</span>
+            </button>
+            {isSupabaseConfigured && (
+              <button className={`home-nav ${navActive('shared') ? 'active' : ''}`} onClick={() => goToFilter('shared')}>
+                <ArrowLeftRight size={16} />
+                <span className="hn-label">{t('diagrams.filters.shared')}</span>
+                {sharedCount > 0 && <span className="hn-count">{sharedCount}</span>}
               </button>
             )}
-            <button
-              className="btn-ghost"
-              onClick={() => onImport(openProject ? openProject.id : null)}
-            >
-              <Upload size={14} />
-              {t('toolbar.import')}
-            </button>
-            <button className="btn-ghost" onClick={() => setGalleryOpen(true)}>
-              <ImageIcon size={14} />
-              {t('images.libraryButton')}
-            </button>
-            {!openProject && isSupabaseConfigured && onNewProject && (
-              <button className="btn-ghost" onClick={onNewProject}>
-                <FolderPlus size={14} />
-                {t('projects.new')}
-              </button>
-            )}
-            <button
-              className="btn-primary"
-              onClick={() => (openProject && onNewInProject ? onNewInProject(openProject.id) : onNew())}
-            >
-              <Plus size={14} />
-              {t('toolbar.newDiagram')}
-            </button>
-          </div>
-        </div>
+          </nav>
 
-        {/* Sección de proyectos (solo en la vista raíz y en modo nube) */}
-        {!openProject && isSupabaseConfigured && projects.length > 0 && (
-          <div className="projects-row">
-            {sortedProjects.map((p) => (
-              <div key={p.id} className="project-card" onClick={() => setOpenProjectId(p.id)}>
-                <div className="project-card-icon"><Folder size={18} /></div>
-                <div className="project-card-body">
-                  <div className="project-card-name">{p.name}</div>
-                  <div className="project-card-meta">{t('projects.count', { count: diagramCountByProject(p.id) })}</div>
-                </div>
-                {rolesByProject[p.id] === 'owner' && (
-                  <button
-                    className="icon-btn"
-                    title={t('projects.delete')}
-                    onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(`project:${p.id}`) }}
-                  >
-                    <Trash2 size={13} />
+          {isSupabaseConfigured && (
+            <div className="home-side-section">
+              <div className="home-side-label">
+                {t('projects.title')}
+                {onNewProject && (
+                  <button className="hs-add" onClick={onNewProject} title={t('projects.new')}>
+                    <FolderPlus size={14} />
                   </button>
                 )}
               </div>
-            ))}
-          </div>
-        )}
-
-        <div className="filter-bar">
-          <button
-            className={`filter-pill ${filter === 'all' ? 'active' : ''}`}
-            onClick={() => setFilter('all')}
-          >
-            {t('diagrams.filters.all')}
-            <span className="fp-count">{scoped.length}</span>
-          </button>
-          <button
-            className={`filter-pill ${filter === 'recent' ? 'active' : ''}`}
-            onClick={() => setFilter('recent')}
-          >
-            {t('diagrams.filters.recent')}
-          </button>
-          {isSupabaseConfigured && (
-            <>
-              <button
-                className={`filter-pill ${filter === 'own' ? 'active' : ''}`}
-                onClick={() => setFilter('own')}
-              >
-                {t('diagrams.filters.own')}
-                <span className="fp-count">{scoped.length - sharedCount}</span>
-              </button>
-              <button
-                className={`filter-pill ${filter === 'shared' ? 'active' : ''}`}
-                onClick={() => setFilter('shared')}
-              >
-                {t('diagrams.filters.shared')}
-                <span className="fp-count">{sharedCount}</span>
-              </button>
-            </>
-          )}
-          <SortControl />
-        </div>
-
-        <div className="diagrams-grid">
-          {/* Create card — dentro de un proyecto crea ahí; si no, suelto */}
-          <div
-            className="create-card"
-            onClick={() => (openProject && onNewInProject ? onNewInProject(openProject.id) : onNew())}
-          >
-            <div>
-              <div className="create-icon">
-                <Plus size={20} />
+              <div className="home-tree">
+                {(showAllProjects ? sortedProjects : sortedProjects.slice(0, 6)).map((p) => (
+                  <button
+                    key={p.id}
+                    className={`home-nav ${openProjectId === p.id ? 'active' : ''}`}
+                    onClick={() => openProjectFolder(p.id)}
+                  >
+                    <Folder size={15} />
+                    <span className="hn-label">{p.name}</span>
+                    <span className="hn-count">{diagramCountByProject(p.id)}</span>
+                  </button>
+                ))}
+                {sortedProjects.length > 6 && !showAllProjects && (
+                  <button className="home-tree-more" onClick={() => setShowAllProjects(true)}>
+                    + {sortedProjects.length - 6} {t('projects.more', 'carpetas más')}
+                  </button>
+                )}
+                {sortedProjects.length === 0 && (
+                  <div className="home-tree-empty">{t('projects.empty', 'Sin proyectos aún')}</div>
+                )}
               </div>
-              <div className="create-label">{t('diagrams.createCard.title')}</div>
-              <div className="create-sub">{t('diagrams.createCard.subtitle')}</div>
+            </div>
+          )}
+        </aside>
+
+        <main className="home-main">
+          {/* Breadcrumb + acciones */}
+          <div className="home-crumb-row">
+            <div className="home-crumb">
+              <button className="hc-link" onClick={() => setOpenProjectId(null)}>{t('diagrams.title')}</button>
+              {openProject && (
+                <>
+                  <ChevronRight size={14} className="hc-sep" />
+                  <span className="hc-current">{openProject.name}</span>
+                </>
+              )}
+            </div>
+            <div className="home-main-actions">
+              {openProject && onShareProject && rolesByProject[openProject.id] === 'owner' && (
+                <button className="btn-ghost" onClick={() => onShareProject(openProject.id, openProject.name)}>
+                  <Share2 size={14} />
+                  {t('projects.share')}
+                </button>
+              )}
+              <button className="btn-ghost" onClick={() => setGalleryOpen(true)}>
+                <ImageIcon size={14} />
+                {t('images.libraryButton')}
+              </button>
+              <button className="btn-ghost" onClick={() => onImport(openProject ? openProject.id : null)}>
+                <Upload size={14} />
+                {t('toolbar.import')}
+              </button>
+              <button
+                className="btn-primary"
+                onClick={() => (openProject && onNewInProject ? onNewInProject(openProject.id) : onNew())}
+              >
+                <Plus size={14} />
+                {t('toolbar.newDiagram')}
+              </button>
             </div>
           </div>
 
-          {filtered.map((d) => (
-            <DiagramCard
-              key={d.id}
-              diagram={d}
-              role={rolesByDiagram[d.id] ?? null}
-              onOpen={() => onOpen(d.id)}
-              onDelete={() => setConfirmDeleteId(d.id)}
-              language={language}
-            />
-          ))}
-        </div>
+          <div className="home-subrow">
+            <SortControl />
+            <div style={{ flex: 1 }} />
+            <div className="home-viewtog">
+              <button className={viewMode === 'grid' ? 'on' : ''} onClick={() => setViewMode('grid')} title={t('diagrams.view.grid', 'Cuadrícula')}>
+                <LayoutGrid size={15} />
+              </button>
+              <button className={viewMode === 'list' ? 'on' : ''} onClick={() => setViewMode('list')} title={t('diagrams.view.list', 'Lista')}>
+                <List size={15} />
+              </button>
+            </div>
+          </div>
+
+          {viewMode === 'grid' ? (
+            <div className="diagrams-grid">
+              <div
+                className="create-card"
+                onClick={() => (openProject && onNewInProject ? onNewInProject(openProject.id) : onNew())}
+              >
+                <div>
+                  <div className="create-icon"><Plus size={20} /></div>
+                  <div className="create-label">{t('diagrams.createCard.title')}</div>
+                  <div className="create-sub">{t('diagrams.createCard.subtitle')}</div>
+                </div>
+              </div>
+
+              {filtered.map((d) => (
+                <DiagramCard
+                  key={d.id}
+                  diagram={d}
+                  role={rolesByDiagram[d.id] ?? null}
+                  onOpen={() => onOpen(d.id)}
+                  onDelete={() => setConfirmDeleteId(d.id)}
+                  language={language}
+                  participants={presenceByDiagram[d.id] ?? []}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="diagram-rows">
+              {filtered.map((d) => (
+                <DiagramRow
+                  key={d.id}
+                  diagram={d}
+                  role={rolesByDiagram[d.id] ?? null}
+                  onOpen={() => onOpen(d.id)}
+                  onDelete={() => setConfirmDeleteId(d.id)}
+                  language={language}
+                  participants={presenceByDiagram[d.id] ?? []}
+                />
+              ))}
+            </div>
+          )}
+        </main>
       </div>
 
       {galleryOpen && (
@@ -334,7 +375,6 @@ function SortControl() {
 
   const pick = (key: DiagramSortKey) => {
     if (key === diagramSort.key) {
-      // Repetir el criterio activo invierte la dirección
       void setDiagramSort({ key, dir: diagramSort.dir === 'asc' ? 'desc' : 'asc' })
     } else {
       void setDiagramSort({ key, dir: NATURAL_DIR[key] })
@@ -396,9 +436,10 @@ interface DiagramCardProps {
   onOpen: () => void
   onDelete: () => void
   language: string
+  participants?: ParticipantMeta[]
 }
 
-function DiagramCard({ diagram, role, onOpen, onDelete, language }: DiagramCardProps) {
+function DiagramCard({ diagram, role, onOpen, onDelete, language, participants }: DiagramCardProps) {
   const { t } = useTranslation()
   const isShared = role === 'editor' || role === 'viewer'
 
@@ -409,6 +450,7 @@ function DiagramCard({ diagram, role, onOpen, onDelete, language }: DiagramCardP
           {role === 'viewer' ? t('share.roleViewer') : t('share.roleEditor')}
         </span>
       )}
+      {!isShared && <CardMenu onOpen={onOpen} onDelete={onDelete} />}
       <div className="diagram-thumb">
         {diagram.thumbnail ? (
           <img src={diagram.thumbnail} alt={diagram.name} />
@@ -421,28 +463,116 @@ function DiagramCard({ diagram, role, onOpen, onDelete, language }: DiagramCardP
       <div className="diagram-meta">
         <div className="dm-name">{diagram.name}</div>
         <div className="dm-sub">
-          <span>{formatRelativeTime(diagram.updatedAt, language)}</span>
+          <span className="num">{formatRelativeTime(diagram.updatedAt, language)}</span>
           {diagram.elementCount > 0 && (
             <>
               <span style={{ color: 'var(--border-strong)' }}>·</span>
-              <span>{t('diagrams.card.elements_other', { count: diagram.elementCount })}</span>
+              <span className="num">{t('diagrams.card.elements_other', { count: diagram.elementCount })}</span>
             </>
           )}
         </div>
-        <div className="dm-tags">
-          <span className="dm-tag">BPMN 2.0</span>
-        </div>
+        <CardPresence participants={participants} />
       </div>
-      {!isShared && (
-        <button
-          className="icon-btn"
-          style={{ position: 'absolute', top: 8, right: 8, opacity: 0.7 }}
-          title={t('diagrams.actions.delete')}
-          onClick={(e) => { e.stopPropagation(); onDelete() }}
-        >
-          <X size={14} />
-        </button>
-      )}
     </div>
+  )
+}
+
+function DiagramRow({ diagram, role, onOpen, onDelete, language, participants }: DiagramCardProps) {
+  const { t } = useTranslation()
+  const isShared = role === 'editor' || role === 'viewer'
+  return (
+    <div className="diagram-row" onClick={onOpen}>
+      <span className="dr-icon"><FileText size={16} /></span>
+      <span className="dr-name">{diagram.name}</span>
+      {isShared && (
+        <span className="dr-role">{role === 'viewer' ? t('share.roleViewer') : t('share.roleEditor')}</span>
+      )}
+      <CardPresence participants={participants} />
+      <span className="dr-meta num">
+        {formatRelativeTime(diagram.updatedAt, language)}
+        {diagram.elementCount > 0 && ` · ${t('diagrams.card.elements_other', { count: diagram.elementCount })}`}
+      </span>
+      {!isShared && <CardMenu onOpen={onOpen} onDelete={onDelete} />}
+    </div>
+  )
+}
+
+/** Avatares pequeños de quién está editando el diagrama en vivo (0 → no renderiza
+ *  nada, así la tarjeta no cambia de aspecto salvo cuando hay alguien presente). */
+function CardPresence({ participants }: { participants?: ParticipantMeta[] }) {
+  if (!participants || participants.length === 0) return null
+  const shown = participants.slice(0, 4)
+  const extra = participants.length - shown.length
+  return (
+    <div className="card-presence" title={`${participants.length} editando`}>
+      {shown.map((p) => (
+        <span key={p.userId} className="pa" style={{ background: p.color }} title={p.name}>
+          {initialsOf(p.name)}
+        </span>
+      ))}
+      {extra > 0 && <span className="pa pa--more">+{extra}</span>}
+    </div>
+  )
+}
+
+/** Menú "···" de una tarjeta de diagrama. Reemplaza la antigua "X" de borrado.
+ *  Solo acciones existentes: Abrir / Eliminar. Portal para no recortarse en la tarjeta. */
+function CardMenu({ onOpen, onDelete }: { onOpen: () => void; onDelete: () => void }) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (btnRef.current?.contains(target) || menuRef.current?.contains(target)) return
+      setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const toggle = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (open) { setOpen(false); return }
+    const rect = btnRef.current?.getBoundingClientRect()
+    if (rect) setPos({ top: rect.bottom + 4, left: Math.max(8, rect.right - 176) })
+    setOpen(true)
+  }
+
+  return (
+    <>
+      <button ref={btnRef} className="card-kebab" onClick={toggle} title={t('diagrams.actions.more', 'Más')}>
+        <MoreHorizontal size={15} />
+      </button>
+      {open && pos && createPortal(
+        <div
+          ref={menuRef}
+          className="menu-dropdown"
+          role="menu"
+          style={{ position: 'fixed', top: pos.top, left: pos.left, minWidth: 176 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button className="menu-item" role="menuitem" onClick={() => { setOpen(false); onOpen() }}>
+            <span className="mi-ico"><ExternalLink size={15} /></span>
+            <span className="mi-label">{t('diagrams.actions.open', 'Abrir')}</span>
+          </button>
+          <div className="menu-sep" role="separator" />
+          <button className="menu-item" role="menuitem" onClick={() => { setOpen(false); onDelete() }}>
+            <span className="mi-ico" style={{ color: 'var(--error)' }}><Trash2 size={15} /></span>
+            <span className="mi-label" style={{ color: 'var(--error)' }}>{t('diagrams.actions.delete')}</span>
+          </button>
+        </div>,
+        document.body,
+      )}
+    </>
   )
 }

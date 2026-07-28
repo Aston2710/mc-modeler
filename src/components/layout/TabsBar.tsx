@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileText, X, Plus, FolderOpen } from 'lucide-react'
 import { useDiagramStore } from '@/store/diagramStore'
+import { useUIStore } from '@/store/uiStore'
 
 interface TabsBarProps {
   onNew: () => void
@@ -15,6 +16,9 @@ export function TabsBar({ onNew, onProjectView }: TabsBarProps) {
   const setActiveTab = useDiagramStore((s) => s.setActiveTab)
   const closeTab = useDiagramStore((s) => s.closeTab)
   const renameDiagram = useDiagramStore((s) => s.renameDiagram)
+  // El indicador "sin guardar" vive ahora en la pestaña (se quitó del toolbar).
+  // unsavedChanges refleja la pestaña activa en el canvas.
+  const unsavedChanges = useUIStore((s) => s.unsavedChanges)
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -72,7 +76,7 @@ export function TabsBar({ onNew, onProjectView }: TabsBarProps) {
                 tab.name
               )}
             </span>
-            {tab.dirty && <span className="dt-dirty" />}
+            {(tab.dirty || (tab.id === activeTabId && unsavedChanges)) && <span className="dt-dirty" />}
             <button
               className="dt-close"
               onClick={(e) => {
