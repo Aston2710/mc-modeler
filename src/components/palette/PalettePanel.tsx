@@ -28,6 +28,14 @@ export function PalettePanel({ collapsed, onToggle, onStartCreate, canEdit = tru
   const paletteMode = usePreferencesStore((s) => s.paletteMode)
   const setPaletteMode = usePreferencesStore((s) => s.setPaletteMode)
   const [search, setSearch] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  // Search-first: al EXPANDIR la paleta (colapsada → abierta) se enfoca el buscador.
+  // No en la carga inicial del editor, para no robar el foco al canvas.
+  const prevCollapsed = useRef(collapsed)
+  useEffect(() => {
+    if (prevCollapsed.current && !collapsed) searchInputRef.current?.focus()
+    prevCollapsed.current = collapsed
+  }, [collapsed])
   const [collapsedCats, setCollapsedCats] = useState<Record<string, boolean>>({})
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsPos, setSettingsPos] = useState<{ top: number; left: number } | null>(null)
@@ -152,6 +160,7 @@ export function PalettePanel({ collapsed, onToggle, onStartCreate, canEdit = tru
       <div className="palette-search">
         <Search />
         <input
+          ref={searchInputRef}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t('palette.search')}

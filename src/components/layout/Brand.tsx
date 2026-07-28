@@ -1,3 +1,7 @@
+// Logo solo-ícono; el nombre lo pone <span className="brand-name"> (color del tema).
+// Import por URL → Vite le pone hash y lo sirve desde /assets.
+import logoUrl from '@/assets/Modeler Logo.svg'
+
 interface BrandProps {
   /** Click en el logo (p. ej. ir a home). Opcional. */
   onClick?: () => void
@@ -11,11 +15,8 @@ export function Brand({ onClick }: BrandProps) {
   return (
     <button className="brand" onClick={onClick}>
       <div className="brand-mark">
-        <svg viewBox="0 0 24 24" fill="none">
-          <circle cx="6" cy="6" r="3" stroke="white" strokeWidth="2" />
-          <path d="M9 6h6M15 6l-3 3M15 6l-3-3" stroke="white" strokeWidth="2" strokeLinecap="round" />
-          <rect x="14" y="9" width="6" height="6" rx="1" stroke="white" strokeWidth="2" />
-        </svg>
+        {/* alt vacío: el nombre accesible del botón lo da el <span> de al lado. */}
+        <img src={logoUrl} alt="" width={44} height={44} draggable={false} />
       </div>
       <span className="brand-name">Modeler</span>
     </button>
