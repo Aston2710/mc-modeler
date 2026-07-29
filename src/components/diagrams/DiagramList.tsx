@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
-import { Search, Upload, Plus, FileText, Sun, Moon, FolderPlus, Folder, Share2, Trash2, LogOut, ArrowUpDown, ArrowUp, ArrowDown, Clock, CalendarDays, ArrowDownAZ, Shapes, ImageIcon, LayoutGrid, List, Clock3, ArrowLeftRight, MoreHorizontal, ChevronRight, ExternalLink } from 'lucide-react'
+import { Search, Upload, Plus, FileText, Sun, Moon, FolderPlus, Folder, Share2, Trash2, LogOut, ArrowUpDown, ArrowUp, ArrowDown, Clock, CalendarDays, ArrowDownAZ, Shapes, ImageIcon, LayoutGrid, List, Clock3, ArrowLeftRight, MoreHorizontal, ChevronRight, ExternalLink, RotateCcw } from 'lucide-react'
 import { ImageGallery } from '@/components/images/ImageGallery'
 import { Brand } from '@/components/layout/Brand'
 import { useDiagramStore } from '@/store/diagramStore'
@@ -13,7 +13,7 @@ import { formatRelativeTime } from '@/utils/dateFormatter'
 import { compareDiagrams, compareProjects, NATURAL_DIR } from '@/utils/diagramSort'
 import { useDiagramsPresence } from '@/hooks/useDiagramsPresence'
 import { initialsOf, type ParticipantMeta } from '@/collab/presence'
-import type { CollaboratorRole, Diagram, DiagramSortKey, DiagramListFilter } from '@/domain/types'
+import type { CollaboratorRole, Diagram, Project, DiagramSortKey, DiagramListFilter } from '@/domain/types'
 
 interface DiagramListProps {
   onOpen: (id: string) => void
@@ -42,11 +42,41 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
   const rolesByDiagram = useCollabStore((s) => s.rolesByDiagram)
   const rolesByProject = useCollabStore((s) => s.rolesByProject)
   const diagramSort = usePreferencesStore((s) => s.diagramSort)
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const trash = useDiagramStore((s) => s.trash)
+  const loadTrash = useDiagramStore((s) => s.loadTrash)
+  const restoreDiagram = useDiagramStore((s) => s.restoreDiagram)
+  const purgeDiagram = useDiagramStore((s) => s.purgeDiagram)
+  const restoreProject = useDiagramStore((s) => s.restoreProject)
+  const purgeProjectStore = useDiagramStore((s) => s.purgeProject)
+  const emptyTrash = useDiagramStore((s) => s.emptyTrash)
+  const addToast = useUIStore((s) => s.addToast)
+  const [confirmPurge, setConfirmPurge] = useState<{ kind: 'diagram' | 'project' | 'all'; id: string } | null>(null)
   const [galleryOpen, setGalleryOpen] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [showAllProjects, setShowAllProjects] = useState(false)
+  const [showTrash, setShowTrash] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
+
+  // Cargar el contador de la papelera al montar (modo nube).
+  useEffect(() => { if (isSupabaseConfigured) void loadTrash() }, [loadTrash])
+
+  const trashCount = trash.diagrams.length + trash.projects.length
+
+  // Soft delete con "Deshacer" (reversible → sin modal).
+  const softDeleteDiagram = async (d: Diagram) => {
+    await deleteDiagram(d.id)
+    addToast({
+      type: 'success', title: t('trash.movedDiagram', 'Movido a la papelera'), duration: 6000,
+      actions: [{ label: t('common.undo', 'Deshacer'), onClick: () => void restoreDiagram(d.id) }],
+    })
+  }
+  const softDeleteProject = async (p: Project) => {
+    await deleteProject(p.id)
+    addToast({
+      type: 'success', title: t('trash.movedProject', 'Proyecto movido a la papelera'), duration: 6000,
+      actions: [{ label: t('common.undo', 'Deshacer'), onClick: () => void restoreProject(p.id) }],
+    })
+  }
 
   // ⌘K / Ctrl+K enfoca la búsqueda global.
   useEffect(() => {
@@ -112,24 +142,24 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
   const presenceIds = openProjectId ? scoped.map((d) => d.id) : []
   const presenceByDiagram = useDiagramsPresence(presenceIds)
 
-  const handleDelete = async (id: string) => {
-    if (id.startsWith('project:')) {
-      await deleteProject(id.slice('project:'.length))
-    } else {
-      await deleteDiagram(id)
-    }
-    setConfirmDeleteId(null)
+  // Borrado DEFINITIVO desde la papelera (irreversible → sí lleva confirmación).
+  const handlePurge = async () => {
+    if (!confirmPurge) return
+    if (confirmPurge.kind === 'all') await emptyTrash()
+    else if (confirmPurge.kind === 'project') await purgeProjectStore(confirmPurge.id)
+    else await purgeDiagram(confirmPurge.id)
+    setConfirmPurge(null)
   }
 
-  const confirmIsProject = confirmDeleteId?.startsWith('project:') ?? false
   const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark')
 
-  // Navegar a un destino (Todos/Recientes/…): sale del proyecto y fija el filtro.
-  const goToFilter = (f: DiagramListFilter) => { setOpenProjectId(null); setFilter(f) }
+  // Navegar a un destino (Todos/Recientes/…): sale del proyecto y de la papelera.
+  const goToFilter = (f: DiagramListFilter) => { setShowTrash(false); setOpenProjectId(null); setFilter(f) }
   // Abrir un proyecto: entra a su ámbito y muestra todo (sin filtro heredado confuso).
-  const openProjectFolder = (id: string) => { setOpenProjectId(id); setFilter('all') }
+  const openProjectFolder = (id: string) => { setShowTrash(false); setOpenProjectId(id); setFilter('all') }
+  const openTrash = () => { setShowTrash(true); setOpenProjectId(null); void loadTrash() }
 
-  const navActive = (f: DiagramListFilter) => !openProjectId && filter === f
+  const navActive = (f: DiagramListFilter) => !showTrash && !openProjectId && filter === f
 
   return (
     <div className="home">
@@ -181,6 +211,11 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
                 {sharedCount > 0 && <span className="hn-count">{sharedCount}</span>}
               </button>
             )}
+            <button className={`home-nav ${showTrash ? 'active' : ''}`} onClick={openTrash}>
+              <Trash2 size={16} />
+              <span className="hn-label">{t('trash.title', 'Papelera')}</span>
+              {trashCount > 0 && <span className="hn-count">{trashCount}</span>}
+            </button>
           </nav>
 
           {isSupabaseConfigured && (
@@ -195,15 +230,27 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
               </div>
               <div className="home-tree">
                 {(showAllProjects ? sortedProjects : sortedProjects.slice(0, 6)).map((p) => (
-                  <button
+                  <div
                     key={p.id}
-                    className={`home-nav ${openProjectId === p.id ? 'active' : ''}`}
+                    className={`home-nav home-nav--proj ${openProjectId === p.id ? 'active' : ''}`}
                     onClick={() => openProjectFolder(p.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter') openProjectFolder(p.id) }}
                   >
                     <Folder size={15} />
                     <span className="hn-label">{p.name}</span>
+                    {rolesByProject[p.id] === 'owner' && (
+                      <button
+                        className="hn-del"
+                        title={t('projects.delete')}
+                        onClick={(e) => { e.stopPropagation(); void softDeleteProject(p) }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                     <span className="hn-count">{diagramCountByProject(p.id)}</span>
-                  </button>
+                  </div>
                 ))}
                 {sortedProjects.length > 6 && !showAllProjects && (
                   <button className="home-tree-more" onClick={() => setShowAllProjects(true)}>
@@ -219,6 +266,16 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
         </aside>
 
         <main className="home-main">
+          {showTrash ? (
+            <TrashPanel
+              trash={trash}
+              language={language}
+              onRestoreDiagram={(id) => void restoreDiagram(id)}
+              onRestoreProject={(id) => void restoreProject(id)}
+              onPurge={(kind, id) => setConfirmPurge({ kind, id })}
+              onEmptyTrash={() => setConfirmPurge({ kind: 'all', id: '' })}
+            />
+          ) : (<>
           {/* Breadcrumb + acciones */}
           <div className="home-crumb-row">
             <div className="home-crumb">
@@ -287,7 +344,7 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
                   diagram={d}
                   role={rolesByDiagram[d.id] ?? null}
                   onOpen={() => onOpen(d.id)}
-                  onDelete={() => setConfirmDeleteId(d.id)}
+                  onDelete={() => void softDeleteDiagram(d)}
                   language={language}
                   participants={presenceByDiagram[d.id] ?? []}
                 />
@@ -301,13 +358,14 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
                   diagram={d}
                   role={rolesByDiagram[d.id] ?? null}
                   onOpen={() => onOpen(d.id)}
-                  onDelete={() => setConfirmDeleteId(d.id)}
+                  onDelete={() => void softDeleteDiagram(d)}
                   language={language}
                   participants={presenceByDiagram[d.id] ?? []}
                 />
               ))}
             </div>
           )}
+          </>)}
         </main>
       </div>
 
@@ -315,25 +373,27 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
         <ImageGallery projectId={openProjectId} onClose={() => setGalleryOpen(false)} />
       )}
 
-      {confirmDeleteId && (
-        <div className="modal-backdrop" onClick={() => setConfirmDeleteId(null)}>
-          <div className="modal" style={{ width: 'min(400px, 92vw)' }} onClick={(e) => e.stopPropagation()}>
+      {confirmPurge && (
+        <div className="modal-backdrop" onClick={() => setConfirmPurge(null)}>
+          <div className="modal" style={{ width: 'min(420px, 92vw)' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <div className="modal-title">{confirmIsProject ? t('projects.delete') : t('diagrams.actions.delete')}</div>
+              <div className="modal-title">{t('trash.purgeTitle', 'Eliminar definitivamente')}</div>
             </div>
             <div className="modal-body">
-              <p style={{ margin: 0, fontSize: 13 }}>{confirmIsProject ? t('projects.deleteConfirm') : t('diagrams.deleteConfirm')}</p>
+              <p style={{ margin: 0, fontSize: 13 }}>
+                {confirmPurge.kind === 'all'
+                  ? t('trash.emptyConfirm', 'Se eliminará TODO lo que hay en la papelera para siempre. Esta acción no se puede deshacer.')
+                  : confirmPurge.kind === 'project'
+                    ? t('trash.purgeProjectConfirm', 'Se eliminará el proyecto y sus diagramas para siempre. Esta acción no se puede deshacer.')
+                    : t('trash.purgeDiagramConfirm', 'El diagrama se eliminará para siempre. Esta acción no se puede deshacer.')}
+              </p>
             </div>
             <div className="modal-footer">
-              <button className="btn-ghost" onClick={() => setConfirmDeleteId(null)}>
+              <button className="btn-ghost" onClick={() => setConfirmPurge(null)}>
                 {t('common.cancel')}
               </button>
-              <button
-                className="btn-primary"
-                style={{ background: 'var(--error)' }}
-                onClick={() => handleDelete(confirmDeleteId)}
-              >
-                {t('common.delete')}
+              <button className="btn-primary" style={{ background: 'var(--error)' }} onClick={() => void handlePurge()}>
+                {t('trash.purgeConfirm', 'Eliminar definitivamente')}
               </button>
             </div>
           </div>
@@ -572,6 +632,61 @@ function CardMenu({ onOpen, onDelete }: { onOpen: () => void; onDelete: () => vo
           </button>
         </div>,
         document.body,
+      )}
+    </>
+  )
+}
+
+interface TrashPanelProps {
+  trash: { diagrams: Diagram[]; projects: Project[] }
+  language: string
+  onRestoreDiagram: (id: string) => void
+  onRestoreProject: (id: string) => void
+  onPurge: (kind: 'diagram' | 'project', id: string) => void
+  onEmptyTrash: () => void
+}
+
+/** Vista de la Papelera: proyectos y diagramas borrados, con Restaurar / Eliminar definitivo. */
+function TrashPanel({ trash, language, onRestoreDiagram, onRestoreProject, onPurge, onEmptyTrash }: TrashPanelProps) {
+  const { t } = useTranslation()
+  const empty = trash.diagrams.length === 0 && trash.projects.length === 0
+  return (
+    <>
+      <div className="home-crumb-row">
+        <div className="home-crumb"><span className="hc-current">{t('trash.title', 'Papelera')}</span></div>
+        {!empty && (
+          <div className="home-main-actions">
+            <button className="btn-ghost btn-ghost--danger" onClick={onEmptyTrash}>
+              <Trash2 size={14} />
+              {t('trash.emptyAll', 'Vaciar papelera')}
+            </button>
+          </div>
+        )}
+      </div>
+      {empty ? (
+        <div className="home-tree-empty" style={{ padding: '32px 4px' }}>{t('trash.empty', 'La papelera está vacía')}</div>
+      ) : (
+        <div className="diagram-rows">
+          {trash.projects.map((p) => (
+            <div key={p.id} className="diagram-row">
+              <span className="dr-icon"><Folder size={16} /></span>
+              <span className="dr-name">{p.name}</span>
+              <span className="dr-role">{t('projects.title')}</span>
+              <span className="dr-meta num">{p.deletedAt ? formatRelativeTime(p.deletedAt, language) : ''}</span>
+              <button className="trash-act" title={t('trash.restore', 'Restaurar')} onClick={() => onRestoreProject(p.id)}><RotateCcw size={15} /></button>
+              <button className="trash-act trash-act--danger" title={t('trash.purge', 'Eliminar definitivo')} onClick={() => onPurge('project', p.id)}><Trash2 size={15} /></button>
+            </div>
+          ))}
+          {trash.diagrams.map((d) => (
+            <div key={d.id} className="diagram-row">
+              <span className="dr-icon"><FileText size={16} /></span>
+              <span className="dr-name">{d.name}</span>
+              <span className="dr-meta num">{d.deletedAt ? formatRelativeTime(d.deletedAt, language) : ''}</span>
+              <button className="trash-act" title={t('trash.restore', 'Restaurar')} onClick={() => onRestoreDiagram(d.id)}><RotateCcw size={15} /></button>
+              <button className="trash-act trash-act--danger" title={t('trash.purge', 'Eliminar definitivo')} onClick={() => onPurge('diagram', d.id)}><Trash2 size={15} /></button>
+            </div>
+          ))}
+        </div>
       )}
     </>
   )

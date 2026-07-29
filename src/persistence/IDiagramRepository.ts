@@ -22,7 +22,12 @@ export interface IDiagramRepository {
    * lanza DiagramConflictError. Devuelve el `updated_at` persistido (server-authoritative).
    */
   save(diagram: Diagram, expectedUpdatedAt?: string): Promise<string>
+  /** Soft delete: marca deleted_at (a la papelera). Conserva thumbnail e imágenes. */
   delete(id: string): Promise<void>
+  /** Quita de la papelera (deleted_at = null). */
+  restore(id: string): Promise<void>
+  /** Borrado DEFINITIVO (DELETE real + thumbnail). Irreversible. */
+  purge(id: string): Promise<void>
 
   /**
    * Renombra SIN tocar current_xml (update dirigido a la columna name).
@@ -35,7 +40,16 @@ export interface IDiagramRepository {
   // Projects (agrupan diagramas; colaboración a nivel proyecto)
   getProjects(): Promise<Project[]>
   saveProject(project: Project): Promise<void>
+  /** Soft delete del proyecto Y sus diagramas (a la papelera juntos). */
   deleteProject(id: string): Promise<void>
+  /** Restaura el proyecto y sus diagramas borrados. */
+  restoreProject(id: string): Promise<void>
+  /** Borrado DEFINITIVO del proyecto y sus diagramas. Irreversible. */
+  purgeProject(id: string): Promise<void>
+  /** Contenido de la papelera (diagramas + proyectos con deleted_at). */
+  getTrash(): Promise<{ diagrams: Diagram[]; projects: Project[] }>
+  /** Vacía la papelera: borrado DEFINITIVO de TODO lo que tenga deleted_at. */
+  purgeAll(): Promise<void>
   /** Devuelve el nuevo updated_at si la fila cambió, o null (ver setDiagramName). */
   setDiagramProject(diagramId: string, projectId: string | null): Promise<string | null>
 

@@ -11,6 +11,8 @@ export interface Diagram {
   updatedAt: string
   parentDiagramId: string | null
   subProcessElementId: string | null
+  /** Soft delete: si no es null, el diagrama está en la papelera. */
+  deletedAt?: string | null
 }
 
 export interface Folder {
@@ -51,6 +53,8 @@ export interface Project {
   ownerId: string
   createdAt: string
   updatedAt: string
+  /** Soft delete: si no es null, el proyecto está en la papelera. */
+  deletedAt?: string | null
 }
 
 export type DiagramListFilter = 'all' | 'recent' | 'own' | 'shared'

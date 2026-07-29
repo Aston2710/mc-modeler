@@ -1551,6 +1551,20 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 
 .home-tree-more { color: var(--text-3); font-size: 12.5px; padding: 6px 10px; cursor: pointer; text-align: left; border-radius: var(--radius); }
 .home-tree-more:hover { color: var(--primary); background: var(--bg-2); }
+/* Proyecto en el sidebar: borrar en hover */
+.home-nav--proj .hn-del {
+  opacity: 0; color: var(--text-3); border-radius: 5px; padding: 3px;
+  display: grid; place-items: center; cursor: pointer; flex-shrink: 0;
+  transition: opacity .12s, color .12s, background .12s;
+}
+.home-nav--proj:hover .hn-del, .home-nav--proj:focus-within .hn-del { opacity: 1; }
+.home-nav--proj .hn-del:hover { color: var(--error); background: var(--bg-3); }
+/* Acciones en la Papelera (restaurar / eliminar definitivo) */
+.trash-act { width: 30px; height: 30px; border-radius: 7px; display: grid; place-items: center; color: var(--text-2); cursor: pointer; flex-shrink: 0; }
+.trash-act:hover { background: var(--bg-2); color: var(--text); }
+.trash-act--danger:hover { background: var(--bg-2); color: var(--error); }
+.btn-ghost--danger { color: var(--error); }
+.btn-ghost--danger:hover { color: var(--error); border-color: var(--error); background: var(--bg-2); }
 
 /* Vista de lista */
 .diagram-rows { display: flex; flex-direction: column; gap: 4px; }

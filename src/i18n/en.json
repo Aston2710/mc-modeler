@@ -451,7 +451,22 @@
     "close": "Close",
     "save": "Save",
     "delete": "Delete",
+    "undo": "Undo",
     "yes": "Yes",
     "no": "No"
+  },
+  "trash": {
+    "title": "Trash",
+    "empty": "Trash is empty",
+    "restore": "Restore",
+    "purge": "Delete permanently",
+    "emptyAll": "Empty trash",
+    "emptyConfirm": "Everything in the trash will be deleted forever. This action cannot be undone.",
+    "movedDiagram": "Moved to trash",
+    "movedProject": "Project moved to trash",
+    "purgeTitle": "Delete permanently",
+    "purgeConfirm": "Delete permanently",
+    "purgeDiagramConfirm": "This diagram will be deleted forever. This action cannot be undone.",
+    "purgeProjectConfirm": "The project and its diagrams will be deleted forever. This action cannot be undone."
   }
 }

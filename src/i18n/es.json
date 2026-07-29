@@ -451,7 +451,22 @@
     "close": "Cerrar",
     "save": "Guardar",
     "delete": "Eliminar",
+    "undo": "Deshacer",
     "yes": "Sí",
     "no": "No"
+  },
+  "trash": {
+    "title": "Papelera",
+    "empty": "La papelera está vacía",
+    "restore": "Restaurar",
+    "purge": "Eliminar definitivo",
+    "emptyAll": "Vaciar papelera",
+    "emptyConfirm": "Se eliminará TODO lo que hay en la papelera para siempre. Esta acción no se puede deshacer.",
+    "movedDiagram": "Movido a la papelera",
+    "movedProject": "Proyecto movido a la papelera",
+    "purgeTitle": "Eliminar definitivamente",
+    "purgeConfirm": "Eliminar definitivamente",
+    "purgeDiagramConfirm": "El diagrama se eliminará para siempre. Esta acción no se puede deshacer.",
+    "purgeProjectConfirm": "Se eliminará el proyecto y sus diagramas para siempre. Esta acción no se puede deshacer."
   }
 }

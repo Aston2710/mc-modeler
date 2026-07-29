@@ -116,6 +116,14 @@ interface DiagramState {
   renameProject: (id: string, name: string) => Promise<void>
   deleteProject: (id: string) => Promise<void>
   moveDiagramToProject: (diagramId: string, projectId: string | null) => Promise<void>
+  // Papelera (soft delete)
+  trash: { diagrams: Diagram[]; projects: Project[] }
+  loadTrash: () => Promise<void>
+  restoreDiagram: (id: string) => Promise<void>
+  purgeDiagram: (id: string) => Promise<void>
+  restoreProject: (id: string) => Promise<void>
+  purgeProject: (id: string) => Promise<void>
+  emptyTrash: () => Promise<void>
 }
 
 // Serializa los guardados: autosave y guardado manual pueden solaparse; dos
@@ -132,6 +140,7 @@ export const useDiagramStore = create<DiagramState>()(
     activeTabId: null,
     isLoading: false,
     lastSavedAt: null,
+    trash: { diagrams: [], projects: [] },
     projects: [],
 
     loadAll: async () => {
@@ -433,10 +442,13 @@ export const useDiagramStore = create<DiagramState>()(
     },
 
     deleteDiagram: async (id) => {
+      // Soft delete: a la papelera. NO se borran imágenes (se conservan para restaurar).
       await diagramRepository.delete(id)
-      void deleteDiagramImages(id) // best-effort; los duplicados ya tienen copia propia
+      const now = new Date().toISOString()
       set((s) => {
-        s.diagrams = s.diagrams.filter((d) => d.id !== id)
+        const d = s.diagrams.find((x) => x.id === id)
+        s.diagrams = s.diagrams.filter((x) => x.id !== id)
+        if (d) s.trash.diagrams.unshift({ ...d, deletedAt: now })
         const idx = s.tabs.findIndex((t) => t.id === id)
         if (idx >= 0) {
           s.tabs.splice(idx, 1)
@@ -561,12 +573,68 @@ export const useDiagramStore = create<DiagramState>()(
     },
 
     deleteProject: async (id) => {
+      // Soft delete: proyecto + sus diagramas a la papelera juntos.
       await diagramRepository.deleteProject(id)
+      const now = new Date().toISOString()
       set((s) => {
-        s.projects = s.projects.filter((p) => p.id !== id)
-        // Diagramas del proyecto quedan sueltos.
-        s.diagrams.forEach((d) => { if (d.projectId === id) d.projectId = null })
+        const p = s.projects.find((x) => x.id === id)
+        s.projects = s.projects.filter((x) => x.id !== id)
+        if (p) s.trash.projects.unshift({ ...p, deletedAt: now })
+        const moved = s.diagrams.filter((d) => d.projectId === id)
+        s.diagrams = s.diagrams.filter((d) => d.projectId !== id)
+        moved.forEach((d) => s.trash.diagrams.unshift({ ...d, deletedAt: now }))
       })
+    },
+
+    // ── Papelera ──────────────────────────────────────────────────
+    loadTrash: async () => {
+      const trash = await diagramRepository.getTrash()
+      set((s) => { s.trash = trash })
+    },
+
+    restoreDiagram: async (id) => {
+      await diagramRepository.restore(id)
+      set((s) => {
+        const d = s.trash.diagrams.find((x) => x.id === id)
+        s.trash.diagrams = s.trash.diagrams.filter((x) => x.id !== id)
+        if (d) s.diagrams.push({ ...d, deletedAt: null })
+      })
+    },
+
+    purgeDiagram: async (id) => {
+      await diagramRepository.purge(id)
+      void deleteDiagramImages(id) // ahora sí: borrado definitivo
+      set((s) => { s.trash.diagrams = s.trash.diagrams.filter((x) => x.id !== id) })
+    },
+
+    restoreProject: async (id) => {
+      await diagramRepository.restoreProject(id)
+      set((s) => {
+        const p = s.trash.projects.find((x) => x.id === id)
+        s.trash.projects = s.trash.projects.filter((x) => x.id !== id)
+        if (p) s.projects.push({ ...p, deletedAt: null })
+        // Devolver sus diagramas de la papelera a la lista activa.
+        const restored = s.trash.diagrams.filter((d) => d.projectId === id)
+        s.trash.diagrams = s.trash.diagrams.filter((d) => d.projectId !== id)
+        restored.forEach((d) => s.diagrams.push({ ...d, deletedAt: null }))
+      })
+    },
+
+    purgeProject: async (id) => {
+      const ids = get().trash.diagrams.filter((d) => d.projectId === id).map((d) => d.id)
+      await diagramRepository.purgeProject(id)
+      ids.forEach((did) => void deleteDiagramImages(did))
+      set((s) => {
+        s.trash.projects = s.trash.projects.filter((x) => x.id !== id)
+        s.trash.diagrams = s.trash.diagrams.filter((d) => d.projectId !== id)
+      })
+    },
+
+    emptyTrash: async () => {
+      const ids = get().trash.diagrams.map((d) => d.id)
+      await diagramRepository.purgeAll()
+      ids.forEach((id) => void deleteDiagramImages(id))
+      set((s) => { s.trash = { diagrams: [], projects: [] } })
     },
 
     moveDiagramToProject: async (diagramId, projectId) => {

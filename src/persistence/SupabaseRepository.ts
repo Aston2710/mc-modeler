@@ -22,6 +22,7 @@ interface DiagramRow {
   project_id: string | null
   created_at: string
   updated_at: string
+  deleted_at?: string | null
 }
 
 function rowToDiagram(r: DiagramRow): Diagram {
@@ -38,6 +39,27 @@ function rowToDiagram(r: DiagramRow): Diagram {
     subProcessElementId: r.sub_process_element_id ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    deletedAt: r.deleted_at ?? null,
+  }
+}
+
+interface ProjectRow {
+  id: string
+  owner_id: string
+  name: string
+  created_at: string
+  updated_at: string
+  deleted_at?: string | null
+}
+
+function rowToProject(p: ProjectRow): Project {
+  return {
+    id: p.id,
+    name: p.name,
+    ownerId: p.owner_id,
+    createdAt: p.created_at,
+    updatedAt: p.updated_at,
+    deletedAt: p.deleted_at ?? null,
   }
 }
 
@@ -99,12 +121,13 @@ export class SupabaseRepository implements IDiagramRepository {
   // diagrama; con 100+ diagramas eran MBs en cada carga de la lista). El XML se
   // trae bajo demanda al abrir un diagrama (getById). Ver diagramStore.ensureXml.
   private static readonly LIST_COLUMNS =
-    'id, owner_id, folder_id, name, element_count, thumbnail_path, schema_version, parent_diagram_id, sub_process_element_id, project_id, created_at, updated_at'
+    'id, owner_id, folder_id, name, element_count, thumbnail_path, schema_version, parent_diagram_id, sub_process_element_id, project_id, created_at, updated_at, deleted_at'
 
   async getAll(): Promise<Diagram[]> {
     const { data, error } = await this.sb
       .from('diagrams')
       .select(SupabaseRepository.LIST_COLUMNS)
+      .is('deleted_at', null)
       .order('updated_at', { ascending: false })
     if (error) throw error
     const rows = data as unknown as Omit<DiagramRow, 'current_xml'>[]
@@ -184,15 +207,10 @@ export class SupabaseRepository implements IDiagramRepository {
     const { data, error } = await this.sb
       .from('projects')
       .select('*')
+      .is('deleted_at', null)
       .order('updated_at', { ascending: false })
     if (error) throw error
-    return (data as { id: string; owner_id: string; name: string; created_at: string; updated_at: string }[]).map((p) => ({
-      id: p.id,
-      name: p.name,
-      ownerId: p.owner_id,
-      createdAt: p.created_at,
-      updatedAt: p.updated_at,
-    }))
+    return (data as ProjectRow[]).map(rowToProject)
   }
 
   async saveProject(project: Project): Promise<void> {
@@ -219,9 +237,61 @@ export class SupabaseRepository implements IDiagramRepository {
   }
 
   async deleteProject(id: string): Promise<void> {
-    // Los diagramas quedan sueltos (FK ON DELETE SET NULL), no se borran.
+    // Soft delete: el proyecto y sus diagramas van a la papelera juntos.
+    const now = new Date().toISOString()
+    const { error } = await this.sb.from('projects').update({ deleted_at: now }).eq('id', id)
+    if (error) throw error
+    // Marca los diagramas del proyecto que aún no estén borrados.
+    const { error: dErr } = await this.sb
+      .from('diagrams').update({ deleted_at: now }).eq('project_id', id).is('deleted_at', null)
+    if (dErr) throw dErr
+  }
+
+  async restoreProject(id: string): Promise<void> {
+    const { error } = await this.sb.from('projects').update({ deleted_at: null }).eq('id', id)
+    if (error) throw error
+    const { error: dErr } = await this.sb
+      .from('diagrams').update({ deleted_at: null }).eq('project_id', id).not('deleted_at', 'is', null)
+    if (dErr) throw dErr
+  }
+
+  async purgeProject(id: string): Promise<void> {
+    // Borrado definitivo: primero los diagramas del proyecto (cascada de hijos por FK),
+    // luego el proyecto. Best-effort en thumbnails.
+    const { data } = await this.sb.from('diagrams').select('id').eq('project_id', id)
+    const ids = (data as { id: string }[] | null)?.map((r) => r.id) ?? []
+    for (const did of ids) {
+      await this.sb.from('diagrams').delete().eq('id', did)
+      await this.sb.storage.from(THUMB_BUCKET).remove([thumbPath(did)])
+    }
     const { error } = await this.sb.from('projects').delete().eq('id', id)
     if (error) throw error
+  }
+
+  async getTrash(): Promise<{ diagrams: Diagram[]; projects: Project[] }> {
+    const [dRes, pRes] = await Promise.all([
+      this.sb.from('diagrams').select(SupabaseRepository.LIST_COLUMNS)
+        .not('deleted_at', 'is', null).order('deleted_at', { ascending: false }),
+      this.sb.from('projects').select('*')
+        .not('deleted_at', 'is', null).order('deleted_at', { ascending: false }),
+    ])
+    if (dRes.error) throw dRes.error
+    if (pRes.error) throw pRes.error
+    const diagrams = (dRes.data as unknown as Omit<DiagramRow, 'current_xml'>[])
+      .map((r) => rowToDiagram({ ...r, current_xml: '' } as DiagramRow))
+    const projects = (pRes.data as ProjectRow[]).map(rowToProject)
+    return { diagrams, projects }
+  }
+
+  async purgeAll(): Promise<void> {
+    // Un DELETE por tabla (eficiente). Los thumbnails se limpian por lote.
+    const { data } = await this.sb.from('diagrams').select('id').not('deleted_at', 'is', null)
+    const ids = (data as { id: string }[] | null)?.map((r) => r.id) ?? []
+    const { error } = await this.sb.from('diagrams').delete().not('deleted_at', 'is', null)
+    if (error) throw error
+    if (ids.length) await this.sb.storage.from(THUMB_BUCKET).remove(ids.map((id) => thumbPath(id)))
+    const { error: pErr } = await this.sb.from('projects').delete().not('deleted_at', 'is', null)
+    if (pErr) throw pErr
   }
 
   async setDiagramProject(diagramId: string, projectId: string | null): Promise<string | null> {
@@ -243,6 +313,18 @@ export class SupabaseRepository implements IDiagramRepository {
   }
 
   async delete(id: string): Promise<void> {
+    // Soft delete: a la papelera. Se conserva el thumbnail para restaurar.
+    const { error } = await this.sb.from('diagrams').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+    if (error) throw error
+  }
+
+  async restore(id: string): Promise<void> {
+    const { error } = await this.sb.from('diagrams').update({ deleted_at: null }).eq('id', id)
+    if (error) throw error
+  }
+
+  async purge(id: string): Promise<void> {
+    // Borrado DEFINITIVO (cascada de hijos por FK parent_diagram_id) + thumbnail.
     const { error } = await this.sb.from('diagrams').delete().eq('id', id)
     if (error) throw error
     await this.sb.storage.from(THUMB_BUCKET).remove([thumbPath(id)])
@@ -351,11 +433,11 @@ export class SupabaseRepository implements IDiagramRepository {
   }
 
   async deleteWithChildren(id: string): Promise<void> {
-    // El FK parent_diagram_id es ON DELETE CASCADE: borrar el padre elimina
-    // recursivamente a los descendientes en la BD.
-    const { error } = await this.sb.from('diagrams').delete().eq('id', id)
+    // Soft delete del diagrama (sin callers activos; se conserva por la interfaz).
+    // Al PURGAR (borrado definitivo) el FK parent_diagram_id ON DELETE CASCADE
+    // elimina a los descendientes.
+    const { error } = await this.sb.from('diagrams').update({ deleted_at: new Date().toISOString() }).eq('id', id)
     if (error) throw error
-    await this.sb.storage.from(THUMB_BUCKET).remove([thumbPath(id)])
   }
 
   async getFolders(): Promise<Folder[]> {
