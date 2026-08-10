@@ -2,6 +2,7 @@ import { BizagiDirectionalRouter } from './BizagiDirectionalRouter'
 import type { Point, RouterObstacle } from './BizagiDirectionalRouter'
 import { isManual, markManual } from './manualRoute'
 import { isOrthogonal, repairChainFromStart, repairChainFromEnd, dockPoint, routeInvades } from './orthogonal'
+import { isRoutingContainer } from './containers'
 
 type Face = 'top' | 'bottom' | 'left' | 'right'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,14 +50,6 @@ function boundaryExitFace(event: Shape, host: Shape): Face {
 }
 
 function isConnector(el: Shape): boolean { return Array.isArray(el?.waypoints) }
-
-function isRoutingContainer(el: Shape): boolean {
-  const bo = el?.businessObject
-  if (!bo || typeof bo.$instanceOf !== 'function') return false
-  return bo.$instanceOf('bpmn:Participant')
-      || bo.$instanceOf('bpmn:Lane')
-      || bo.$instanceOf('bpmn:Group')
-}
 
 function toObstacle(s: Shape): RouterObstacle {
   return { x: s.x, y: s.y, width: s.width, height: s.height }

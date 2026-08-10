@@ -21,6 +21,7 @@
 import CommandInterceptor from 'diagram-js/lib/command/CommandInterceptor'
 import { isOrthogonal, repairChainFromStart, repairChainFromEnd, dockPoint, routeInvades, isExactOrthogonal, snapOrthogonal, type Point } from './orthogonal'
 import { isManual } from './manualRoute'
+import { isRoutingContainer } from './containers'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyObj = any
@@ -232,11 +233,19 @@ export function OrthogonalityBehavior(this: any, injector: AnyObj, modeling: Any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   this.postExecuted(['shape.move', 'shape.resize', 'elements.move', 'shape.create', 'elements.create'], 400, (event: any) => {
     const ctx = event.context
+    // Movimiento en curso gestionado por el llamador (MoveHelper.moveClosure mueve
+    // shape por shape con layout:false y traslada las conexiones al final): el
+    // estado intermedio no es evaluable. El gesto cierra con elements.move, que
+    // sí pasa por aquí con la geometría final. Ver §Causa raíz B.
+    if (ctx.hints?.layout === false) return
     const moved: AnyObj[] = []
     if (ctx.shape) moved.push(ctx.shape)
     if (Array.isArray(ctx.shapes)) moved.push(...ctx.shapes)
     if (Array.isArray(ctx.elements)) moved.push(...ctx.elements)
-    const movedRects = moved.filter((s) => s?.width && s?.height && !isConnection(s))
+    // Los contenedores (pool/carril/grupo) NO invaden: contienen. Su bbox cubre
+    // todas sus flechas hijas → sin este filtro, mover un pool re-ruteaba cada
+    // flecha interna y le borraba la forma. Ver §Causa raíz A.
+    const movedRects = moved.filter((s) => s?.width && s?.height && !isConnection(s) && !isRoutingContainer(s))
     if (!movedRects.length) return
 
     elementRegistry.forEach((conn: AnyObj) => {
@@ -259,6 +268,15 @@ export function OrthogonalityBehavior(this: any, injector: AnyObj, modeling: Any
   // behaviors nativos, como última verificación del comando.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   this.postExecuted(AFFECTING_COMMANDS, 500, (event: any) => {
+    // hints.layout === false: diagram-js declara que las conexiones las gestiona
+    // el llamador (MoveHelper.moveClosure). Durante ese lote los shapes se mueven
+    // de uno en uno, así que un extremo ya está en su sitio y el otro no: el
+    // invariante se "viola" de forma transitoria y repararlo aquí rerutea con
+    // geometría inconsistente (origen del zigzag al mover un pool a la derecha).
+    // El invariante se verifica igual al cerrar el gesto: moveClosure termina con
+    // connection.move / connection.layout por cada conexión, y el elements.move
+    // padre pasa por aquí sin este hint. Ver fix_doc/pool-move-right-reroute-OPEN.md.
+    if (event.context?.hints?.layout === false) return
     const connections = collectConnections(event.command, event.context)
     for (const conn of connections) {
       if (fixing.has(conn.id)) continue

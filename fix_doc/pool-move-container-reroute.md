@@ -1,8 +1,8 @@
-# [ABIERTO] Mover el pool a la derecha rerutea las flechas internas
+# [CORREGIDO] Mover el pool a la derecha rerutea las flechas internas
 
-**Estado:** 🔴 ABIERTO — sin corregir. **Causa raíz VERIFICADA 2026-08-09** (ver §Verificación).
+**Estado:** 🟢 CORREGIDO 2026-08-09 (rama `fix/pool-move-right-reroute`). Causa raíz verificada empíricamente; falta burn-in manual.
 **Fecha de reporte:** 2026-07-27
-**Rama sugerida para el fix:** `fix/pool-move-right-reroute` (NO mezclar con UX/UI)
+**Rama del fix:** `fix/pool-move-right-reroute`
 **No es regresión de UX:** el reporte apareció durante la rama `ux-ui-refactory`, pero
 esa rama no toca `src/bpmn/` (diff = solo cromo: `Toolbar`, `MenuBar`, `TabsBar`,
 `CanvasZoomControl`, `index.css`, i18n). El comportamiento ya existía en `main`.
@@ -114,7 +114,35 @@ relativa src↔tgt no cambia de cuadrante → mismas caras → misma ruta → in
 Prueba: `F_AG` deformada entra al gateway por su vértice inferior (`655,205`),
 exactamente lo que produce `gatewayFace` cuando el source está a su derecha.
 
-## Dirección de arreglo (actualizada tras verificar)
+## ✅ Fix aplicado (2026-08-09, rama `fix/pool-move-right-reroute`)
+
+Tres cambios:
+
+1. **`src/bpmn/connections/containers.ts`** (nuevo) — `isRoutingContainer` extraído
+   de `BizagiLayouter` a módulo compartido (Participant / Lane / Group).
+2. **`OrthogonalityBehavior.ts` Capa 4 (prio 400)** — `movedRects` filtra
+   contenedores: un pool contiene sus flechas, no las invade. También sale temprano
+   con `hints.layout === false`.
+3. **`OrthogonalityBehavior.ts` invariante (prio 500)** — sale temprano con
+   `event.context.hints?.layout === false`: durante el lote de `moveClosure` el
+   estado es transitorio (un extremo movido, el otro no) y no es evaluable. El
+   invariante se verifica igual al cerrar el gesto (`connection.move` /
+   `connection.layout` / `elements.move`, ninguno lleva ese hint).
+
+**Tests** (`routing.integration.test.ts`, 23 → 28):
+4 casos de traslación pura del pool (una por dirección, con rutas auto
+deliberadamente no canónicas) + 1 caso de no-regresión de Capa 4 (shape individual
+plantado encima de una flecha ajena la sigue apartando).
+Comprobado que los 4 nuevos **fallan** revirtiendo `OrthogonalityBehavior.ts`.
+Suite completa: 20 archivos / 162+ tests verdes, `tsc --noEmit` y ESLint limpios.
+
+**Efecto medido:** de 18 reruteos por arrastre de pool (6 flechas × 3) a 0.
+Deformación en las 4 direcciones: 0.
+
+**Pendiente:** burn-in manual en la app con diagramas reales (sobre todo
+message flows entre pools y pools con carriles anidados).
+
+## Dirección de arreglo (análisis previo al fix)
 
 diagram-js **ya hace lo correcto**: `MoveHelper.moveClosure` traslada las conexiones
 encerradas con `moveConnection` (traslación pura) y solo layoutea las que cruzan la

@@ -690,3 +690,98 @@ describe('corrupción NaN / Association a conexión (regresión "se corrompio, a
       }))
   })
 })
+
+// ── Mover un CONTENEDOR (pool) traslada sus flechas ──────────────────────────
+// Regresión de fix_doc/pool-move-right-reroute-OPEN.md: arrastrar un Participant
+// re-ruteaba sus flechas internas en vez de trasladarlas (visible sobre todo al
+// mover a la derecha, donde el reruteo con geometría a medio mover producía
+// zigzags). Dos causas: la Capa 4 tomaba el bbox del pool como "shape encima de
+// las flechas", y el invariante reparaba durante el lote layout:false de
+// MoveHelper.moveClosure.
+const POOL_DIAGRAM = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+    xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+    xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+    id="Defs_1" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:collaboration id="Collab_1">
+    <bpmn:participant id="Pool_1" name="Pool" processRef="Process_1" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_1" isExecutable="false">
+    <bpmn:startEvent id="Start_1" />
+    <bpmn:task id="Task_A" />
+    <bpmn:exclusiveGateway id="GW_1" />
+    <bpmn:task id="Task_B" />
+    <bpmn:task id="Task_C" />
+    <bpmn:endEvent id="End_1" />
+    <bpmn:sequenceFlow id="F_SA" sourceRef="Start_1" targetRef="Task_A" />
+    <bpmn:sequenceFlow id="F_AG" sourceRef="Task_A" targetRef="GW_1" />
+    <bpmn:sequenceFlow id="F_GB" sourceRef="GW_1" targetRef="Task_B" />
+    <bpmn:sequenceFlow id="F_GC" sourceRef="GW_1" targetRef="Task_C" />
+    <bpmn:sequenceFlow id="F_BE" sourceRef="Task_B" targetRef="End_1" />
+    <bpmn:sequenceFlow id="F_CE" sourceRef="Task_C" targetRef="End_1" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diag_1">
+    <bpmndi:BPMNPlane id="Plane_1" bpmnElement="Collab_1">
+      <bpmndi:BPMNShape id="Pool_1_di" bpmnElement="Pool_1" isHorizontal="true">
+        <dc:Bounds x="100" y="80" width="900" height="400" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Start_1_di" bpmnElement="Start_1"><dc:Bounds x="182" y="162" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_A_di" bpmnElement="Task_A"><dc:Bounds x="270" y="140" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="GW_1_di" bpmnElement="GW_1" isMarkerVisible="true"><dc:Bounds x="430" y="155" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_B_di" bpmnElement="Task_B"><dc:Bounds x="560" y="140" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_C_di" bpmnElement="Task_C"><dc:Bounds x="560" y="330" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_1_di" bpmnElement="End_1"><dc:Bounds x="800" y="162" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="F_SA_di" bpmnElement="F_SA"><di:waypoint x="218" y="180" /><di:waypoint x="270" y="180" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F_AG_di" bpmnElement="F_AG"><di:waypoint x="370" y="180" /><di:waypoint x="430" y="180" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F_GB_di" bpmnElement="F_GB"><di:waypoint x="480" y="180" /><di:waypoint x="560" y="180" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F_GC_di" bpmnElement="F_GC"><di:waypoint x="455" y="205" /><di:waypoint x="455" y="370" /><di:waypoint x="560" y="370" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F_BE_di" bpmnElement="F_BE"><di:waypoint x="660" y="180" /><di:waypoint x="800" y="180" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="F_CE_di" bpmnElement="F_CE"><di:waypoint x="660" y="370" /><di:waypoint x="818" y="370" /><di:waypoint x="818" y="198" /></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>`
+
+describe('mover un contenedor (pool) traslada sus flechas, no las rerutea', () => {
+  const FLOWS = ['F_SA', 'F_AG', 'F_GB', 'F_GC', 'F_BE', 'F_CE']
+  const snap = (c: Any) => c.waypoints.map((p: Any) => ({ x: p.x, y: p.y }))
+  const shifted = (wps: Any[], d: Any) => wps.map((p: Any) => ({ x: p.x + d.x, y: p.y + d.y }))
+
+  for (const [name, delta] of [
+    ['derecha', { x: 200, y: 0 }],   // la dirección del bug reportado
+    ['izquierda', { x: -200, y: 0 }],
+    ['abajo', { x: 0, y: 200 }],
+    ['arriba', { x: 0, y: -200 }],
+  ] as Any[]) {
+    it(`hacia la ${name}: waypoints = originales + delta (traslación pura)`, async () => {
+      const { modeling, registry } = await createModeler(POOL_DIAGRAM)
+
+      // rutas AUTO con forma preservada (≠ canónica): mover shapes internos
+      // primero. Con rutas canónicas el bug era invisible — el reruteo devolvía
+      // por casualidad la misma ruta.
+      modeling.moveShape(registry.get('Task_B'), { x: 40, y: -60 })
+      modeling.moveShape(registry.get('Task_C'), { x: -30, y: 40 })
+
+      const before: Record<string, Any> = {}
+      for (const f of FLOWS) before[f] = snap(registry.get(f))
+
+      // camino real del arrastre (MoveElementsHandler → MoveHelper.moveClosure)
+      modeling.moveElements([registry.get('Pool_1')], delta, registry.get('Plane_1'))
+
+      for (const f of FLOWS) {
+        expect(snap(registry.get(f))).toEqual(shifted(before[f], delta))
+      }
+    })
+  }
+
+  it('un shape individual movido encima de una flecha ajena SÍ la aparta (Capa 4 intacta)', async () => {
+    const { modeling, registry } = await createModeler(POOL_DIAGRAM)
+    const flow = registry.get('F_BE')            // recta 660,180 → 800,180
+    const before = snap(flow)
+    // plantar Task_C justo encima del camino de F_BE (flecha ajena a Task_C)
+    modeling.moveElements([registry.get('Task_C')], { x: 140, y: -190 }, registry.get('Pool_1'))
+    expect(snap(flow)).not.toEqual(before)
+    expect(routeInvades(flow.waypoints, registry.get('Task_C'))).toBe(false)
+    expect(isExactOrthogonal(flow.waypoints)).toBe(true)
+  })
+})
