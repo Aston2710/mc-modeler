@@ -1,0 +1,560 @@
+<mxfile host="app.diagrams.net" modified="2026-07-19T15:00:00.000Z" agent="Claude" version="24.0.0" type="device">
+  <diagram id="c4-motor" name="7 · Motor BPMN">
+    <mxGraphModel dx="1700" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1700" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="t" value="Motor BPMN — src/bpmn (módulos custom inyectados a bpmn-js)" style="text;html=1;align=left;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="10" width="700" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="core" value="bpmn-js v18 — Modeler · didi (DI) · commandStack · eventBus · canvas SVG" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontStyle=1;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="560" y="50" width="560" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="nota" value="Todos los módulos se inyectan al Modeler vía DI (additionalModules). La agrupación espeja las carpetas reales de src/bpmn/" style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="45" width="480" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="g_canvas" value="canvas/ — interacción con el lienzo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="150" width="490" height="290" as="geometry" />
+        </mxCell>
+        <mxCell id="c1" value="CanvasLassoModule&#xa;selección por lazo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="190" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="c2" value="CanvasPageModule&#xa;hojas / páginas del lienzo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="290" y="190" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" value="CustomSelectionModule&#xa;estilo propio de selección" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="250" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" value="LassoIntersectionModule&#xa;hit-test lazo ↔ formas" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="290" y="250" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="c5" value="PoolInteriorLassoModule&#xa;lazo dentro de pools" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="310" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="c6" value="ScrollPanModule&#xa;pan con rueda / arrastre" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="290" y="310" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="c7" value="StickyLaneLabelsModule&#xa;labels de lane fijos al viewport" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="370" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="g_conn" value="connections/ — routing estilo Bizagi" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="560" y="150" width="490" height="410" as="geometry" />
+        </mxCell>
+        <mxCell id="n1" value="BizagiDirectionalRouter&#xa;routing ortogonal direccional" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="575" y="190" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="n2" value="BizagiLayouter&#xa;layout de conexiones nuevas" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="810" y="190" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="n3" value="BizagiConnectionDocking&#xa;anclaje exacto al borde" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="575" y="250" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="n4" value="BizagiSegmentHandles&#xa;arrastre por segmento" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="810" y="250" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="n5" value="OrthogonalityBehavior&#xa;snap ortogonal por comando" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="575" y="310" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="n6" value="orthogonal.ts&#xa;invariante ortogonal (repair-or-reroute)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="810" y="310" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="n7" value="ManualRouteBehavior&#xa;preserva rutas manuales al mover" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="575" y="370" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="n8" value="manualRoute.ts&#xa;persistencia de waypoints manuales" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="810" y="370" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="n9" value="ConnectionContextPadModule&#xa;context pad de conexiones" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="575" y="430" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="n10" value="ConnectionEndpointCirclesModule&#xa;círculos en endpoints" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="810" y="430" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="n11" value="groupDocking.ts&#xa;docking a grupos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="575" y="490" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="g_elem" value="elements/ — reglas y extensiones de elementos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="150" width="580" height="650" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" value="ReadOnlyModule&#xa;veto canExecute para viewers" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="190" width="265" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="SubProcessInterceptorModule&#xa;drill-down al subdiagrama vinculado" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1375" y="190" width="265" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="subProcessLink.ts&#xa;vínculo padre ↔ subproceso" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="250" width="265" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="PhaseModule&#xa;fases (milestones) del pool" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1375" y="250" width="265" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="PhaseLabelEditingModule&#xa;edición del label de fase" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="310" width="265" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="phaseUtil.ts&#xa;geometría / utilidades de fases" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1375" y="310" width="265" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="LaneDropModule&#xa;drop válido dentro de lanes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="370" width="265" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" value="GroupMoveModule&#xa;mover grupo con su contenido" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1375" y="370" width="265" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" value="GroupConnectionRulesModule&#xa;reglas de conexión de grupos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="430" width="265" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" value="BoundaryConstraintModule&#xa;límites de contención al mover" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1375" y="430" width="265" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" value="CustomResizeModule&#xa;resize con mínimos propios" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="490" width="265" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" value="CustomElementSizesModule&#xa;tamaños por defecto (ElementSizes)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1375" y="490" width="265" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" value="ResizableLabelsModule&#xa;labels externos redimensionables" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="550" width="265" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" value="ImageBadgeModule&#xa;badge de imágenes en FlowNode" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1375" y="550" width="265" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" value="ImageContextPadModule&#xa;pad: adjuntar imagen" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="610" width="265" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e16" value="ImageLinkContextPadModule&#xa;pad: vincular de la biblioteca" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1375" y="610" width="265" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e17" value="imageLink.ts&#xa;flujo:linkedImages (solo FlowNodes)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="670" width="265" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e18" value="CommentContextPadModule&#xa;pad: comentar elemento" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1375" y="670" width="265" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="e19" value="DataObjectContextPadModule&#xa;pad de data objects" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="730" width="265" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="g_rend" value="rendering/ — tema" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="470" width="490" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="r1" value="ThemeAwareRenderer — dibuja con tokens de tema" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="505" width="460" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="r2" value="ThemeAwareRendererModule — registra el renderer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="558" width="460" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="r3" value="ThemeColors.ts — tokens light / dark" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="611" width="460" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="g_base" value="base — metamodelo, i18n, config" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="695" width="490" height="225" as="geometry" />
+        </mxCell>
+        <mxCell id="b1" value="moddle/flujo.json&#xa;metamodelo: extensiones flujo:*" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="735" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="b2" value="i18n/TranslateModule&#xa;traducción es/en del canvas" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="290" y="735" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="b3" value="config.ts&#xa;configuración global del modeler" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="795" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="b4" value="ElementSizes.ts&#xa;catálogo de tamaños" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="290" y="795" width="225" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="b5" value="readOnlyState.ts&#xa;flag global de solo-lectura" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="855" width="225" height="50" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="c4-ui-estado" name="8 · UI y estado">
+    <mxGraphModel dx="1500" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1500" pageHeight="1160" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="t" value="UI y estado — src/components · src/store · src/hooks · src/lib" style="text;html=1;align=left;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="10" width="700" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="nota" value="Los componentes leen/escriben stores por suscripción selectiva (Zustand); los hooks orquestan subsistemas (páginas 3-6). Aquí: ubicación y responsabilidad de cada pieza." style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="720" width="380" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="g_layout" value="layout/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="60" width="480" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="l1" value="Toolbar&#xa;acciones: guardar, exportar, compartir…" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="100" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="l2" value="TabsBar&#xa;pestañas de diagramas abiertos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="290" y="100" width="215" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="l3" value="StatusBar&#xa;zoom · estado de guardado" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="160" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="l4" value="RightPanel&#xa;panel derecho (props / comentarios)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="290" y="160" width="215" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="l5" value="NotificationBell&#xa;campana + dropdown del inbox" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="220" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="g_canvas" value="canvas/ · palette/ · properties/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="310" width="480" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="cv1" value="BpmnCanvas&#xa;monta el modeler · overlays" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="55" y="350" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cv2" value="PalettePanel&#xa;paleta de elementos BPMN" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="290" y="350" width="215" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cv3" value="PropertiesPanel&#xa;props del elemento seleccionado" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="410" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cv4" value="BpmnElementIcon&#xa;iconos SVG de la paleta" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="290" y="410" width="215" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="g_home" value="diagrams/ · auth/ · ui/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="500" width="480" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="h1" value="DiagramList&#xa;home: tarjetas + carpetas" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="540" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="h2" value="ProjectView&#xa;vista de un proyecto" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="290" y="540" width="215" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="h3" value="LoginView&#xa;login email + contraseña" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="600" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="h4" value="ToastContainer&#xa;toasts (incl. conflicto CAS)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="290" y="600" width="215" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="g_hooks" value="src/hooks — orquestación" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="690" width="480" height="290" as="geometry" />
+        </mxCell>
+        <mxCell id="hk1" value="useBpmnModeler&#xa;import + fencing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="730" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="hk2" value="useAutoSave&#xa;20s + jitter · CAS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="290" y="730" width="215" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="hk3" value="useCollab&#xa;canal + binding" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="790" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="hk4" value="useComments / useCommentSetup&#xa;comentarios + anclas" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="290" y="790" width="215" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="hk5" value="useExport&#xa;formatos + remap de tema" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="850" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="hk6" value="useKeyboard&#xa;atajos de teclado" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="290" y="850" width="215" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="g_comments" value="comments/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="560" y="60" width="480" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="cm1" value="CommentsPanel&#xa;lista de hilos + composer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="575" y="100" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cm2" value="CommentsOverlay&#xa;pins anclados sobre el canvas" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="810" y="100" width="215" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cm3" value="MentionTextarea&#xa;@menciones con autocompletar" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="575" y="160" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cm4" value="SelectionCommentTrigger&#xa;comentar desde la selección" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="810" y="160" width="215" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="g_collab" value="collab/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="560" y="250" width="480" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="cb1" value="PresenceAvatars&#xa;avatares de presentes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="575" y="290" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cb2" value="RemoteCursors&#xa;cursores de otros en vivo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="810" y="290" width="215" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="g_images" value="images/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="560" y="380" width="480" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="im1" value="ImageGallery&#xa;biblioteca: carpetas + grid" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="575" y="420" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="im2" value="ImageLightbox&#xa;visor a pantalla completa" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="810" y="420" width="215" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="im3" value="ImageThumb&#xa;miniatura con carga perezosa" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="575" y="480" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="g_modals" value="modals/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="560" y="570" width="480" height="350" as="geometry" />
+        </mxCell>
+        <mxCell id="md1" value="ShareModal&#xa;colaboradores + links de invitación" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="575" y="610" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="md2" value="ExportModal&#xa;elegir formato de export" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="810" y="610" width="215" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="md3" value="ImportModal&#xa;importar .bpmn / .xml / .bpm" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="575" y="670" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="md4" value="NewDiagramModal&#xa;crear diagrama" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="810" y="670" width="215" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="md5" value="NewProjectModal&#xa;crear proyecto" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="575" y="730" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="md6" value="LinkDiagramModal&#xa;vincular subproceso ↔ diagrama" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="810" y="730" width="215" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="md7" value="ImageUploadModal&#xa;subir / recortar imagen" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="575" y="790" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="md8" value="ValidationModal&#xa;reglas BPMN del diagrama" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="810" y="790" width="215" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="md9" value="ShortcutsModal&#xa;atajos de teclado" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="575" y="850" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="g_lib" value="src/lib · src/utils (transversales)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="560" y="940" width="480" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="lb1" value="lib/supabase.ts&#xa;cliente + isSupabaseConfigured" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="575" y="980" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="lb2" value="lib/sharing.ts&#xa;roles · colaboradores · invitaciones" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="810" y="980" width="215" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="lb3" value="lib/notificationNav.ts&#xa;deep-link desde notificación" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="575" y="1040" width="220" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="lb4" value="utils: idGenerator · dateFormatter&#xa;diagramSort · cn" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="810" y="1040" width="215" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="g_stores" value="src/store — Zustand (9 stores)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;verticalAlign=top;fontSize=11;fontStyle=1;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="60" width="380" height="640" as="geometry" />
+        </mxCell>
+        <mxCell id="s1" value="diagramStore — proyectos/carpetas/diagramas&#xa;tabs · saveDiagram (CAS + reintento)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="100" width="350" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="s2" value="uiStore — dirty · paneles · toasts · modales" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="165" width="350" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" value="authStore — sesión Supabase (login / logout)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="230" width="350" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="s4" value="collabStore — rol por diagrama · canEdit()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="295" width="350" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="s5" value="presenceStore — participantes · cursores remotos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="360" width="350" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="s6" value="commentStore — hilos y respuestas (optimista)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="425" width="350" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="s7" value="imageStore — biblioteca de imágenes + carpetas" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="490" width="350" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="s8" value="notificationStore — inbox in-app · no-leídas" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="555" width="350" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="s9" value="preferencesStore — tema · idioma · ajustes locales" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="620" width="350" height="55" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="c4-datos" name="9 · Modelo de datos">
+    <mxGraphModel dx="1500" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1500" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="t" value="Modelo de datos — Postgres (migraciones 0001–0018) + Storage" style="text;html=1;align=left;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="10" width="700" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="profiles" value="profiles&#xa;id = auth.users · nombre · email" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="620" y="60" width="260" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="projects" value="projects&#xa;id · owner_id→profiles · name" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="60" y="180" width="260" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="folders" value="folders&#xa;id · owner_id→profiles · name" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="60" y="290" width="260" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="diagrams" value="diagrams&#xa;id · owner_id→profiles · folder_id→folders&#xa;project_id→projects · parent_diagram_id→diagrams&#xa;sub_process_element_id · current_xml (VERDAD)&#xa;element_count · thumbnail_path · updated_at (CAS)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;fontStyle=1;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="400" y="180" width="330" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="dcollab" value="diagram_collaborators&#xa;diagram_id→diagrams · user_id→profiles&#xa;role (owner / editor / viewer)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="800" y="180" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="dinv" value="diagram_invites&#xa;token · role · diagram_id→diagrams&#xa;canje: RPC redeem_invite" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="800" y="280" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pcollab" value="project_collaborators&#xa;project_id→projects · user_id→profiles · role" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="60" y="410" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="pinv" value="project_invites&#xa;token · role · project_id→projects" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="60" y="500" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="cthreads" value="comment_threads&#xa;id · diagram_id→diagrams · anchor jsonb&#xa;status (open/resolved) · orphaned" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="400" y="410" width="330" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="creplies" value="comment_replies&#xa;thread_id→comment_threads · author&#xa;content · mentions[]" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="400" y="520" width="330" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="images" value="images&#xa;id · owner_id→profiles · project_id→projects&#xa;folder_id→image_folders · storage_path · mime · size" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="800" y="410" width="300" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="ifolders" value="image_folders&#xa;id · project_id→projects · name" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="800" y="520" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="outbox" value="notification_outbox&#xa;recipient_id→profiles · kind · payload jsonb&#xa;sent_at · attempts · read_at (= inbox in-app, 0012)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="180" width="300" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="nprefs" value="notification_prefs&#xa;user_id→profiles · on/off por tipo · digest" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="290" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="nconfig" value="private.notification_config&#xa;URL del webhook + secreto" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="380" width="300" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="buckets" value="Storage (buckets privados)&#xa;thumbnails — SVG por diagrama&#xa;diagram-images — &lt;diagramId&gt;/… · imglib/" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="480" width="300" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="rls" value="RLS en TODAS las tablas — helpers en schema private:&#xa;can_access_diagram · can_edit_diagram · can_access_project · can_edit_project&#xa;viewer = solo SELECT · Realtime respeta las mismas políticas" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="400" y="650" width="530" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="yjsdrop" value="yjs_documents / yjs_updates&#xa;dropeadas (0018)" style="shape=note;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="650" width="260" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="f1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#999999;endArrow=ERone;startArrow=ERmany;startFill=0;endFill=0;fontSize=9;" edge="1" parent="1" source="diagrams" target="profiles">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#999999;endArrow=ERone;startArrow=ERmany;startFill=0;endFill=0;fontSize=9;" edge="1" parent="1" source="diagrams" target="folders">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#999999;endArrow=ERone;startArrow=ERmany;startFill=0;endFill=0;fontSize=9;" edge="1" parent="1" source="diagrams" target="projects">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#999999;endArrow=ERone;startArrow=ERmany;startFill=0;endFill=0;fontSize=9;" edge="1" parent="1" source="dcollab" target="diagrams">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#999999;endArrow=ERone;startArrow=ERmany;startFill=0;endFill=0;fontSize=9;" edge="1" parent="1" source="dinv" target="diagrams">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#999999;endArrow=ERone;startArrow=ERmany;startFill=0;endFill=0;fontSize=9;" edge="1" parent="1" source="pcollab" target="projects">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#999999;endArrow=ERone;startArrow=ERmany;startFill=0;endFill=0;fontSize=9;" edge="1" parent="1" source="pinv" target="projects">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#999999;endArrow=ERone;startArrow=ERmany;startFill=0;endFill=0;fontSize=9;" edge="1" parent="1" source="cthreads" target="diagrams">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#999999;endArrow=ERone;startArrow=ERmany;startFill=0;endFill=0;fontSize=9;" edge="1" parent="1" source="creplies" target="cthreads">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#999999;endArrow=ERone;startArrow=ERmany;startFill=0;endFill=0;fontSize=9;" edge="1" parent="1" source="images" target="ifolders">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#999999;endArrow=ERone;startArrow=ERmany;startFill=0;endFill=0;fontSize=9;" edge="1" parent="1" source="outbox" target="profiles">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="c4-export" name="10 · Export e Import">
+    <mxGraphModel dx="1300" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1300" pageHeight="800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="t" value="Export e Import — src/utils + useExport" style="text;html=1;align=left;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="10" width="600" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="lble" value="EXPORT" style="text;html=1;align=left;fontSize=12;fontStyle=1;fontColor=#5c4a1a;" vertex="1" parent="1">
+          <mxGeometry x="60" y="50" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="exp_ui" value="ExportModal + useExport&#xa;elige formato y destino" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="90" width="240" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="exp_inline" value="imageStorage.inlineImages&#xa;storage:// → base64" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="380" y="60" width="260" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="exp_xml" value=".bpmn — XML BPMN 2.0 plano&#xa;(autocontenido)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="720" y="60" width="250" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="exp_bpm" value=".bpm — bpmExport.ts&#xa;contenedor Bizagi (int32 LE)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="720" y="140" width="250" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="exp_svg" value="saveSVG + remap dark→light&#xa;(mapa hex Y rgb() — bug conocido)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="380" y="230" width="260" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="exp_svgout" value="SVG autocontenido" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="720" y="230" width="250" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="exp_png" value="PNG — rasterizado del SVG&#xa;en un canvas offscreen" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="720" y="310" width="250" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="thumb" value="thumbnailUtils.buildThumbnail&#xa;crop + SVG — lo usa el AUTOSAVE, no el export" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="310" width="260" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="lbli" value="IMPORT" style="text;html=1;align=left;fontSize=12;fontStyle=1;fontColor=#1a3a5c;" vertex="1" parent="1">
+          <mxGeometry x="60" y="440" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="imp_ui" value="ImportModal&#xa;archivo .bpmn / .xml / .bpm" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="480" width="240" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="imp_bpm" value="bpmImport.ts&#xa;.bpm → XML" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="380" y="480" width="260" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="imp_norm" value="normalizeBpmnXml&#xa;dialecto canónico bpmn:" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="720" y="480" width="250" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="imp_create" value="repo.create + abre pestaña&#xa;(valida looksLikeBpmn)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="480" width="220" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="mig" value="migratePhotoDiagrams.ts — migración puntual de diagramas-foto legacy (utilidad histórica)" style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="60" y="600" width="400" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="x1" value="incrusta imágenes" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#d6b656;fontSize=10;exitX=1;exitY=0.3;entryX=0;entryY=0.5;" edge="1" parent="1" source="exp_ui" target="exp_inline">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#82b366;fontSize=10;" edge="1" parent="1" source="exp_inline" target="exp_xml">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#82b366;fontSize=10;exitX=1;exitY=0.8;entryX=0;entryY=0.5;" edge="1" parent="1" source="exp_inline" target="exp_bpm">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="680" y="168" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x4" value="SVG del canvas" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#6c8ebf;fontSize=10;exitX=1;exitY=0.7;entryX=0;entryY=0.5;" edge="1" parent="1" source="exp_ui" target="exp_svg">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="340" y="257" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#82b366;fontSize=10;" edge="1" parent="1" source="exp_svg" target="exp_svgout">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x6" value="rasteriza" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#82b366;fontSize=10;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="exp_svgout" target="exp_png">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x7" value=".bpm" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#6c8ebf;fontSize=10;" edge="1" parent="1" source="imp_ui" target="imp_bpm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#6c8ebf;fontSize=10;" edge="1" parent="1" source="imp_bpm" target="imp_norm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x9" value=".bpmn / .xml directo" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#6c8ebf;fontSize=10;exitX=0.5;exitY=1;entryX=0.3;entryY=1;" edge="1" parent="1" source="imp_ui" target="imp_norm">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="180" y="570" />
+              <mxPoint x="795" y="570" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#82b366;fontSize=10;" edge="1" parent="1" source="imp_norm" target="imp_create">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
