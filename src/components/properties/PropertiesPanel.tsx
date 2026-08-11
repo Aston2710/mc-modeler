@@ -4,6 +4,8 @@ import { MousePointerClick } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'
 import { BpmnElementIcon } from '@/components/palette/BpmnElementIcon'
 import { isPhase, getPhaseName, getPhaseColor, DEFAULT_PHASE_COLOR } from '@/bpmn/elements/phaseUtil'
+import { getGroupColor } from '@/bpmn/elements/groupUtil'
+import { ColorPalettePicker } from './ColorPalettePicker'
 
 interface Element {
   id: string
@@ -161,6 +163,21 @@ export function PropertiesPanel({
                     className="f-input f-color"
                     value={getPhaseColor(el) || DEFAULT_PHASE_COLOR}
                     onChange={(e) => update('phaseColor', e.target.value)}
+                  />
+                </div>
+              )}
+              {/* Group (no Fase): color del borde punteado. Rejilla de muestras
+                  en un panel emergente — sin rueda HSV. */}
+              {bo.$type === 'bpmn:Group' && !isPhase(el) && (
+                <div className="field">
+                  <label className="field-label">
+                    {t('properties.fields.groupColor', 'Color del borde')}
+                  </label>
+                  <ColorPalettePicker
+                    value={getGroupColor(el)}
+                    onChange={(hex) => update('groupColor', hex)}
+                    disabled={readOnly}
+                    aria-label={t('properties.fields.groupColor', 'Color del borde')}
                   />
                 </div>
               )}

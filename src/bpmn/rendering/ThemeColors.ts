@@ -77,6 +77,19 @@ export function laneColors(): ElementColors {
   }
 }
 
+/**
+ * Colores del Group (borde punteado dash-dot). El `stroke` es el gris del tema;
+ * si el elemento tiene `flujo:groupColor`, el renderer lo sobrescribe con el
+ * color elegido de la paleta — ver `groupUtil.ts` y `getColorsFor`.
+ */
+export function groupColors(): ElementColors {
+  return {
+    fill:       'none',
+    stroke:     cssVar('--group-stroke'),
+    labelColor: cssVar('--text-2'),
+  }
+}
+
 export function connectionColors(): { stroke: string; labelColor: string } {
   return {
     stroke:     cssVar('--text-2'),

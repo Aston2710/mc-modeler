@@ -459,7 +459,14 @@ export function xpdlToBpmn(xpdlXml: string, fallbackName = 'Diagrama'): string {
           catRef = ` categoryValueRef="${cvId}"`
           catSeq++
         }
-        addArtifact(findProcIdx(b), `<bpmn:group id="${aid}"${catRef}>${doc}</bpmn:group>`, aid)
+        // Color del borde: BorderColor del NodeGraphicsInfo → hex. Se omite si es
+        // el gris por defecto de Bizagi (#666666), para no marcar como
+        // personalizado un group que no lo estaba. Ver groupUtil.ts.
+        const gGiParent = directChild(art, 'NodeGraphicsInfos')
+        const gGi = gGiParent ? directChild(gGiParent, 'NodeGraphicsInfo') : null
+        const bHex = gGi ? bizagiColorToHex(gGi.getAttribute('BorderColor')) : null
+        const colorAttr = bHex && bHex.toLowerCase() !== '#666666' ? ` flujo:groupColor="${bHex}"` : ''
+        addArtifact(findProcIdx(b), `<bpmn:group id="${aid}"${catRef}${colorAttr}>${doc}</bpmn:group>`, aid)
         shapesXml.push(di); knownIds.add(aid)
       }
     })

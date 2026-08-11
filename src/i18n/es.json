@@ -60,7 +60,7 @@
     "myDiagrams": "Mis diagramas",
     "shared": "Compartidos conmigo",
     "new": "Nuevo proyecto",
-    "empty": "Sin proyectos aún",
+    "empty": "Sin diagramas en este proyecto",
     "more": "carpetas más",
     "newTitle": "Nuevo proyecto",
     "namePlaceholder": "Nombre del proyecto",
@@ -71,7 +71,6 @@
     "deleteConfirm": "¿Eliminar este proyecto? Sus diagramas no se borran, quedan sueltos.",
     "share": "Compartir proyecto",
     "newDiagramHere": "Nuevo diagrama aquí",
-    "empty": "Sin diagramas en este proyecto",
     "count_one": "{{count}} diagrama",
     "count_other": "{{count}} diagramas",
     "moveToProject": "Mover a proyecto",
@@ -244,7 +243,8 @@
       "messageRef": "Referencia de mensaje",
       "calledElement": "Elemento llamado",
       "phaseColor": "Color de la fase",
-      "phaseName": "Nombre de la fase"
+      "phaseName": "Nombre de la fase",
+      "groupColor": "Color del borde"
     },
     "elementTypes": {
       "task": "Tarea",
@@ -272,6 +272,11 @@
       "group": "Grupo",
       "textAnnotation": "Anotación de texto",
       "dataObjectReference": "Objeto de datos"
+    },
+    "colorPicker": {
+      "none": "Sin color",
+      "featured": "Sugeridos",
+      "all": "Paleta"
     }
   },
   "diagrams": {
@@ -279,7 +284,10 @@
     "subtitle_one": "{{count}} diagrama BPMN",
     "subtitle_other": "{{count}} diagramas BPMN",
     "searchAll": "Buscar en todos los diagramas y carpetas…",
-    "view": { "grid": "Cuadrícula", "list": "Lista" },
+    "view": {
+      "grid": "Cuadrícula",
+      "list": "Lista"
+    },
     "filters": {
       "all": "Todos",
       "recent": "Recientes",
@@ -331,11 +339,26 @@
       "title": "Exportar diagrama",
       "subtitle": "Elige el formato de exportación",
       "formats": {
-        "bpmn": { "name": "BPMN 2.0", "desc": "Archivo XML compatible con Bizagi, Camunda y otros" },
-        "bpm":  { "name": "BPM Bizagi", "desc": "Formato nativo Bizagi — doble clic para abrir en Bizagi Modeler" },
-        "png": { "name": "PNG", "desc": "Imagen rasterizada, ideal para presentaciones" },
-        "svg": { "name": "SVG", "desc": "Vector escalable, máxima calidad" },
-        "pdf": { "name": "PDF", "desc": "Documento listo para imprimir o compartir" }
+        "bpmn": {
+          "name": "BPMN 2.0",
+          "desc": "Archivo XML compatible con Bizagi, Camunda y otros"
+        },
+        "bpm": {
+          "name": "BPM Bizagi",
+          "desc": "Formato nativo Bizagi — doble clic para abrir en Bizagi Modeler"
+        },
+        "png": {
+          "name": "PNG",
+          "desc": "Imagen rasterizada, ideal para presentaciones"
+        },
+        "svg": {
+          "name": "SVG",
+          "desc": "Vector escalable, máxima calidad"
+        },
+        "pdf": {
+          "name": "PDF",
+          "desc": "Documento listo para imprimir o compartir"
+        }
       },
       "options": {
         "scale": "Resolución",
