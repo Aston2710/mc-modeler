@@ -627,6 +627,15 @@ function phaseColorOf(el: Element): number {
   return hex ? hexToBizagiColor(hex) : C.group.fill
 }
 
+/**
+ * Color de BORDE del Group (flujo:groupColor hex) → entero ARGB de Bizagi.
+ * Sin color propio devuelve el gris por defecto de Bizagi (#666666).
+ */
+function groupBorderOf(el: Element): number {
+  const hex = el.getAttributeNS(FLUJO_NS, 'groupColor') || el.getAttribute('flujo:groupColor')
+  return hex ? hexToBizagiColor(hex) : C.group.border
+}
+
 /** "#RRGGBB" → entero ARGB con signo (formato de color de Bizagi). */
 function hexToBizagiColor(hex: string): number {
   let h = (hex || '').replace('#', '').trim()
@@ -792,7 +801,7 @@ function buildArtifacts(
     parts.push(`<Artifact BizAgiArtifactTypeSpecified="false" Id="${id}" Name="${esc(name)}" ArtifactType="Group">
       <Group Id="${id}" Name="${esc(name)}" />
       <NodeGraphicsInfos>
-        <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${C.group.border}" FillColor="${C.group.fill}" BorderVisible="false" TextX="${lp.tx}" TextY="${lp.ty}" TextWidth="90" TextHeight="30">
+        <NodeGraphicsInfo ToolId="BizAgi_Process_Modeler" Height="${b.height}" Width="${b.width}" BorderColor="${groupBorderOf(el)}" FillColor="${C.group.fill}" BorderVisible="false" TextX="${lp.tx}" TextY="${lp.ty}" TextWidth="90" TextHeight="30">
           <Coordinates XCoordinate="${b.x}" YCoordinate="${b.y}" />
           ${formatting()}
           <TextBackgroundColor>${C.white}</TextBackgroundColor>

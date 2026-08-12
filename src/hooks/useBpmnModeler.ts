@@ -8,6 +8,7 @@ import { MODELER_CONFIG } from '@/bpmn/config'
 import { BPMN_ELEMENTS } from '@/domain/bpmnElements'
 import { ELEMENT_SIZES } from '@/bpmn/ElementSizes'
 import { PHASE_ID_PREFIX, isPhase, setPhaseName, setPhaseColor } from '@/bpmn/elements/phaseUtil'
+import { setGroupColor } from '@/bpmn/elements/groupUtil'
 import { getLinkedDiagram as readLink, setLinkedDiagram as writeLink } from '@/bpmn/elements/subProcessLink'
 import { getLinkedImages as readImages, addLinkedImage as addImage, removeLinkedImage as removeImage } from '@/bpmn/elements/imageLink'
 import { beginImport, completeImport } from '@/collab/canvasSession'
@@ -472,6 +473,13 @@ export function useBpmnModeler(
         modeler.get('modeling').updateProperties(el, { phaseColor: value })
         return
       }
+    }
+    // Group (no Fase): color de borde de la paleta. Cadena vacía = volver al
+    // color del tema; se persiste como `undefined` para no serializar el atributo.
+    if (property === 'groupColor') {
+      setGroupColor(el, value)
+      modeler.get('modeling').updateProperties(el, { groupColor: value || undefined })
+      return
     }
     modeler.get('modeling').updateProperties(el, { [property]: value })
   }, [])

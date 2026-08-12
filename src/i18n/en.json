@@ -60,7 +60,7 @@
     "myDiagrams": "My diagrams",
     "shared": "Shared with me",
     "new": "New project",
-    "empty": "No projects yet",
+    "empty": "No diagrams in this project",
     "more": "more folders",
     "newTitle": "New project",
     "namePlaceholder": "Project name",
@@ -71,7 +71,6 @@
     "deleteConfirm": "Delete this project? Its diagrams are not deleted, they become loose.",
     "share": "Share project",
     "newDiagramHere": "New diagram here",
-    "empty": "No diagrams in this project",
     "count_one": "{{count}} diagram",
     "count_other": "{{count}} diagrams",
     "moveToProject": "Move to project",
@@ -244,7 +243,8 @@
       "messageRef": "Message reference",
       "calledElement": "Called element",
       "phaseColor": "Phase color",
-      "phaseName": "Phase name"
+      "phaseName": "Phase name",
+      "groupColor": "Border color"
     },
     "elementTypes": {
       "task": "Task",
@@ -272,6 +272,11 @@
       "group": "Group",
       "textAnnotation": "Text annotation",
       "dataObjectReference": "Data object"
+    },
+    "colorPicker": {
+      "none": "No color",
+      "featured": "Suggested",
+      "all": "Palette"
     }
   },
   "diagrams": {
@@ -279,7 +284,10 @@
     "subtitle_one": "{{count}} BPMN diagram",
     "subtitle_other": "{{count}} BPMN diagrams",
     "searchAll": "Search all diagrams and folders…",
-    "view": { "grid": "Grid", "list": "List" },
+    "view": {
+      "grid": "Grid",
+      "list": "List"
+    },
     "filters": {
       "all": "All",
       "recent": "Recent",
@@ -331,11 +339,26 @@
       "title": "Export diagram",
       "subtitle": "Choose export format",
       "formats": {
-        "bpmn": { "name": "BPMN 2.0", "desc": "XML file compatible with Bizagi, Camunda and others" },
-        "bpm":  { "name": "BPM Bizagi", "desc": "Native Bizagi format — double-click to open in Bizagi Modeler" },
-        "png": { "name": "PNG", "desc": "Raster image, ideal for presentations" },
-        "svg": { "name": "SVG", "desc": "Scalable vector, maximum quality" },
-        "pdf": { "name": "PDF", "desc": "Document ready to print or share" }
+        "bpmn": {
+          "name": "BPMN 2.0",
+          "desc": "XML file compatible with Bizagi, Camunda and others"
+        },
+        "bpm": {
+          "name": "BPM Bizagi",
+          "desc": "Native Bizagi format — double-click to open in Bizagi Modeler"
+        },
+        "png": {
+          "name": "PNG",
+          "desc": "Raster image, ideal for presentations"
+        },
+        "svg": {
+          "name": "SVG",
+          "desc": "Scalable vector, maximum quality"
+        },
+        "pdf": {
+          "name": "PDF",
+          "desc": "Document ready to print or share"
+        }
       },
       "options": {
         "scale": "Resolution",

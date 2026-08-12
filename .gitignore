@@ -148,6 +148,6 @@ dist
 referencias_csharp/
 *.zip
 .syntesis/
-docs/
+# docs/ se versiona desde 2026-08-10 (ver DEC-008). Los .bpm de muestra se eliminaron.
 scripts/
 kpi/

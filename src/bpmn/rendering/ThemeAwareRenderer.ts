@@ -30,11 +30,13 @@ import {
   gatewayColors,
   poolColors,
   laneColors,
+  groupColors,
   connectionColors,
   defaultColors,
   cssVar,
 } from './ThemeColors'
 import { isPhase, getPhaseName, getPhaseColor } from '../elements/phaseUtil'
+import { getGroupColor } from '../elements/groupUtil'
 import { isStorageImageRef, getResolvedImage, resolveImageRef } from '@/utils/imageStorage'
  
 // @ts-ignore — bpmn-js ships CommonJS without full types
@@ -164,6 +166,17 @@ function getColorsFor(element: AnyElement): {
   // Lanes
   if (isType(element, 'bpmn:Lane')) {
     return laneColors()
+  }
+
+  // Groups: borde punteado con color opcional de la paleta (flujo:groupColor).
+  // Las Fases también son bpmn:Group pero las dibuja PhaseModule con su propio
+  // relleno (flujo:phaseColor) — se excluyen aquí para no pisarlo.
+  if (isType(element, 'bpmn:Group') && !isPhase(element)) {
+    const base = groupColors()
+    const custom = getGroupColor(element)
+    // El color de la paleta es literal e igual en ambos temas: es una elección
+    // explícita del usuario, no un color de tema (ver groupUtil.ts).
+    return custom ? { ...base, stroke: custom } : base
   }
 
   return defaultColors()

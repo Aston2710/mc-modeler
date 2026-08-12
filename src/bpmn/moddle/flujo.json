@@ -50,6 +50,11 @@
           "name": "phaseColor",
           "isAttr": true,
           "type": "String"
+        },
+        {
+          "name": "groupColor",
+          "isAttr": true,
+          "type": "String"
         }
       ]
     }

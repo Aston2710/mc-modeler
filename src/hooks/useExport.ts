@@ -44,8 +44,13 @@ const RENDERER_VARS = [
   '--int-fill', '--int-stroke',
   '--gateway-fill', '--gateway-stroke',
   '--pool-fill', '--pool-stroke', '--lane-fill',
+  '--group-stroke',
   '--text', '--text-2', '--bg', '--border-strong',
 ] as const
+// NOTA: los colores de la paleta de Group (flujo:groupColor, ver groupUtil.ts)
+// NO entran aquí a propósito. Son literales elegidos por el usuario, iguales en
+// ambos temas, y deben exportarse tal cual — remapearlos cambiaría una decisión
+// suya. Solo se remapea `--group-stroke`, el gris del group sin personalizar.
 
 const LIGHT_SELECTOR = ':root'
 const DARK_SELECTORS = ['[data-theme="dark"]', ':root[data-theme="dark"]']

@@ -36,6 +36,9 @@
   --pool-fill: #f8fafc;
   --pool-stroke: #94a3b8;
   --lane-fill: #fdfdfe;
+  /* Borde punteado del Group sin color propio. Los colores de la paleta
+     (flujo:groupColor) son literales y NO dependen del tema. */
+  --group-stroke: #8b95a5;
 
   --grid: #eef0f4;
   --grid-strong: #e1e4ea;
@@ -102,6 +105,7 @@
   --pool-fill: #11141b;
   --pool-stroke: #475467;
   --lane-fill: #131722;
+  --group-stroke: #6b7789;
 
   --grid: #1a1f2b;
   --grid-strong: #232936;
@@ -1196,6 +1200,89 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   appearance: none;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M3 4.5L6 7.5L9 4.5' stroke='%2398a2b3' stroke-width='1.5' fill='none' stroke-linecap='round'/></svg>");
   background-repeat: no-repeat; background-position: right 8px center; padding-right: 26px;
+}
+
+/* ── Selector de color (estilo draw.io): botón + panel con rejilla ───────── */
+.color-trigger {
+  width: 100%; height: 30px; display: flex; align-items: center; gap: 8px;
+  padding: 0 8px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-1); color: var(--text);
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+}
+.color-trigger:hover:not(:disabled) { border-color: var(--border-strong); }
+.color-trigger:focus-visible {
+  outline: none; border-color: var(--primary);
+  background: var(--panel); box-shadow: 0 0 0 3px var(--primary-50);
+}
+.color-trigger:disabled { cursor: not-allowed; opacity: 0.6; }
+.color-trigger-chip {
+  width: 16px; height: 16px; flex: 0 0 auto; border-radius: 4px;
+  background: currentColor; border: 1px solid rgb(0 0 0 / 0.2);
+}
+/* "Sin color": el gris del tema con una diagonal, para distinguir "ninguno" de
+   un gris elegido a propósito. */
+.color-trigger-chip.is-none {
+  background:
+    linear-gradient(to top right,
+      transparent calc(50% - 1px), var(--panel) 50%,
+      transparent calc(50% + 1px)),
+    currentColor;
+}
+.color-trigger-text {
+  flex: 1; text-align: left; font-size: 11.5px; color: var(--text-2);
+  font-family: 'JetBrains Mono', monospace;
+}
+.color-trigger-caret {
+  width: 0; height: 0; flex: 0 0 auto;
+  border-left: 4px solid transparent; border-right: 4px solid transparent;
+  border-top: 5px solid var(--text-3);
+}
+
+/* Panel emergente. `fixed` para que no lo recorte el overflow del sidebar; la
+   posición la calcula el componente desde el rect del botón. */
+.color-pop {
+  position: fixed; z-index: 200;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.18), 0 2px 6px rgb(0 0 0 / 0.1);
+}
+.color-pop-head { margin-bottom: 6px; }
+.color-none {
+  width: 100%; display: flex; align-items: center; gap: 6px;
+  padding: 5px 7px; cursor: pointer; font-size: 11.5px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg-1); color: var(--text-2);
+}
+.color-none:hover { border-color: var(--border-strong); color: var(--text); }
+.color-none.selected {
+  border-color: var(--primary); color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+.color-pop-section {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--text-3);
+  margin: 8px 0 5px;
+}
+.color-row, .color-grid { display: grid; gap: 3px; }
+.color-row  { grid-template-columns: repeat(5, 16px); }
+.color-grid { grid-template-columns: repeat(12, 16px); }
+.color-cell {
+  width: 16px; height: 16px; padding: 0; cursor: pointer;
+  border: 1px solid rgb(0 0 0 / 0.14); border-radius: 3px;
+  transition: transform 0.06s, box-shadow 0.1s;
+}
+.color-cell:hover { transform: scale(1.25); z-index: 1; }
+/* Anillo neutro sobre el fondo del panel: legible sobre cualquier muestra,
+   incluidas blanco y negro. */
+.color-cell.selected {
+  box-shadow: 0 0 0 1.5px var(--panel), 0 0 0 3px var(--primary);
+  z-index: 1;
+}
+.color-cell:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1.5px var(--panel), 0 0 0 3px var(--primary);
+  z-index: 1;
 }
 
 /* ========================================================
