@@ -149,5 +149,11 @@ referencias_csharp/
 *.zip
 .syntesis/
 # docs/ se versiona desde 2026-08-10 (ver DEC-008). Los .bpm de muestra se eliminaron.
-scripts/
+# scripts/* y no scripts/: git no puede reincluir un archivo si el directorio
+# entero esta excluido. Excluyendo el contenido si funciona la excepcion.
+scripts/*
+# Excepcion: lab.mjs SI se versiona. package.json lo invoca en `npm run lab`,
+# asi que sin el un clon recien hecho no puede levantar el laboratorio. No
+# contiene credenciales ni datos: solo comprueba el puerto y lanza el stack.
+!scripts/lab.mjs
 kpi/
