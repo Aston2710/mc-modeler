@@ -82,6 +82,50 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([text], { type: mime })
 }
 
+/**
+ * Techo del bucket `thumbnails` en Storage (migracion 20260813120000).
+ * Solo se usa para diagnosticar: la verdad la impone Storage, no el cliente.
+ */
+const THUMB_SIZE_LIMIT_BYTES = 5 * 1024 * 1024
+
+/**
+ * Enriquece el error de subida de un thumbnail con el dato que hace falta para
+ * decidir: cuanto pesaba.
+ *
+ * Un thumbnail que no cabe falla en silencio — el diagrama se guarda igual y
+ * el usuario solo ve una portada sin miniatura. Sin el tamaño en el mensaje no
+ * hay forma de saber si el techo se quedo corto otra vez o si el fallo era de
+ * red, y acabariamos subiendo el limite a ciegas. PLAN-012 (thumbnails a WebP)
+ * deberia hacer esto irrelevante.
+ */
+/** Error de subida de thumbnail, con el original adjunto para depurar. */
+export interface ThumbUploadError extends Error {
+  /** El error tal cual lo devolvio Storage. No se usa `cause`: exige ES2022. */
+  originalError: unknown
+  /** Tamaño del blob que se intento subir. */
+  sizeBytes: number
+  /** true si el fallo se atribuye al techo del bucket. */
+  tooBig: boolean
+}
+
+export function describeThumbUploadError(error: unknown, sizeBytes: number): ThumbUploadError {
+  const message = error instanceof Error ? error.message : String(error)
+  const kb = Math.round(sizeBytes / 1024)
+  const tooBig =
+    sizeBytes > THUMB_SIZE_LIMIT_BYTES ||
+    /maximum allowed size|payload too large|entity too large|413/i.test(message)
+
+  const detail = tooBig
+    ? `thumbnail de ${kb} kB supera el techo del bucket (${THUMB_SIZE_LIMIT_BYTES / 1024 / 1024} MB)`
+    : `thumbnail de ${kb} kB`
+
+  const wrapped = new Error(`[thumbnail] ${detail}: ${message}`) as ThumbUploadError
+  wrapped.originalError = error
+  wrapped.sizeBytes = sizeBytes
+  wrapped.tooBig = tooBig
+  return wrapped
+}
+
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -379,7 +423,7 @@ export class SupabaseRepository implements IDiagramRepository {
     const { error } = await this.sb.storage
       .from(THUMB_BUCKET)
       .upload(thumbPath(id), blob, { upsert: true, contentType: blob.type })
-    if (error) throw error
+    if (error) throw describeThumbUploadError(error, blob.size)
     // El path es constante por diagrama → tras la primera vez NUNCA tocar la
     // fila. Crítico: ese UPDATE dispara el trigger de updated_at e invalida la
     // versión CAS de TODOS los escritores en cada autosave (era la causa de

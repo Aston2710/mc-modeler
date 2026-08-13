@@ -9,7 +9,15 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "lint": "eslint src --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint src --report-unused-disable-directives --max-warnings 0",
+    "lab": "node scripts/lab.mjs",
+    "lab:reset": "supabase db reset && vite --mode lab",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:status": "supabase status",
+    "db:reset": "supabase db reset",
+    "db:studio": "supabase status -o env",
+    "db:diff": "supabase db diff --local"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",
@@ -44,6 +52,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "jsdom": "^29.1.1",
     "prettier": "^3.3.0",
+    "supabase": "^2.114.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.6.0",
     "vite": "^6.0.0",

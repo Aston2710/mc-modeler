@@ -4,6 +4,7 @@ Ordenado por ID descendente. `mitigado` no es `resuelto`.
 
 | ID | Incidente | Estado | Severidad | Componentes | Detectado |
 |---|---|---|---|---|---|
+| [EXP-016](016-el-historial-de-migraciones-no-reproduce-la-base.md) | El historial de migraciones no reproducía la base: faltaban 6 archivos de 35 migraciones aplicadas | resuelto | alta | `supabase/migrations`, `comment_threads`, MCP `apply_migration` | 2026-08-13 |
 | [EXP-015](015-revoke-update-de-columna-es-noop-con-grant-de-tabla.md) | `REVOKE UPDATE (columna)` no surtió efecto porque existía un `GRANT UPDATE` de tabla | resuelto | alta | migraciones `0023`/`0028` | 2026-08-10 |
 | [EXP-014](014-rls-evaluado-por-fila-degradaba-la-lista-de-diagramas.md) | La política RLS de `diagrams` se evaluaba una vez por fila y la lista tardaba 31 ms | resuelto | alta | `private.can_access_diagram`, `diagrams_select` | 2026-08-09 |
 | [EXP-013](013-tabla-de-respaldo-expuesta-publicamente.md) | Una tabla de respaldo quedó en `public` con RLS desactivado y permisos para `anon` | resuelto | crítica | `_xml_backup_20260723`, PostgREST | 2026-08-09 |
