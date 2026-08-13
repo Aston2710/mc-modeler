@@ -1,12 +1,30 @@
 ---
 documento: decisiones
 vigencia: vigente
-actualizado: 2026-08-10
+actualizado: 2026-08-13
 ---
 
 # Decisiones
 
 Append-only. Entradas más recientes arriba. **Las alternativas descartadas con su motivo son la razón de existir de este documento**: sin ellas alguien reabre el debate en tres meses partiendo de cero.
+
+---
+
+## DEC-012 — El esquema se reconstruye desde un baseline, no desde el historial de migraciones
+
+- **Fecha:** 2026-08-13
+- **Estado:** vigente
+- **Contexto:** al montar el primer entorno local, reproducir las migraciones del repositorio sobre un Postgres vacío falló dos veces. Producción tenía 35 migraciones registradas y el repositorio 29 archivos: seis se habían aplicado con la herramienta MCP, que ejecuta y registra pero no escribe el `.sql`. Una de ellas creaba las tablas de comentarios, así que `0008` moría en una base virgen (EXP-016). Consecuencia real: el repositorio no podía reconstruir la base, y por tanto no había forma de ensayar una migración antes de producción.
+- **Decisión:**
+  1. **Un baseline reemplaza al historial para construir.** `supabase/migrations/20260813000000_baseline_produccion.sql` describe el esquema tal como está, obtenido por introspección de solo lectura (`pg_get_functiondef`, `pg_get_constraintdef`, `pg_get_triggerdef`, `pg_get_expr`, `pg_indexes`). Las 29 migraciones pasan a `supabase/migrations_legacy/`, donde siguen explicando *por qué* el esquema es como es.
+  2. **Toda migración nueva se escribe primero como archivo**, se prueba con `npm run db:reset`, y solo entonces se aprueba para producción. Aplicar sin dejar el archivo es lo que produjo el agujero.
+- **Alternativas descartadas:**
+  - *Reconstruir los seis archivos perdidos* — para levantar un entorno local hace falta el esquema de hoy, no el camino hasta él. Reconstruir seis migraciones por introspección es más trabajo y más frágil que capturar una foto.
+  - *`supabase db dump --schema-only`* — es el camino oficial y produce el mismo resultado con menos esfuerzo, pero exige la contraseña de la base, que Supabase no permite consultar: solo restablecer. Cambiar una credencial de producción para generar un archivo de desarrollo no compensa.
+  - *Ramas de vista previa de Supabase* — más fieles al entorno real, pero requieren plan de pago e integración con Git.
+- **Consecuencias:** el historial deja de ser ejecutable; quien quiera saber por qué existe una política concreta va a `migrations_legacy/`. A cambio, `db reset` es ahora la comprobación de que el repositorio reproduce la base.
+- **Verificación:** huella md5 de 13 categorías del catálogo (tablas, columnas, restricciones, índices, funciones, triggers, políticas, RLS, permisos de tabla y de columna, realtime, replica identity, buckets), idéntica en local y en producción. Los hashes cubren el texto completo de cada definición.
+- **Relacionados:** EXP-016, `context/desarrollo-local.md`, MASTER-PLAN-018
 
 ---
 

@@ -47,12 +47,14 @@ Auditoría de la base de datos Supabase del 2026-08-09/10. Empezó como revisió
 
 ## Orden de ejecución
 
-### Fase 0 — antes de la presentación
+### Fase 0 — antes de la presentación · ✅ COMPLETA (2026-08-13)
 
 **Solo dos cosas, y una es de cinco minutos.**
 
-1. **Subir el límite del bucket `thumbnails` a 5 MB.** Elimina un techo que introdujo la migración `0026` y que hoy tiene 4.7× de margen. No es grave —el fallo está capturado como no crítico y el XML se guarda igual— pero quitarlo es gratis. SQL puro, sin despliegue.
-2. **PLAN-014 paso 2** — que el doble conflicto de CAS pregunte en vez de decidir. Es lo único que hoy puede destruir trabajo del usuario, y su escenario —dos pestañas, mismo diagrama— es el primero que alguien probará.
+1. ☑ **Subir el límite del bucket `thumbnails` a 5 MB.** Elimina un techo que introdujo la migración `0026` y que hoy tiene 4.7× de margen. No es grave —el fallo está capturado como no crítico y el XML se guarda igual— pero quitarlo es gratis. SQL puro, sin despliegue.
+   → Aplicado el **2026-08-13**, migración `20260813225135_bucket_thumbnails_5mb`. Probado antes en el entorno local ([`desarrollo-local.md`](../../context/desarrollo-local.md)): 3 MB entra donde antes se rechazaba, 6 MB sigue devolviendo `EntityTooLarge`.
+2. ☑ **PLAN-014 paso 2** — que el doble conflicto de CAS pregunte en vez de decidir. Es lo único que hoy puede destruir trabajo del usuario, y su escenario —dos pestañas, mismo diagrama— es el primero que alguien probará.
+   → Ya estaba implementado; se descubrió el 2026-08-11 (`diagramStore.ts:349-355`, `App.tsx:271-315`).
 
 Nada más de esta lista mejora la presentación lo suficiente como para justificar el riesgo de tocarlo antes.
 
@@ -96,7 +98,7 @@ Si algún plan se descarta en vez de ejecutarse, se marca igualmente y el motivo
 
 ## Riesgos
 
-**Que la fase 0 crezca.** La tentación de "ya que estamos" antes de una presentación es exactamente cómo se rompe una demostración. Dos elementos, y ninguno más.
+**Que la fase 0 crezca.** ~~La tentación de "ya que estamos" antes de una presentación es exactamente cómo se rompe una demostración. Dos elementos, y ninguno más.~~ — Cerrada el 2026-08-13 con exactamente esos dos elementos.
 
 **Que PLAN-013 se quede en las precondiciones.** Sus cinco decisiones llevan abiertas desde que se escribió. Sin ellas, MASTER-PLAN-019 (la infraestructura) nunca podrá decidirse con datos y volverá a discutirse con opiniones.
 
@@ -113,6 +115,8 @@ Si se retoma, hacerlo **después** de PLAN-014, cuando el fallo ya sea observabl
 | Fecha | Qué | Resultado |
 |---|---|---|
 | 2026-08-10 | PLAN-010 cerrado | 9 migraciones aplicadas (`0021`–`0029`). Lista de diagramas 31.2 → 1.33 ms. Fuga P0 cerrada. Lo que requiere cliente se derivó a PLAN-011, PLAN-012 y PLAN-016 |
+| 2026-08-13 | **Fase 0 cerrada** | Bucket `thumbnails` 2 MB → 5 MB (migración `20260813225135`). El fallo de subida deja de ser un `console.warn` genérico: `describeThumbUploadError` reporta el tamaño y si el techo fue la causa, con 5 pruebas que fijan el mensaje literal de Storage. El paso 2 de PLAN-014 ya estaba hecho |
+| 2026-08-13 | Entorno local montado | Stack de Supabase en Docker + `npm run lab` en el puerto 7654. Al montarlo salió [EXP-016](../../experience/016-el-historial-de-migraciones-no-reproduce-la-base.md): el historial no reproducía la base porque faltaban 6 de las 35 migraciones registradas. Resuelto con un baseline por introspección, verificado con huella md5 de 13 categorías del catálogo. **A partir de ahora ninguna migración se estrena en producción** |
 
 ## Resultado
 

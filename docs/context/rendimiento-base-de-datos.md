@@ -211,7 +211,7 @@ La consulta #3 del ranking (`storage.objects` por `(name, bucket_id)`, 26 514 ll
 
 **194 objetos para 132 diagramas**: hay ~62 thumbnails huérfanos. `purgeAll`/`purge` sí borran del bucket (líneas 265, 292, 330), así que el residuo probablemente viene de subprocesos y de borrados anteriores a la migración de papelera.
 
-**Ningún bucket tiene `file_size_limit`.** Un cliente comprometido, o un bug de generación de thumbnail, puede subir un archivo de cualquier tamaño. Poner límites explícitos (p.ej. 2 MB para thumbnails, 10 MB para imágenes) cuesta un `UPDATE` en `storage.buckets` y cierra la puerta.
+~~**Ningún bucket tiene `file_size_limit`.**~~ Un cliente comprometido, o un bug de generación de thumbnail, podía subir un archivo de cualquier tamaño. **Resuelto:** la migración `0026` puso techos explícitos, y el 2026-08-13 el de `thumbnails` se ajustó de 2 MB a 5 MB porque el valor inicial quedó apretado. Estado vigente en [`base-de-datos-inventario.md`](base-de-datos-inventario.md#storage).
 
 ---
 

@@ -305,14 +305,18 @@ Ambas validan expiración y usan `ON CONFLICT DO NOTHING`. **No validan que el e
 
 ### Storage — 2 buckets, ambos privados
 
+Medido el **2026-08-13**:
+
 | Bucket | Objetos | Bytes | Media | `file_size_limit` |
 |---|---:|---:|---:|---|
-| `thumbnails` | 194 | 10 212 kB | 53 kB | **null** |
-| `diagram-images` | 52 | 5 626 kB | 108 kB | **null** |
+| `thumbnails` | 221 | 11 MB | 50 kB | **5 MB** |
+| `diagram-images` | 54 | 5 655 kB | 105 kB | **10 MB** |
 
-Sin límite de tamaño por archivo en ninguno de los dos. Un cliente comprometido puede subir un archivo arbitrariamente grande. Ver [04](../plans/todo/011-remediacion-de-base-de-datos-pendiente.md#p2-4).
+Los dos buckets tienen techo desde la migración `0026`. `thumbnails` empezó en 2 MB y subió a 5 MB el 2026-08-13 (`20260813225135`): el margen sobre la media era amplio, pero un diagrama denso podía acercarse y una subida rechazada deja la tarjeta de la portada sin miniatura, en silencio. Desde ese cambio el fallo se diagnostica — `describeThumbUploadError` en `SupabaseRepository.ts` reporta el tamaño y si el techo fue la causa.
 
-`thumbnails` tiene 194 objetos para 132 diagramas: 62 huérfanos, restos de diagramas purgados y de thumbnails de subprocesos.
+Los tipos MIME también están restringidos: `thumbnails` admite `image/svg+xml`, `image/webp` y `image/png`; `diagram-images` añade `image/jpeg`.
+
+`thumbnails` tiene 221 objetos para 161 diagramas: **78 huérfanos**, restos de diagramas purgados y de thumbnails de subprocesos. Es [EXP-012](../experience/012-ficheros-huerfanos-en-storage-tras-borrado.md), aún activo, y su limpieza es [PLAN-017](../plans/todo/017-higiene-de-datos-y-retencion.md).
 
 ### Extensiones instaladas (5)
 `plpgsql` · `pgcrypto` (extensions) · `uuid-ossp` (extensions) · `pg_stat_statements` (extensions) · `supabase_vault` (vault) · **`pg_net` 0.20.3 en `public`** ⚠️
