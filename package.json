@@ -10,7 +10,7 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "lint": "eslint src --report-unused-disable-directives --max-warnings 0",
-    "lab": "supabase start && vite --mode lab",
+    "lab": "node scripts/lab.mjs",
     "lab:reset": "supabase db reset && vite --mode lab",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
