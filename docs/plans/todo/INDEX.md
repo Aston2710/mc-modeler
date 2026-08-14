@@ -27,8 +27,7 @@ Orden por ID descendente. **El número es orden de descubrimiento, no de ejecuci
 |---|---|---|---|
 | [PLAN-017](017-higiene-de-datos-y-retencion.md) | Higiene de datos y políticas de retención | base de datos | todo — 3 decisiones de producto |
 | [PLAN-016](016-podar-la-publicacion-de-realtime.md) | Podar la publicación de Realtime (73 % del CPU) | rendimiento | todo — el cliente debe migrarse antes |
-| [PLAN-014](014-mitigacion-perdida-de-trabajo-en-colaboracion.md) | Mitigación de la pérdida de trabajo en colaboración | colaborativo | todo — **revisar**, ver nota |
-| [PLAN-013](013-cola-de-incidentes-auditable.md) | Cola de incidentes auditable | observabilidad | todo — **5 decisiones abiertas** |
+| [PLAN-013](013-cola-de-incidentes-auditable.md) | Cola de incidentes auditable | observabilidad | todo — **5 decisiones abiertas**; `utils/incidents.ts` ya tiene su superficie |
 | [PLAN-012](012-thumbnails-webp-y-entrega-segura.md) | Thumbnails a WebP con entrega segura | rendimiento | todo |
 | [PLAN-011](011-remediacion-de-base-de-datos-pendiente.md) | Deuda de esquema pendiente | base de datos | todo |
 
@@ -36,7 +35,7 @@ Orden por ID descendente. **El número es orden de descubrimiento, no de ejecuci
 
 | ID | Plan | Estado |
 |---|---|---|
-| [PLAN-005](005-cambio-de-pestanas-con-instancia-viva.md) | Cambio de pestañas con instancia bpmn-js viva | todo — anterior a la auditoría |
+| [PLAN-005](005-cambio-de-pestanas-con-instancia-viva.md) | Cambio de pestañas con instancia bpmn-js viva | **en-progreso** — ya en producción con el flag ON; auditado 2026-08-14 |
 
 ## PLAN-013 bloquea los dos master plans
 
@@ -44,10 +43,6 @@ Sus cinco decisiones abiertas —qué significa "auditable", retención (`pg_cro
 
 - sin datos, **PLAN-020 no puede decidir** si la infraestructura se construye
 - y sin esa decisión, MASTER-PLAN-019 entero está parado
-
-## Nota sobre PLAN-014
-
-Su paso 2 (que el doble conflicto de CAS pregunte en vez de decidir) **ya está implementado** — `diagramStore.ts:349-355` y `App.tsx:271-315`. Se descubrió el 2026-08-11. El plan necesita revisión: sus pasos 1 y 3 siguen siendo válidos, el 2 no.
 
 ## Bloqueos
 

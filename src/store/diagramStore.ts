@@ -7,6 +7,7 @@ import { generateDiagramId } from '@/utils/idGenerator'
 import { normalizeBpmnXml } from '@/utils/normalizeBpmnXml'
 import { externalizeImages, rehomeImages, deleteDiagramImages } from '@/utils/imageStorage'
 import { perfStart } from '@/utils/perf'
+import { dispose as disposeModelerInstance } from '@/bpmn/modelerCache'
 
 /**
  * Validación mínima antes de persistir: no guardar XML vacío o que no parezca
@@ -283,6 +284,15 @@ export const useDiagramStore = create<DiagramState>()(
           s.activeTabId = s.tabs[Math.max(0, idx - 1)]?.id ?? null
         }
       })
+      // Liberar la instancia viva de bpmn-js de esta pestaña (PLAN-005 paso 6).
+      // Sin esto, cerrar una pestaña dejaba su instancia en el cache —con su
+      // SVG, su element registry y su pila de undo— hasta que el LRU la
+      // desalojara (tope 6) o se volviera al inicio. Fuga acotada pero real:
+      // abrir y cerrar 6 diagramas grandes mantenía los 6 en memoria.
+      //
+      // Va después del `set`: para entonces `activeTabId` ya apunta a la
+      // pestaña vecina, así que destruir esta no deja al canvas sin destino.
+      disposeModelerInstance(id)
     },
 
     setActiveTab: (id) => {

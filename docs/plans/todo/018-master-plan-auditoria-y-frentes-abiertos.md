@@ -6,7 +6,7 @@ estado: en-progreso
 creado: 2026-08-10
 cerrado:
 aprobado_por:
-progreso: 1/7
+progreso: 2/7
 agrupa: [PLAN-010, PLAN-011, PLAN-012, PLAN-013, PLAN-014, PLAN-016, PLAN-017]
 relacionados: [EXP-011, EXP-012, DEC-005, DEC-006, DEC-007, DEC-009]
 ---
@@ -32,14 +32,14 @@ Auditoría de la base de datos Supabase del 2026-08-09/10. Empezó como revisió
 | | Plan | Frente | Estado | Bloqueado por |
 |:-:|---|---|---|---|
 | ☑ | [PLAN-010](../done/010-auditoria-y-remediacion-de-base-de-datos.md) | base de datos | **done** 2026-08-10 | — |
-| ☐ | [PLAN-014](014-mitigacion-perdida-de-trabajo-en-colaboracion.md) | colaborativo | todo — **prioridad máxima** | nada |
+| ☑ | [PLAN-014](../done/014-mitigacion-perdida-de-trabajo-en-colaboracion.md) | colaborativo | **done** 2026-08-14 | — |
 | ☐ | [PLAN-013](013-cola-de-incidentes-auditable.md) | observabilidad | todo | **5 decisiones** |
 | ☐ | [PLAN-012](012-thumbnails-webp-y-entrega-segura.md) | rendimiento | todo | nada |
 | ☐ | [PLAN-017](017-higiene-de-datos-y-retencion.md) | base de datos | todo | 3 decisiones de producto |
 | ☐ | [PLAN-016](016-podar-la-publicacion-de-realtime.md) | rendimiento | todo | migrar cliente a Broadcast |
 | ☐ | [PLAN-011](011-remediacion-de-base-de-datos-pendiente.md) | base de datos | todo | va con PLAN-012 |
 
-**Progreso: 1/7.**
+**Progreso: 2/7.**
 
 > El servidor autoritativo salió a [MASTER-PLAN-019](019-master-plan-servidor-autoritativo-de-colaboracion.md) el 2026-08-11: es infraestructura, no corrección de lo existente.
 >
@@ -60,8 +60,8 @@ Nada más de esta lista mejora la presentación lo suficiente como para justific
 
 ### Fase 1 — inmediatamente después
 
-3. **PLAN-014 completo** (pasos 1 y 3: encolar en vez de descartar, y que el plazo agotado sea un evento).
-4. **PLAN-013.** Sin él se sigue decidiendo con intuiciones. Sus cinco decisiones abiertas son el cuello real, no la implementación.
+3. ☑ **PLAN-014 completo** (pasos 1 y 3: encolar en vez de descartar, y que el plazo agotado sea un evento). → **Cerrado el 2026-08-14.**
+4. **PLAN-013.** Sin él se sigue decidiendo con intuiciones. Sus cinco decisiones abiertas son el cuello real, no la implementación. → Parte del camino ya está: PLAN-014 dejó `src/utils/incidents.ts` con la superficie que este plan necesita; falta el destino en Postgres.
 
 ### Fase 2 — lo que el usuario nota
 
@@ -108,7 +108,13 @@ Si algún plan se descarta en vez de ejecutarse, se marca igualmente y el motivo
 
 **PLAN-005** (cambio de pestañas con instancia viva, 2026-07-15) es anterior a la auditoría y no se evaluó aquí. Pero el mecanismo A de EXP-011 se dispara precisamente al **cambiar rápido entre pestañas**, y PLAN-005 reescribe justo ese camino: puede aliviar el problema o empeorarlo, pero no es neutro.
 
-Si se retoma, hacerlo **después** de PLAN-014, cuando el fallo ya sea observable. De otro modo no habrá forma de saber en qué dirección lo movió.
+~~Si se retoma, hacerlo **después** de PLAN-014, cuando el fallo ya sea observable.~~
+
+**Corrección (auditoría del 2026-08-14): no está "por retomar" — lleva meses en producción.** Su documento decía que el flag `flujo:tabsCache` seguía OFF; está **ON por defecto**.
+
+Durante esa auditoría se planteó que `canvasSession`, al mantener un contador de generación único para todas las instancias vivas, rompiera el fencing y explicara el mecanismo A de EXP-011. **Se verificó y es falso**: el camino de re-adjuntar llama a `beginImport()` y `completeImport()` de forma síncrona (`useBpmnModeler.ts:299-308`), sin ventana entre medias. El fencing funciona con varias instancias.
+
+**El mecanismo A sigue sin causa identificada.** El registro que añade PLAN-014 sigue siendo la vía para averiguarlo.
 
 ## Registro de ejecución
 
@@ -117,6 +123,8 @@ Si se retoma, hacerlo **después** de PLAN-014, cuando el fallo ya sea observabl
 | 2026-08-10 | PLAN-010 cerrado | 9 migraciones aplicadas (`0021`–`0029`). Lista de diagramas 31.2 → 1.33 ms. Fuga P0 cerrada. Lo que requiere cliente se derivó a PLAN-011, PLAN-012 y PLAN-016 |
 | 2026-08-13 | **Fase 0 cerrada** | Bucket `thumbnails` 2 MB → 5 MB (migración `20260813225135`). El fallo de subida deja de ser un `console.warn` genérico: `describeThumbUploadError` reporta el tamaño y si el techo fue la causa, con 5 pruebas que fijan el mensaje literal de Storage. El paso 2 de PLAN-014 ya estaba hecho |
 | 2026-08-13 | Entorno local montado | Stack de Supabase en Docker + `npm run lab` en el puerto 7654. Al montarlo salió [EXP-016](../../experience/016-el-historial-de-migraciones-no-reproduce-la-base.md): el historial no reproducía la base porque faltaban 6 de las 35 migraciones registradas. Resuelto con un baseline por introspección, verificado con huella md5 de 13 categorías del catálogo. **A partir de ahora ninguna migración se estrena en producción** |
+| 2026-08-14 | **PLAN-014 cerrado** | Mecanismos A y B de EXP-011 mitigados: las ediciones emitidas antes de conocer el rol se encolan en vez de descartarse, y agotar la espera del canvas deja de ser definitivo (se sigue reintentando). Registro estructurado en `src/utils/incidents.ts`. 22 pruebas. **No arregla la causa** — EXP-011 sigue activo |
+| 2026-08-14 | PLAN-005 auditado | Su documento decía que el multicanva estaba apagado; lleva meses **activo en producción**. Corregido paso a paso contra el código. Se hizo su paso 6 parcial (`dispose` al cerrar pestaña, que fugaba instancias). Se descartó por verificación la hipótesis de que el fencing fallara con varias instancias |
 
 ## Resultado
 

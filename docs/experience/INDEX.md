@@ -9,7 +9,7 @@ Ordenado por ID descendente. `mitigado` no es `resuelto`.
 | [EXP-014](014-rls-evaluado-por-fila-degradaba-la-lista-de-diagramas.md) | La política RLS de `diagrams` se evaluaba una vez por fila y la lista tardaba 31 ms | resuelto | alta | `private.can_access_diagram`, `diagrams_select` | 2026-08-09 |
 | [EXP-013](013-tabla-de-respaldo-expuesta-publicamente.md) | Una tabla de respaldo quedó en `public` con RLS desactivado y permisos para `anon` | resuelto | crítica | `_xml_backup_20260723`, PostgREST | 2026-08-09 |
 | [EXP-012](012-ficheros-huerfanos-en-storage-tras-borrado.md) | Los thumbnails sobreviven al borrado de su diagrama y quedan inalcanzables | **activo** | media | `SupabaseRepository.ts`, `storage.objects` | 2026-08-09 |
-| [EXP-011](011-perdida-silenciosa-de-cambios-entre-colaboradores.md) | **Dos personas editan el mismo diagrama y los cambios de una no llegan a la otra** | **activo** | **crítica** | `useCollab.ts`, `canvasSession.ts`, `diagramStore.ts` | 2026-08-10 |
+| [EXP-011](011-perdida-silenciosa-de-cambios-entre-colaboradores.md) | **Dos personas editan el mismo diagrama y los cambios de una no llegan a la otra** | **activo** — mitigado 2026-08-14, causa sin identificar | **crítica** | `useCollab.ts`, `canvasSession.ts`, `diagramStore.ts` | 2026-08-10 |
 | [EXP-010](010-mover-contenedor-reruta-las-flechas-internas.md) | Mover un pool, carril o grupo rerutaba las flechas internas | resuelto | alta | `src/bpmn/connections` | 2026-07-27 |
 | [EXP-009](009-imagenes-de-la-biblioteca-no-visibles-para-colaboradores.md) | Las imágenes de la biblioteca no eran visibles para otros usuarios | resuelto | media | `images` RLS, `SupabaseImageRepository.ts` | 2026-08-04 |
 | [EXP-008](008-diagrama-corrupto-diagnostico-y-mejora-continua.md) | Diagrama corrupto en producción: diagnóstico y mejora continua | resuelto | crítica | `src/persistence`, `current_xml` | 2026-07-23 |
@@ -23,7 +23,9 @@ Ordenado por ID descendente. `mitigado` no es `resuelto`.
 
 ## Incidentes activos
 
-Dos abiertos: EXP-011 y EXP-012. **EXP-011 es el único que destruye trabajo del usuario** y su mitigación es [PLAN-014](../plans/todo/014-mitigacion-perdida-de-trabajo-en-colaboracion.md), la prioridad máxima antes de producción.
+Dos abiertos: EXP-011 y EXP-012.
+
+**EXP-011 está mitigado desde el 2026-08-14** ([PLAN-014](../plans/done/014-mitigacion-perdida-de-trabajo-en-colaboracion.md)): sus tres mecanismos dejaron de ser silenciosos. Sigue **activo** porque la mitigación reduce el daño sin arreglar la causa, que continúa sin identificar. La solución de fondo es [MASTER-PLAN-019](../plans/todo/019-master-plan-servidor-autoritativo-de-colaboracion.md).
 
 ## Los cinco incidentes de la auditoría 2026-08
 
