@@ -179,9 +179,22 @@ Descartado A (N `<BpmnCanvas>` montados, activo visible): montaría N canales Re
 >
 > **El mecanismo A sigue sin causa identificada.** El registro de PLAN-014 (`collab.bind_timeout` con `ready_diagram`, `active_version` y `retries`) sigue siendo la vía para averiguarlo, ahora sin una hipótesis previa que sesgue la lectura.
 
-Lo que queda es deuda de diseño, no un fallo activo: el estado global funciona porque solo hay una instancia adjunta a la vez, pero es frágil ante cualquier cambio que rompa esa premisa (p. ej. dos canvas visibles a la vez). El patrón correcto es `Map<diagramId, estado>`, igual que el propio `modelerCache`.
+Lo que queda es deuda de diseño, no un fallo activo. Pero **los dos módulos no son igual de urgentes** (medido el 2026-08-14):
 
-**No tocar el fencing sin una causa concreta que arreglar**: relajarlo mal es lo que causó [EXP-003](../../experience/003-contaminacion-de-pools-entre-diagramas.md) (elementos de un diagrama dentro del pool de otro).
+| | `canvasSession` | `readOnlyState` |
+|---|---|---|
+| Escrituras | 2, ambas en `useBpmnModeler` | 1, en `App.tsx:75` |
+| Lecturas | 5 sitios, todos ya reciben `diagramId` | `ReadOnlyModule`, **desde todas las instancias vivas** |
+| ¿Falla hoy? | **No** — verificado | No, pero por una premisa frágil |
+| Naturaleza | corrección | **seguridad** |
+
+**`canvasSession` es el cambio fácil** —`Map<diagramId, {generation, ready}>`, media hora, cubierto por las pruebas existentes— y precisamente por eso conviene no hacerlo sin motivo: es la pieza que protege de [EXP-003](../../experience/003-contaminacion-de-pools-entre-diagramas.md) (elementos de un diagrama dentro del pool de otro). **No tocar el fencing sin una causa concreta que arreglar.**
+
+**`readOnlyState` es el que importa.** Una sola bandera booleana global consultada por `ReadOnlyModule` desde *todas* las instancias vivas. Con varias pestañas abiertas —una de solo lectura, otra editable— la bandera solo puede valer una cosa. Funciona porque `App.tsx:75` la fija según el diagrama activo y solo hay un canvas visible.
+
+Si esa premisa se rompiera (dos vistas simultáneas, previsualización, panel lateral), **una pestaña de solo lectura pasaría a ser editable sin aviso**. Es una propiedad de seguridad, no una optimización — la misma que cerró el trabajo de *readonly viewer enforcement*.
+
+No es explotable hoy. El arreglo correcto es que el estado viva en la instancia, y ese es exactamente el trabajo de **PLAN-028** ([MASTER-PLAN-027](027-master-plan-modulo-diagramas-de-arquitectura.md)), donde cada editor pasa a tener su propio estado por contrato. Hacerlo antes sería trabajo duplicado.
 
 ### 1b. Bug real: una importación interrumpida no queda marcada
 
