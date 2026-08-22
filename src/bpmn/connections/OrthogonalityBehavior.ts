@@ -275,7 +275,8 @@ export function OrthogonalityBehavior(this: any, injector: AnyObj, modeling: Any
     // geometría inconsistente (origen del zigzag al mover un pool a la derecha).
     // El invariante se verifica igual al cerrar el gesto: moveClosure termina con
     // connection.move / connection.layout por cada conexión, y el elements.move
-    // padre pasa por aquí sin este hint. Ver fix_doc/pool-move-right-reroute-OPEN.md.
+    // padre pasa por aquí sin este hint. Ver EXP-010
+    // (docs/experience/010-mover-contenedor-reruta-las-flechas-internas.md).
     if (event.context?.hints?.layout === false) return
     const connections = collectConnections(event.command, event.context)
     for (const conn of connections) {
@@ -298,7 +299,7 @@ export function OrthogonalityBehavior(this: any, injector: AnyObj, modeling: Any
       // (ALIGNED_THRESHOLD) para crear el handle y no abortar el segment-move.
       // Espejo de SetSolution de Bizagi: los puntos commiteados SON siempre la
       // solución ortogonal exacta → nunca un segmento "que no se mueve".
-      // Ver fix_doc/routing-orthogonal-invariant-and-shape-invasion.md §5d.
+      // Ver docs/context/patrones-routing.md §5d.
       const wps: AnyObj[] = conn.waypoints
       if (!isExactOrthogonal(wps)) {
         const snapped: AnyObj[] = snapOrthogonal(wps)

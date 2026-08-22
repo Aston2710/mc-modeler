@@ -8,7 +8,8 @@
  *  - la Capa 4 de OrthogonalityBehavior re-rutearía todas las flechas de dentro
  *    al mover el pool (su bbox las invade por definición).
  *
- * Ver fix_doc/pool-move-right-reroute-OPEN.md §Causa raíz A.
+ * Ver EXP-010 (docs/experience/010-mover-contenedor-reruta-las-flechas-internas.md),
+ * §Causa raíz A.
  */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

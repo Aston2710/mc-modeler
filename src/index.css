@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
 /* ========================================================
-   Design tokens — extracted from design-prototype/styles.css
+   Design tokens — origen histórico: design-prototype/styles.css (carpeta ya
+   borrada). Esta hoja es hoy la fuente de verdad de los tokens.
    ======================================================== */
 :root {
   --primary: #4f46e5;

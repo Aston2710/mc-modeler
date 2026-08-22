@@ -1,5 +1,5 @@
 // ESLint 9 flat config — migración del setup .eslintrc previo (ver package.json).
-// Solo producción: src/**. design-prototype/ es referencia visual read-only.
+// Solo producción: src/**. prototype/ son mockups HTML de referencia visual.
 import js from '@eslint/js'
 import tsPlugin from '@typescript-eslint/eslint-plugin'
 import tsParser from '@typescript-eslint/parser'
@@ -10,11 +10,12 @@ export default [
     ignores: [
       'dist/**',
       'node_modules/**',
-      'design-prototype/**',
+      'prototype/**',
       'appscript/**',
       '.syntesis/**',
       'supabase/**',
-      'fix_doc/**',
+      'docs/**',
+      'backups/**',
       '*.config.js',
       '*.config.ts',
     ],

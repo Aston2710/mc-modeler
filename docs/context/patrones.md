@@ -6,7 +6,7 @@ actualizado: 2026-07-19
 
 # MC-Modeler — Auditoría de diseño por capas
 
-**Fecha:** 2026-07-19 · **Propósito:** auditoría del diseño en las distintas capas del proyecto, con la meta de perfeccionar la herramienta hasta nivel competitivo con draw.io / Figma (en su nicho: modelado BPMN). Complementa `docs/arquitectura.xml` (diagrama por capas) y `fix_doc/ADR-persistence-source-of-truth.md`. Documento vivo: se amplía con cada sesión de cuestionamiento.
+**Fecha:** 2026-07-19 · **Propósito:** auditoría del diseño en las distintas capas del proyecto, con la meta de perfeccionar la herramienta hasta nivel competitivo con draw.io / Figma (en su nicho: modelado BPMN). Complementa [`addons/arquitectura.xml`](../addons/arquitectura.xml) (diagrama por capas) y [`arquitectura-persistencia.md`](arquitectura-persistencia.md). Documento vivo: se amplía con cada sesión de cuestionamiento.
 
 ---
 
@@ -80,7 +80,7 @@ Tres estilos combinados:
 4. **N editores = N guardados redundantes.** Todos escriben casi el mismo XML cada ~20s. Con 5 editores son 5 UPDATEs + 5 thumbnails por ciclo. *Alternativa: elección de líder de guardado (el peer con menor userId presente guarda; los demás no). Poco código, elimina 80% de escrituras y de carreras CAS.*
 5. **Late-joiner depende de la buena fe de un peer.** El estado de sesión llega por handshake de otro editor. Si ese peer tiene el doc divergido, siembra divergencia. La anti-entropía lo corrige, pero hay ventana. Sin peers editores conectados, el late-joiner solo ve `current_xml` (correcto, pero hasta 25s viejo).
 6. **Serialización completa del XML por autosave.** `saveXML` + thumbnail SVG en cada ciclo con dirty. En diagramas grandes (cientos de elementos) esto es trabajo O(n) repetido. *Medir: si `saveXML` > 50ms en diagramas reales, considerar thumbnail solo cada N ciclos o en idle.*
-7. **Doble representación viva.** Durante la sesión coexisten el modelo bpmn-js y el Y.Doc espejo — memoria y CPU duplicadas por cambio, y el binding es la pieza más delicada del sistema (los fixes de fix_doc lo confirman: typing, connection-id divergence, pools). Es el precio del realtime con motor no-CRDT; la alternativa (motor CRDT-nativo) no existe para BPMN.
+7. **Doble representación viva.** Durante la sesión coexisten el modelo bpmn-js y el Y.Doc espejo — memoria y CPU duplicadas por cambio, y el binding es la pieza más delicada del sistema (los incidentes de `experience/` lo confirman: EXP-001 typing, EXP-007 divergencia de id de conexión, EXP-003 y EXP-005 pools). Es el precio del realtime con motor no-CRDT; la alternativa (motor CRDT-nativo) no existe para BPMN.
 
 ### 3.3 Alternativas de industria y por qué (no) hoy
 
@@ -125,7 +125,7 @@ Regla a proteger (fue la causa de la corrupción pre-pivote): coexisten tres dom
 
 Separación clave: **interacción** (edición, render, colab en vivo) DEBE vivir en el cliente — es lo que da latencia cero y la UX natural, igual que draw.io/Figma. **Autoridad y operación** (validar, consolidar, migrar, notificar) viven en el cliente **por omisión, no por diseño** — ahí están los problemas reales.
 
-1. **Binding CRDT ↔ commandStack — impuesto permanente.** Cada módulo nuevo de canvas debe pensar: ¿eco?, ¿origen remoto?, ¿read-only?, ¿fencing? Evidencia: fix_doc entero (typing, connection-id divergence, pools). Fricción esencial de "colab sobre motor no-CRDT" — no se elimina, se presupuesta en cada feature.
+1. **Binding CRDT ↔ commandStack — impuesto permanente.** Cada módulo nuevo de canvas debe pensar: ¿eco?, ¿origen remoto?, ¿read-only?, ¿fencing? Evidencia: `experience/` entero (EXP-001 typing, EXP-007 divergencia de id de conexión, EXP-003 y EXP-005 pools). Fricción esencial de "colab sobre motor no-CRDT" — no se elimina, se presupuesta en cada feature.
 2. **N escritores async independientes → proliferación de guards.** Autosave, guardado manual, binding, cambio de pestaña: cada ruta re-valida `canEdit()` + `isCanvasReadyFor()` + fencing. Olvidar un guard = bug de corrupción (ya pasó). Un escritor único eliminaría la clase entera de bugs.
 3. **Cero capa de ejecución en servidor.** Síntomas concretos: `migrate-images.mjs` requiere pausar usuarios (las operaciones de datos corren desde una laptop); validación de XML solo en cliente; correo vía Apps Script con deploy manual fuera del repo/CI (y pendiente — síntoma de esa fricción).
 4. **Protocolo de sync hecho a mano.** Coalescer + anti-entropía + handshake late-joiner = reimplementación parcial de lo que Hocuspocus/y-websocket dan mantenido. Funciona y está testeado, pero sus edge cases son nuestros para siempre.

@@ -126,9 +126,9 @@ Provocar cada mecanismo en un entorno controlado:
 
 ### Lo que NO resuelve
 
-**No arregla la causa de EXP-011**, solo su daño: convierte tres fallos silenciosos en situaciones recuperables o registradas. La causa raíz del mecanismo A **sigue sin identificar** — se descartó la hipótesis del fencing con varias instancias (ver [PLAN-005](005-cambio-de-pestanas-con-instancia-viva.md), corrección del 2026-08-14). El registro añadido aquí es lo que producirá el dato.
+**No arregla la causa de EXP-011**, solo su daño: convierte tres fallos silenciosos en situaciones recuperables o registradas. La causa raíz del mecanismo A **sigue sin identificar** — se descartó la hipótesis del fencing con varias instancias (ver [PLAN-005](../todo/005-cambio-de-pestanas-con-instancia-viva.md), corrección del 2026-08-14). El registro añadido aquí es lo que producirá el dato.
 
-EXP-011 **permanece activo** por ese motivo. La solución de fondo es [MASTER-PLAN-019](019-master-plan-servidor-autoritativo-de-colaboracion.md).
+EXP-011 **permanece activo** por ese motivo. La solución de fondo es [MASTER-PLAN-019](../todo/019-master-plan-servidor-autoritativo-de-colaboracion.md).
 
 ### Archivos
 

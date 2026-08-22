@@ -9,7 +9,8 @@
  * Solo activo en dev (`import.meta.env.DEV`) o si localStorage tiene
  * `flujo:perf = "1"`. En producción sin el flag: coste cero (no-op).
  *
- * Ver fix_doc/tab-switching-instancia-viva.md (Fase 0) y kpi/.
+ * Ver docs/plans/todo/005-cambio-de-pestanas-con-instancia-viva.md (Fase 0) y
+ * docs/context/flags-operacion.md.
  */
 
 export interface PerfEntry {
