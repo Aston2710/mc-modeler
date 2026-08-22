@@ -1,15 +1,30 @@
 # Flujo — BPMN Web Modeler — Documento de Proyecto Completo
-> Versión 1.3 — Referencia para Claude Code y equipo de desarrollo  
-> Última actualización: 2026-04-25  
-> Desarrollador: individual (un solo desarrollador)  
-> Nombre del producto: **Flujo**  
-> Referencia de diseño: carpeta `design-prototype/` en la raíz del proyecto
 
-> ⚠️ **INSTRUCCIÓN CRÍTICA PARA CLAUDE CODE — DISEÑO VISUAL:**  
-> La carpeta `design-prototype/` contiene los archivos HTML/CSS/SVG generados por Claude Design.  
-> **Antes de crear cualquier componente, definir cualquier color, espaciado, tipografía o token de diseño, Claude Code DEBE leer los archivos de esa carpeta y extraer los valores exactos.**  
-> No inventar ni aproximar valores visuales. Si un color, radio de borde, sombra o espaciado no está en el prototipo, preguntar antes de asumir.  
-> Los archivos en `design-prototype/` son la fuente de verdad para todo lo visual. El resto de este documento describe arquitectura, requisitos y comportamiento — no sustituye al prototipo para decisiones de UI.
+> # 🗄️ DOCUMENTO HISTÓRICO — NO ES LA ESPECIFICACIÓN VIGENTE
+>
+> Escrito el **2026-04-25**, antes de que existieran la nube, la autenticación, la
+> colaboración en vivo y el sistema de documentación. Se conserva porque su catálogo de
+> elementos BPMN, sus requisitos funcionales y sus reglas de negocio siguen siendo útiles.
+>
+> **Lo que gobierna hoy es [`docs/context/`](docs/context/INDEX.md).** Ante cualquier
+> contradicción, gana `docs/context/`. Qué de este documento ya no es cierto:
+>
+> | Decía | Hoy |
+> |---|---|
+> | `design-prototype/` es la fuente de verdad visual | **la carpeta no existe**; hay dos mockups en `prototype/` y los tokens vivos están en `src/index.css` |
+> | 100 % cliente, sin backend ni auth, IndexedDB como única persistencia | Supabase en producción: auth, RLS, Storage, Realtime. IndexedDB es el modo de respaldo sin `VITE_SUPABASE_*` |
+> | colaboración en tiempo real fuera de alcance hasta v2.0 | **en producción** desde julio de 2026 (Yjs como transporte, DEC-002) |
+> | fase de andamiaje / MVP por construir | 176 diagramas de 21 usuarios en producción |
+> | `shadcn/ui` en el stack | no está instalado; la UI son componentes propios con Tailwind |
+>
+> La instrucción que había aquí de leer `design-prototype/` antes de definir cualquier color
+> o espaciado **queda anulada**: apuntaba a una carpeta borrada. Para diseño visual, ver la
+> sección correspondiente de [`CLAUDE.md`](CLAUDE.md).
+
+> Versión 1.3 — Referencia histórica  
+> Última actualización: 2026-04-25 · anotado como histórico el 2026-08-21  
+> Desarrollador: individual (un solo desarrollador)  
+> Nombre del producto: **Flujo**
 
 ---
 
@@ -823,7 +838,7 @@ De izquierda a derecha:
 ### 11.10 Reglas de Implementación UI
 
 - **Modo oscuro por defecto** — es el que aparece en el prototipo de Claude Design
-- **Colores, tokens y estilos:** extraer exclusivamente de `design-prototype/` — no definir valores propios
+- **Colores, tokens y estilos:** ~~extraer exclusivamente de `design-prototype/`~~ — carpeta borrada; los tokens vivos están en `src/index.css` (`:root` / `[data-theme="dark"]`)
 - **Transición de tema:** suave, no instantánea (`background-color`, `color`)
 - **Fuente monoespaciada para IDs:** `font-family: 'JetBrains Mono', 'Fira Code', monospace`
 - **El botón "Guardar" siempre visible** en el toolbar con color accent — nunca deshabilitado ni oculto

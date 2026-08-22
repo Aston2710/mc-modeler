@@ -7,6 +7,7 @@ import { generateDiagramId } from '@/utils/idGenerator'
 import { normalizeBpmnXml } from '@/utils/normalizeBpmnXml'
 import { externalizeImages, rehomeImages, deleteDiagramImages } from '@/utils/imageStorage'
 import { perfStart } from '@/utils/perf'
+import { dispose as disposeModelerInstance } from '@/bpmn/modelerCache'
 
 /**
  * Validación mínima antes de persistir: no guardar XML vacío o que no parezca
@@ -85,6 +86,12 @@ interface DiagramState {
   createSubDiagram: (name: string, parentDiagramId: string, subProcessElementId: string) => Promise<string>
   openDiagram: (id: string) => void
   /** Trae el XML del diagrama bajo demanda (la lista no lo carga). Cachea en memoria. */
+  /**
+   * Vuelve a resolver el thumbnail de un diagrama. La llama el `onError` del
+   * `<img>`: las URLs firmadas caducan y esta acción es la única vía por la que
+   * una tarjeta con la URL vencida se recupera. Ver `refreshThumbnailUrl`.
+   */
+  refreshThumbnail: (id: string) => Promise<void>
   ensureXml: (id: string) => Promise<string>
   /** Fuerza re-fetch del XML desde el servidor (ignora el caché) y actualiza el store. */
   refreshXml: (id: string) => Promise<string>
@@ -156,17 +163,38 @@ export const useDiagramStore = create<DiagramState>()(
         s.isLoading = false
       })
       // Hidratar en segundo plano SOLO los thumbnails que aún no tenemos.
-      void Promise.all(
-        diagrams.map(async (d) => {
-          if (get().diagrams.find((z) => z.id === d.id)?.thumbnail) return
-          const thumbnail = await diagramRepository.getThumbnail(d.id).catch(() => null)
-          if (thumbnail == null) return
-          set((s) => {
-            const x = s.diagrams.find((z) => z.id === d.id)
-            if (x && !x.thumbnail) x.thumbnail = thumbnail
+      // En UNA llamada, no una por tarjeta (PLAN-012): antes eran N descargas
+      // autenticadas más N conversiones a base64 —~4 MB por el hilo principal
+      // con la portada llena—; ahora se piden todas las URLs de golpe y el
+      // navegador descarga las imágenes en paralelo, con su propia caché.
+      const missing = diagrams
+        .filter((d) => !get().diagrams.find((z) => z.id === d.id)?.thumbnail)
+        .map((d) => d.id)
+      if (missing.length > 0) {
+        void diagramRepository
+          .getThumbnailUrls(missing)
+          .then((urls) => {
+            if (urls.size === 0) return
+            set((s) => {
+              for (const [id, url] of urls) {
+                const x = s.diagrams.find((z) => z.id === id)
+                if (x && !x.thumbnail) x.thumbnail = url
+              }
+            })
           })
-        })
-      )
+          .catch(() => { /* sin thumbnails: la portada se ve igual, sin imagen */ })
+      }
+    },
+
+    refreshThumbnail: async (id) => {
+      const url = await diagramRepository.refreshThumbnailUrl(id).catch(() => null)
+      if (!url) return
+      set((s) => {
+        const d = s.diagrams.find((z) => z.id === id)
+        // Se compara antes de escribir: si la URL no cambió, tocar el estado
+        // volvería a montar el <img> y dispararía otro onError en bucle.
+        if (d && d.thumbnail !== url) d.thumbnail = url
+      })
     },
 
     ensureXml: async (id) => {
@@ -283,6 +311,15 @@ export const useDiagramStore = create<DiagramState>()(
           s.activeTabId = s.tabs[Math.max(0, idx - 1)]?.id ?? null
         }
       })
+      // Liberar la instancia viva de bpmn-js de esta pestaña (PLAN-005 paso 6).
+      // Sin esto, cerrar una pestaña dejaba su instancia en el cache —con su
+      // SVG, su element registry y su pila de undo— hasta que el LRU la
+      // desalojara (tope 6) o se volviera al inicio. Fuga acotada pero real:
+      // abrir y cerrar 6 diagramas grandes mantenía los 6 en memoria.
+      //
+      // Va después del `set`: para entonces `activeTabId` ya apunta a la
+      // pestaña vecina, así que destruir esta no deja al canvas sin destino.
+      disposeModelerInstance(id)
     },
 
     setActiveTab: (id) => {

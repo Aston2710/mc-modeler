@@ -1,11 +1,11 @@
 ---
 id: PLAN-014
 titulo: Mitigacion pre-produccion de la perdida silenciosa de trabajo en colaboracion
-estado: todo
+estado: done
 creado: 2026-08-10
-cerrado:
-aprobado_por:
-relacionados: [EXP-011, PLAN-015, PLAN-013, context/arquitectura-persistencia.md]
+cerrado: 2026-08-14
+aprobado_por: jredondo
+relacionados: [EXP-011, PLAN-013, MASTER-PLAN-018, PLAN-005, context/arquitectura-persistencia.md]
 ---
 
 # Mitigación pre-producción de la pérdida silenciosa de trabajo en colaboración
@@ -94,8 +94,44 @@ Provocar cada mecanismo en un entorno controlado:
 
 ## Registro de ejecución
 
-(se rellena durante la ejecución)
+| Fecha | Qué | Resultado |
+|---|---|---|
+| 2026-08-11 | Paso 2 (mecanismo C) | Se descubrió **ya implementado**: `diagramStore.ts:349-355` y `App.tsx:271-315`. El doble conflicto de CAS pregunta en vez de decidir |
+| 2026-08-14 | Precondición 1 resuelta | Decisión del usuario: **reintentar y registrar, sin aviso en la interfaz**. Se respeta la regla de no mostrar estado de colaboración en producción |
+| 2026-08-14 | Precondición 3 resuelta | No se espera a PLAN-013: `src/utils/incidents.ts` registra en consola con la superficie que PLAN-013 necesitará, de modo que ese cambio tocará solo ese archivo |
+| 2026-08-14 | Pasos 1, 3 y 4 | Implementados y verificados. 22 pruebas nuevas |
+| 2026-08-14 | Verificación manual | El usuario ejerció los tres mecanismos en el entorno local (`npm run lab`, dos usuarios sembrados con roles distintos) |
 
 ## Resultado
 
-(se rellena al cerrar)
+**Cerrado el 2026-08-14.** Los tres mecanismos de EXP-011 dejan de ser silenciosos.
+
+### Qué cambió
+
+**Mecanismo B — encolar en vez de descartar.** `canEdit()` devolvía `false` tanto para "es lector" como para "todavía no sé quién es", y tratarlos igual descartaba para siempre las ediciones de los primeros milisegundos. Ahora `collabStore` expone `rolesLoaded`, y mientras no se sepa el rol las ediciones se acumulan en un buffer acotado (`src/collab/pendingEdits.ts`). Al resolver: editor → se envían en orden; lector → se descartan. Que aplicarlas tarde sea correcto no es casualidad: Yjs es un CRDT y sus operaciones son conmutativas.
+
+**Mecanismo A — agotar el plazo es un evento, no un final.** Antes, si el canvas no confirmaba en 10 s, un `console.warn` y se rendía **para toda la sesión**, con presencia y cursores siguiendo vivos: los dos usuarios se veían y creían estar sincronizados. Ahora se sigue sondeando cada 2 s (`src/collab/bindingLifecycle.ts`), así que un canvas que confirma tarde arranca igual. La condición de arranque **no se relajó**.
+
+**Mecanismo C** ya estaba resuelto antes de empezar.
+
+**Registro estructurado** — `src/utils/incidents.ts`, hermano de `utils/perf.ts`. Catálogo cerrado de códigos, solo escalares en el detalle (ids, contadores, milisegundos: nunca XML ni etiquetas), nunca lanza. Inspección en consola con `__flujoIncidents.table()`.
+
+### Criterios de aceptación
+
+- ☑ Ninguna ruta de `useCollab` descarta un delta sin registrarlo o encolarlo
+- ☑ El doble conflicto de CAS nunca resuelve solo
+- ☑ El estado del binding es observable fuera del hook (`collabStore.bindingState`)
+- ☑ Un lector sigue sin emitir nada al canal — fijado por pruebas
+- ☑ Los tres mecanismos reproducidos, no solo razonados
+
+### Lo que NO resuelve
+
+**No arregla la causa de EXP-011**, solo su daño: convierte tres fallos silenciosos en situaciones recuperables o registradas. La causa raíz del mecanismo A **sigue sin identificar** — se descartó la hipótesis del fencing con varias instancias (ver [PLAN-005](../todo/005-cambio-de-pestanas-con-instancia-viva.md), corrección del 2026-08-14). El registro añadido aquí es lo que producirá el dato.
+
+EXP-011 **permanece activo** por ese motivo. La solución de fondo es [MASTER-PLAN-019](../todo/019-master-plan-servidor-autoritativo-de-colaboracion.md).
+
+### Archivos
+
+`src/collab/pendingEdits.ts` · `src/collab/bindingLifecycle.ts` · `src/utils/incidents.ts` · `src/hooks/useCollab.ts` · `src/store/collabStore.ts` · `src/hooks/useCollab.mechanisms.test.ts`
+
+La lógica se extrajo a módulos propios a propósito: la primera versión de las pruebas replicaba el algoritmo en vez de ejercitarlo, y una prueba que reimplementa lo que verifica deja de detectar el fallo en cuanto el código cambia.

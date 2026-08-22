@@ -1,18 +1,38 @@
 ---
 id: PLAN-005
 titulo: Cambio de pestanas con una instancia bpmn-js viva por diagrama
-estado: todo
+estado: en-progreso
 creado: 2026-07-15
-cerrado: 
-aprobado_por: 
-relacionados: [context/flags-operacion.md]
+cerrado:
+aprobado_por:
+auditado: 2026-08-14
+relacionados: [context/flags-operacion.md, EXP-011, PLAN-014, MASTER-PLAN-018]
 ---
 
 # Optimización: cambio de pestañas con instancia viva por diagrama
 
-**Estado:** propuesta aprobada para diseño — NO implementado
-**Fecha:** 2026-07-15
-**Archivos afectados (previstos):** `src/App.tsx`, `src/hooks/useBpmnModeler.ts`, `src/hooks/useCollab.ts`, `src/collab/canvasSession.ts`, `src/bpmn/readOnlyState.ts`, `src/components/*Canvas*`
+> ## ⚠️ Auditoría del 2026-08-14 — este documento estaba desactualizado
+>
+> Se contrastó cada paso contra el código. **El multicanva lleva meses activo en producción**, no apagado como decía este plan.
+>
+> | Paso | Decía | Es |
+> |---|---|---|
+> | 1 · `modelerCache.ts` | hecho | ✓ `src/bpmn/modelerCache.ts` |
+> | 2 · cableado tras flag | hecho | ✓ `useBpmnModeler.ts:289` |
+> | 3 · listeners centralizados | hecho | ✓ `wireInstance` + `keydown` global |
+> | 4 · `canvasSession`/`readOnlyState` por instancia | hecho | ✗ **NO** — los dos siguen siendo globales |
+> | 5 · re-bind de colaboración | pendiente | ✓ **HECHO** — `activeVersion` en `useCollab`, `useComments`, `useCommentSetup` (`BpmnCanvas.tsx:71-76`) |
+> | 6 · `dispose` al cerrar pestaña | pendiente | ✓ **HECHO el 2026-08-14** — `diagramStore.closeTab` |
+> | 6 · quitar `persistCanvasTab` del cambio | pendiente | ✗ sigue en `App.tsx:331` |
+> | **flag por defecto** | **"sigue OFF"** | ✗ **ON** — `isTabsCacheEnabled()` devuelve `true` salvo `'0'` explícito |
+>
+> Dos errores en direcciones opuestas: el paso 5 constaba pendiente y estaba hecho; el paso 4 constaba hecho y no lo estaba.
+>
+> **Lo que queda abierto está más abajo, en *Pendiente real*.**
+
+**Estado:** en producción con el flag ON; dos puntos pendientes.
+**Fecha:** 2026-07-15 · auditado 2026-08-14
+**Archivos afectados:** `src/App.tsx`, `src/hooks/useBpmnModeler.ts`, `src/hooks/useCollab.ts`, `src/collab/canvasSession.ts`, `src/bpmn/readOnlyState.ts`, `src/bpmn/modelerCache.ts`, `src/store/diagramStore.ts`, `src/components/canvas/BpmnCanvas.tsx`
 **Investigación de respaldo:** `.syntesis/Tabs - cache diagramas/findings.md` (decompilación de Bizagi Modeler), código fuente de Camunda Modeler
 
 ---
@@ -141,7 +161,62 @@ Descartado A (N `<BpmnCanvas>` montados, activo visible): montaría N canales Re
 
 **Paso 4 HECHO y verificado (2026-07-16):** auxiliares siguen a la instancia activa. Señal `activeVersion` en `useBpmnModeler` (se incrementa en cada attach); el effect de scrollbars en `BpmnCanvas` depende de ella y re-vincula el listener `canvas.viewbox.changed` a la nueva instancia (captura la instancia para el cleanup). Helper `applyThemeTo` extraído + re-tematizado al re-adjuntar (instancia oculta durante cambio de tema). Zoom por-instancia ya venía de `wireInstance`. Smoke flag ON: revisita restaura el diagrama correcto (64 vs 124 shapes), `bpmn:reattach` sin `importXML`, **0 errores de página**. 117/117 tests, tsc+lint limpios.
 
-**Pendiente:** **paso 5 CHECKPOINT colaboración** (re-bind `useCollab`/`useComments`/cursores/overlays de comentario a la instancia activa + verificación manual 2 clientes en nube — no verificable headless); paso 6 (quitar persist del cambio de pestaña + undo por instancia + `dispose` al cerrar pestaña); luego activar flag por defecto. El flag sigue OFF → producción intacta.
+**Paso 5 HECHO** (fecha sin registrar; verificado por auditoría el 2026-08-14): `useCollab`, `useComments` y `useCommentSetup` reciben `activeVersion` y se re-vinculan a la instancia activa en cada `attach` (`BpmnCanvas.tsx:71-76`). La verificación manual con 2 clientes en nube **no consta**: el checkpoint con el usuario que el plan exigía no aparece registrado en ningún sitio.
+
+**Paso 6 — `dispose` al cerrar pestaña: HECHO (2026-08-14).** `diagramStore.closeTab` llama a `modelerCache.dispose(id)` tras reasignar `activeTabId`. Antes, cerrar una pestaña dejaba su instancia viva —SVG, element registry y pila de undo— hasta que el LRU la desalojara (tope 6) o se volviera al inicio. 5 pruebas en `src/store/diagramStore.closeTab.test.ts`.
+
+**El flag está ON por defecto**, no OFF: `isTabsCacheEnabled()` devuelve `true` salvo que localStorage tenga `'0'`. Producción lleva meses con el multicanva activo.
+
+## Pendiente real (auditoría 2026-08-14)
+
+### 1. Paso 4 — `canvasSession` y `readOnlyState` siguen siendo globales
+
+`src/collab/canvasSession.ts` mantiene **un solo** contador de generación (`generation`, `readyDiagramId`, `readyGeneration`) para todas las instancias, y `src/bpmn/readOnlyState.ts` una sola bandera.
+
+> **Corrección del 2026-08-14.** Una primera versión de esta auditoría afirmó que ese contador único rompía el fencing con varias instancias vivas —que cada `attach` invalidaba la confirmación de las demás— y lo señaló como causa probable del mecanismo A de [EXP-011](../../experience/011-perdida-silenciosa-de-cambios-entre-colaboradores.md).
+>
+> **Es falso.** Al trazar el código: `useBpmnModeler.ts:299-308`, en el camino de re-adjuntar una instancia ya importada, llama a `beginImport()` y `completeImport()` de forma síncrona y consecutiva. La generación se reclama y se confirma sin ventana entre medias, así que `isCanvasReadyFor()` responde correctamente tras cada cambio de pestaña. El caso está resuelto.
+>
+> **El mecanismo A sigue sin causa identificada.** El registro de PLAN-014 (`collab.bind_timeout` con `ready_diagram`, `active_version` y `retries`) sigue siendo la vía para averiguarlo, ahora sin una hipótesis previa que sesgue la lectura.
+
+Lo que queda es deuda de diseño, no un fallo activo. Pero **los dos módulos no son igual de urgentes** (medido el 2026-08-14):
+
+| | `canvasSession` | `readOnlyState` |
+|---|---|---|
+| Escrituras | 2, ambas en `useBpmnModeler` | 1, en `App.tsx:75` |
+| Lecturas | 5 sitios, todos ya reciben `diagramId` | `ReadOnlyModule`, **desde todas las instancias vivas** |
+| ¿Falla hoy? | **No** — verificado | No, pero por una premisa frágil |
+| Naturaleza | corrección | **seguridad** |
+
+**`canvasSession` es el cambio fácil** —`Map<diagramId, {generation, ready}>`, media hora, cubierto por las pruebas existentes— y precisamente por eso conviene no hacerlo sin motivo: es la pieza que protege de [EXP-003](../../experience/003-contaminacion-de-pools-entre-diagramas.md) (elementos de un diagrama dentro del pool de otro). **No tocar el fencing sin una causa concreta que arreglar.**
+
+**`readOnlyState` es el que importa.** Una sola bandera booleana global consultada por `ReadOnlyModule` desde *todas* las instancias vivas. Con varias pestañas abiertas —una de solo lectura, otra editable— la bandera solo puede valer una cosa. Funciona porque `App.tsx:75` la fija según el diagrama activo y solo hay un canvas visible.
+
+Si esa premisa se rompiera (dos vistas simultáneas, previsualización, panel lateral), **una pestaña de solo lectura pasaría a ser editable sin aviso**. Es una propiedad de seguridad, no una optimización — la misma que cerró el trabajo de *readonly viewer enforcement*.
+
+No es explotable hoy. El arreglo correcto es que el estado viva en la instancia, y ese es exactamente el trabajo de **PLAN-028** ([MASTER-PLAN-027](027-master-plan-modulo-diagramas-de-arquitectura.md)), donde cada editor pasa a tener su propio estado por contrato. Hacerlo antes sería trabajo duplicado.
+
+### 1b. Bug real: una importación interrumpida no queda marcada
+
+`useBpmnModeler.ts:324-326`:
+
+```ts
+await entry.modeler.importXML(sane.xml)
+if (modelerRef.current !== entry.modeler) return   // sale aquí…
+cacheMarkImported(diagramId)                       // …y esto no corre
+```
+
+Si el usuario cambia de pestaña mientras un diagrama se importa, la importación **sí termina** en su instancia, pero `entry.imported` se queda en `false`. Al volver a esa pestaña se re-importa entera, pagando otra vez el coste que el cache existe para evitar.
+
+Impacto: rendimiento, no corrupción. Se auto-corrige en el segundo intento. La guarda de la línea 324 es correcta —protege de escribir sobre la instancia equivocada—; lo que falta es marcar el import como completado cuando de hecho lo está.
+
+### 2. Paso 6 — `persistCanvasTab` sigue en el cambio de pestaña
+
+`App.tsx:331` continúa exportando y guardando al cambiar de pestaña. Con instancia viva no hace falta: la instancia conserva su estado, así que el guardado podría quedar solo en autosave, guardado manual y cierre de pestaña. Es la optimización que queda sin recoger; no es un fallo.
+
+### 3. Sin verificación manual registrada
+
+El plan exigía un checkpoint con 2 clientes en nube antes de dar por bueno el paso 5. El código está, el checkpoint no consta. Ahora hay un entorno donde hacerlo sin tocar producción: `npm run lab` (ver [`desarrollo-local.md`](../../context/desarrollo-local.md)).
 
 ## Resultados esperados
 
@@ -162,6 +237,19 @@ Complementarias, ordenadas por relación beneficio/esfuerzo:
 3. **Precarga especulativa**: `ensureXml` al hacer hover sobre una tarjeta del home o una pestaña — la red corre durante el tiempo de reacción del usuario.
 4. **Render en dos tiempos**: importar y mostrar primero, `fit-viewport` y decoraciones después (percepción de carga menor).
 5. **Caché de lectura local (stale-while-revalidate)**: `LocalRepository` (IndexedDB) ya existe como fallback; usarlo como caché de primera pintura — mostrar el XML local al instante y reconciliar con el servidor en background. Útil sobre todo en conexiones lentas. Requiere cuidado con conflictos (ya existe CAS + toast de conflicto).
+
+   > **Evaluado y aplazado el 2026-08-14.** Con la instancia viva funcionando, el cambio entre diagramas ya es rápido incluso en diagramas grandes, así que la ganancia restante es pequeña.
+   >
+   > Datos que lo respaldan: 155 diagramas vivos, **26 kB de XML medio**, 66 kB en el p95, 294 kB el mayor. Y el XML **ya se cachea en memoria** (`ensureXml` solo va a red la primera vez por sesión). Lo único que añadiría la persistencia es sobrevivir a una recarga de página o al cierre del navegador.
+   >
+   > Si se retoma, tres precisiones que costaron tiempo aclarar:
+   > - **`localStorage` no se limpia al cerrar la pestaña** — persiste indefinidamente. El que sí se limpia es `sessionStorage`, que por eso no sirve aquí.
+   > - **`localStorage` es síncrono**: escribir 294 kB congela el hilo principal. Para esto va IndexedDB, y localforage ya está en el proyecto.
+   > - **Riesgos a cubrir**, ninguno descalificante: equipo compartido (el siguiente usuario del perfil encuentra los diagramas del anterior), acceso revocado (la copia local sobrevive a perder el permiso → revalidar en cada arranque), y XSS (hoy alcanza lo que esté abierto; con caché completo, el corpus entero).
+   >
+   > Regla si se hace: el caché es para **pintar rápido**, nunca para **guardar**. El XML canónico en Postgres sigue siendo la única fuente de verdad (DEC-001); confundir eso es la clase de bug que costó EXP-004 y EXP-008.
+   >
+   > **Antes que esto**, por orden de retorno: `getSession()` en vez de `getUser()` al cargar roles (dos líneas, quita la mitad de los viajes de red), y la precarga en segundo plano del punto 2 de esta lista.
 6. **Thumbnails en idle**: generar siempre vía `requestIdleCallback`/cola de baja prioridad, nunca en camino crítico de navegación.
 7. **Conexión de colaboración diferida**: conectar el canal Realtime después del primer render del diagrama, no antes (el usuario ve el diagrama ya; la presencia llega medio segundo después).
 8. **Mantener diagramas ligeros**: el costo de `importXML` escala con el número de elementos; los subprocesos enlazados (ya soportados) son la herramienta de modelado para partir diagramas gigantes.
@@ -169,8 +257,9 @@ Complementarias, ordenadas por relación beneficio/esfuerzo:
 ## Estado de ejecución
 
 - **Fase 0 (instrumentación + baseline): HECHA (2026-07-16).** Instrumentación permanente en `src/utils/perf.ts` (activa en dev, expuesta en `window.__flujoPerf`), con spans en los caminos calientes de `App.tsx`, `useBpmnModeler.ts`, `diagramStore.ts`, `useCollab.ts`. Baseline medido y documentado en `kpi/baseline-2026-07-16.md` (+ JSON crudo). Hallazgo central confirmado con datos reales: **`importXML` domina y escala mal — ~3.1s (p50) en diagrama grande de 150 elementos**, pagado en cada cambio de pestaña. Es el costo que la Fase 2 lleva a <16ms.
+- **Fase 2 (instancia viva): EN PRODUCCIÓN con el flag ON.** Pasos 1, 2, 3, 5 y el `dispose` del 6 hechos. Quedan el paso 4 (estado por instancia) y quitar `persistCanvasTab` del cambio — ver *Pendiente real*.
 - **Fase 1 (guardado en background + captura no bloqueante): HECHA (2026-07-16).** Al cambiar de pestaña, `saveDiagram` ya no se espera (background, serializado en `saveChain`); el XML se stashea en memoria con `cacheXml` antes de disparar el guardado (sin pérdida si el usuario vuelve a la pestaña). Rutas de salida del editor (home/enlace) siguen con guardado esperado. Resultado verificado con A/B controlado (mismo build, misma sesión, aislando la variable): `tab:persist` p50 68→**14.5ms** (~4.7×), max 320→**40ms** (~8×) en modo local. (La comparación cross-run inicial daba ~7.5× pero estaba inflada por variación de máquina; el A/B es el número confiable.) Detalle en `kpi/fase1-2026-07-16.md`. Cambios en `src/App.tsx` (persistCanvasTab con opción `background`), `src/store/diagramStore.ts` (acción `cacheXml`).
-- Fases 2-4: pendientes.
+- Fases 3-4: no llegaron a definirse.
 
 ## Referencias
 

@@ -692,7 +692,8 @@ describe('corrupción NaN / Association a conexión (regresión "se corrompio, a
 })
 
 // ── Mover un CONTENEDOR (pool) traslada sus flechas ──────────────────────────
-// Regresión de fix_doc/pool-move-right-reroute-OPEN.md: arrastrar un Participant
+// Regresión de EXP-010 (docs/experience/010-mover-contenedor-reruta-las-flechas-internas.md):
+// arrastrar un Participant
 // re-ruteaba sus flechas internas en vez de trasladarlas (visible sobre todo al
 // mover a la derecha, donde el reruteo con geometría a medio mover producía
 // zigzags). Dos causas: la Capa 4 tomaba el bbox del pool como "shape encima de

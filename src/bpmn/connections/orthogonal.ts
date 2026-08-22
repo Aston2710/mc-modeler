@@ -47,7 +47,7 @@ export function firstDiagonalIndex(wps: readonly Point[] | null | undefined, tol
  * coordenadas ENTERAS. Es la garantía que diagram-js exige para que un segmento
  * sea arrastrable (ALIGNED_THRESHOLD=2, pero exigimos exacto para no depender
  * de la tolerancia). Espejo de la garantía de Bizagi (los puntos SON la solución
- * ortogonal). Ver fix_doc/routing-orthogonal-invariant-and-shape-invasion.md §5d.
+ * ortogonal). Ver docs/context/patrones-routing.md §5d.
  */
 export function isExactOrthogonal(wps: readonly Point[] | null | undefined): boolean {
   if (!wps || wps.length < 2) return true

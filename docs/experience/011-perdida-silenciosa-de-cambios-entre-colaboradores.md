@@ -98,7 +98,21 @@ Es la decisión #7 del ADR, diferida desde el 2026-07-02 (DEC-004). No se adelan
 
 ## Solución realizada
 
-Nada todavía. Estado `activo`.
+**Mitigación completa el 2026-08-14** ([PLAN-014](../plans/done/014-mitigacion-perdida-de-trabajo-en-colaboracion.md)). Los tres mecanismos dejan de ser silenciosos:
+
+| | Antes | Ahora |
+|---|---|---|
+| **A** · plazo del canvas agotado | `console.warn` y se rendía **toda la sesión**, con presencia y cursores vivos → los dos usuarios se creían sincronizados | se sigue sondeando cada 2 s (`collab/bindingLifecycle.ts`); un canvas que confirma tarde arranca igual. Queda registrado con `waited_ms`, `retries` y `ready_diagram` |
+| **B** · carrera de `canEdit` | el delta se descartaba para siempre | se encola hasta saber el rol (`collab/pendingEdits.ts`); editor → se envía, lector → se descarta. La propiedad de solo-lectura sigue fijada por pruebas |
+| **C** · doble conflicto de CAS | resolvía solo, adoptando el estado ajeno | pregunta al usuario (ya estaba implementado, descubierto el 2026-08-11) |
+
+Más `src/utils/incidents.ts`: registro estructurado con catálogo cerrado, inspeccionable con `__flujoIncidents.table()`.
+
+## Estado: sigue ACTIVO
+
+La mitigación reduce el daño; **la causa del mecanismo A sigue sin identificar**. Durante la auditoría de PLAN-005 se planteó que el fencing de `canvasSession` fallara con varias instancias vivas, pero **se verificó y es falso** (`useBpmnModeler.ts:299-308` reclama y confirma la generación de forma síncrona al re-adjuntar).
+
+El registro añadido es lo que producirá el dato. Mientras tanto, la solución de fondo sigue siendo [MASTER-PLAN-019](../plans/todo/019-master-plan-servidor-autoritativo-de-colaboracion.md).
 
 ## Verificación
 

@@ -42,7 +42,7 @@ internas **se reruteanan** en vez de trasladarse rígidas con el contenedor.
 
 ## Capa responsable
 
-Routing propio estilo Bizagi. Ver `fix_doc/routing-orthogonal-invariant-and-shape-invasion.md`.
+Routing propio estilo Bizagi. Ver [`context/patrones-routing.md`](../context/patrones-routing.md).
 Archivos candidatos:
 - `src/bpmn/connections/BizagiLayouter.ts` — `layoutConnection`, rama auto + optimización §5b.
 - `src/bpmn/connections/OrthogonalityBehavior.ts` — Capa 4 (re-ruteo de terceros al mover un shape).
@@ -188,7 +188,7 @@ otros flujos (drop de subproceso, colapso de lane) — cubrir con test.
 
 ## Notas
 
-- Consultar SIEMPRE `fix_doc/routing-orthogonal-invariant-and-shape-invasion.md`
+- Consultar SIEMPRE [`context/patrones-routing.md`](../context/patrones-routing.md)
   (§3-A causa raíz de caras por hint, §5b optimización de cara, §4 Capa 4) antes de
   tocar la capa.
 - Referencia de ingeniería inversa: `.syntesis/Router/findings.md`.

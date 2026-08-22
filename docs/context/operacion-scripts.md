@@ -1,19 +1,25 @@
 ---
 documento: operacion-scripts
 vigencia: vigente
-actualizado: 2026-07-03
+actualizado: 2026-08-21
 ---
 
 # Scripts de diagnóstico, backup y restauración de diagramas
 
 **Proyecto:** mc-modeler
 **Ubicación:** `scripts/*.mjs`
-**Fecha:** 2026-07-03
+**Fecha:** 2026-07-03 · revisado 2026-08-21
 **Estado:** Funcionales, probados contra prod.
 
-> ⚠️ **Los scripts están en `.gitignore` (solo locales, no en GitHub).** Este documento
-> guarda su lógica para poder recrearlos si se pierden. Usan `@supabase/supabase-js` +
-> `yjs` (ya en `package.json`) — sin dependencias nuevas.
+> ⚠️ **Los scripts están en `.gitignore` (solo locales, no en GitHub)**, con **una
+> excepción: `scripts/lab.mjs`**, el lanzador del entorno local, que sí está
+> versionado desde el 2026-08-13 porque lo necesita cualquiera que monte el lab
+> (ver [`desarrollo-local.md`](desarrollo-local.md)). La regla en `.gitignore` es
+> `scripts/*` con `!scripts/lab.mjs`.
+>
+> Para los demás, este documento guarda su lógica para poder recrearlos si se
+> pierden. Usan `@supabase/supabase-js` + `yjs` (ya en `package.json`) — sin
+> dependencias nuevas.
 
 ---
 
@@ -26,7 +32,9 @@ Herramientas de administración **fuera de la app**, que corres tú desde la ter
 - **Limpiar** participantes fantasma del XML y de la capa Yjs.
 
 Nacieron de una serie de incidentes de corrupción ("un diagrama sobre otro"); ver
-`pool-cross-contamination-race-fix.md`, `pool-overlay-yjs-poison-fix.md`, `ADR-persistence-source-of-truth.md`.
+[EXP-003](../experience/003-contaminacion-de-pools-entre-diagramas.md),
+[EXP-005](../experience/005-veneno-de-overlay-de-pool-en-el-doc-yjs.md) y
+[`arquitectura-persistencia.md`](arquitectura-persistencia.md).
 
 ---
 
@@ -171,6 +179,52 @@ node scripts/migrate-images.mjs --yes    # aplica (upload falla → diagrama se 
 > **Nota post-pivote:** con Yjs solo-transporte, `yjs_documents`/`yjs_updates` están
 > congeladas (solo lectura histórica). Cuando se dropeen (limpieza final), `backup`,
 > `restore`, `scan` y `fix-ghost` deben perder sus ramas Yjs.
+
+## 7ter. Scripts de thumbnails (PLAN-012, 2026-08-22)
+
+Tres scripts nuevos, del paso de thumbnails de SVG a WebP. Los dos primeros
+**solo leen**; el tercero es el único que escribe.
+
+### `thumbs-backup.mjs` — respaldo completo del bucket
+
+Descarga todos los objetos de `thumbnails` a
+`backups/thumbnails-<db>-<sello>/objetos/<id>/thumb`, con un `manifest.json` que
+guarda ruta, mime, bytes, etag, fecha y **si el diagrama existe** (para saber
+después qué era huérfano).
+
+**Apunta a producción por defecto**, al contrario que los otros: un respaldo de
+la base equivocada no rompe nada, pero no tener el de producción cuando hace
+falta sí. `--db=lab` para el laboratorio, `--solo-manifest` para inventariar sin
+descargar.
+
+Sale con código de error si alguna descarga falla, para que no se aplique un
+backfill sobre un respaldo incompleto.
+
+### `thumbs-restore.mjs` — la vuelta atrás
+
+Sube de nuevo lo respaldado. En seco por defecto; producción exige
+`--apply --confirmar=PRODUCCION`.
+
+Por defecto **omite los huérfanos**, para no resucitar lo que PLAN-017 va a
+barrer; `--incluir-huerfanos` los trae. Avisa —sin bloquear— si el respaldo es
+de una base distinta a la de destino: restaurar prod→lab es legítimo para probar,
+lab→prod sería un desastre.
+
+### `backfill-thumbs.mjs` — la reconversión
+
+El único que escribe imágenes nuevas. Documentado en
+[PLAN-012](../plans/todo/012-thumbnails-webp-y-entrega-segura.md). Dos cosas que
+lo hacen distinto del resto de esta carpeta:
+
+- **Necesita un navegador**, porque rasterizar BPMN pide un DOM que mida el
+  texto y un `canvas`. Usa el Chrome o Edge ya instalado vía `playwright-core`,
+  y renderiza contra la app en modo laboratorio (`window.__thumbForge`), que es
+  el motor real — ver [`desarrollo-local.md`](desarrollo-local.md).
+- **Apunta al laboratorio por defecto y no escribe.** Producción exige
+  `--db=prod --apply --confirmar=PRODUCCION`.
+
+No toca ninguna fila de `diagrams`: la ruta `<id>/thumb` no cambia, así que no se
+dispara el trigger de `updated_at` ni se invalida la versión CAS de nadie.
 
 ## 8. Concurrencia (importante)
 

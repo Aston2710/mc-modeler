@@ -13,9 +13,12 @@
  * useBpmnModeler (se ejecuta una vez por instancia recién creada). Así el cache
  * queda testeable y desacoplado.
  *
- * Estado: creado y aislado. El wiring va detrás del flag `flujo:tabsCache`
- * (ver fix_doc/tab-switching-instancia-viva.md, Fase 2). Con el flag OFF el
- * cache no se usa y el comportamiento actual queda intacto.
+ * Estado: en producción. El wiring va detrás del flag `flujo:tabsCache`, cuyo
+ * default es ON — con el flag en '0' el cache no se usa y queda el
+ * comportamiento previo, intacto y probado.
+ *
+ * Diseño y fases: docs/plans/todo/005-cambio-de-pestanas-con-instancia-viva.md
+ * (Fase 2). Operación del flag: docs/context/flags-operacion.md.
  */
 
 // @ts-ignore — bpmn-js es CommonJS con tipos incompletos

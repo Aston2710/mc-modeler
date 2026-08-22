@@ -9,8 +9,11 @@ import { CollabChannel } from '@/collab/SupabaseProvider'
 import { colorForUser, type CursorState } from '@/collab/presence'
 import { uint8ToBase64, base64ToUint8 } from '@/collab/yBpmnModel'
 import { YjsBpmnBinding, REMOTE_ORIGIN } from '@/collab/YjsBpmnBinding'
-import { isCanvasReadyFor } from '@/collab/canvasSession'
+import { isCanvasReadyFor, getReadyDiagramId } from '@/collab/canvasSession'
+import { createPendingEdits } from '@/collab/pendingEdits'
+import { createBindingLifecycle } from '@/collab/bindingLifecycle'
 import { perfStart } from '@/utils/perf'
+import { reportIncident } from '@/utils/incidents'
 import {
   createBroadcastCoalescer,
   encodeOwnStateVector,
@@ -19,10 +22,6 @@ import {
 } from '@/collab/syncProtocol'
 
 const CURSOR_THROTTLE_MS = 50
-// Tope máximo esperando confirmación de que el canvas muestra este diagrama.
-// Si nunca llega (import falló, XML corrupto), no forzamos el binding —
-// preferible perder colaboración en esta sesión que mezclar contenido ajeno.
-const BIND_CONFIRM_TIMEOUT_MS = 10000
 
 /**
  * Colaboración en tiempo real para el diagrama activo:
@@ -67,7 +66,11 @@ export function useCollab(
     let disposed = false
     let pendingImportHandler: (() => void) | null = null
     let pendingRetryTimer: ReturnType<typeof setTimeout> | null = null
-    const bindWaitStartedAt = Date.now()
+    // Mecanismo A de EXP-011: la maquinaria de "cuándo se da por perdido y qué
+    // pasa después" vive en @/collab/bindingLifecycle, donde se puede probar
+    // con un reloj inyectado.
+    const lifecycle = createBindingLifecycle()
+    useCollabStore.getState().setBindingState('esperando')
     // Mide desde que arranca el effect de colaboración hasta que el binding Yjs
     // queda activo (canvas confirmado + binding.start). Es el "tiempo hasta
     // colaboración lista" que se paga en cada cambio de pestaña en modo nube.
@@ -92,17 +95,53 @@ export function useCollab(
     const coalescer = createBroadcastCoalescer((merged) => {
       channel.sendYjsUpdate(uint8ToBase64(merged))
     })
+
+    // Mecanismo B de EXP-011: ver @/collab/pendingEdits. `canEdit` devuelve
+    // false tanto para "es viewer" como para "aún no sé quién es", y tratar
+    // los dos igual descartaba para siempre las ediciones de los primeros
+    // milisegundos, en silencio.
+    const pendingEdits = createPendingEdits<Uint8Array>(
+      (update) => coalescer.push(update),
+      { onOverflow: (max) => reportIncident('collab.edit_buffer_overflow', { max }, { diagramId }) }
+    )
+
+    const resolvePendingEdits = () => {
+      const canEdit = useCollabStore.getState().canEdit(diagramId)
+      const result = pendingEdits.resolve(canEdit)
+      if (result.outcome === 'sent') {
+        reportIncident('collab.edit_deferred', { count: result.count, dropped: result.dropped }, { diagramId, severity: 'info' })
+      } else if (result.outcome === 'discarded') {
+        // Viewer confirmado. La propiedad de solo-lectura se conserva intacta:
+        // nada de lo que toque un viewer sale de su pestaña.
+        reportIncident('collab.edit_dropped_no_role', { count: result.count, dropped: result.dropped }, { diagramId })
+      }
+    }
+
     const onDocUpdate = (update: Uint8Array, origin: unknown) => {
       if (origin === REMOTE_ORIGIN) return
+
+      const { canEdit, rolesLoaded } = useCollabStore.getState()
+
+      // Todavía no sabemos quién es este usuario: guardar, no decidir.
+      if (!rolesLoaded) {
+        pendingEdits.push(update)
+        return
+      }
+
       // Solo-lectura (viewer): modo recibir-solo. Aunque la BD (RLS) impide que
       // un viewer persista, un cambio local suyo transmitido por broadcast lo
       // aplicaría el canvas de un editor conectado, cuyo autosave lo guardaría.
       // No transmitir cierra esa fuga: nada de lo que toque un viewer sale de
       // su pestaña. (El binding sigue aplicando cambios REMOTOS para que vea la
       // edición en vivo de los demás.)
-      if (!useCollabStore.getState().canEdit(diagramId)) return
+      if (!canEdit(diagramId)) return
       coalescer.push(update)
     }
+
+    // Vaciar en cuanto los roles resuelvan, sin esperar a la siguiente edición.
+    const unsubscribeRoles = useCollabStore.subscribe((state, prev) => {
+      if (state.rolesLoaded && !prev.rolesLoaded) resolvePendingEdits()
+    })
 
     const sendFullState = () => {
       // Viewer (solo-lectura): recibir-solo, no sembrar estado a los peers.
@@ -141,14 +180,43 @@ export function useCollab(
         pendingRetryTimer = setTimeout(startBindingWhenReady, 100)
         return
       }
-      if (isCanvasReadyFor(diagramId)) {
+      // La confirmación de identidad del canvas es la única condición de
+      // arranque, y no se relaja: relajarla causó EXP-003 (elementos de un
+      // diagrama dentro del pool de otro).
+      const turn = lifecycle.tick(isCanvasReadyFor(diagramId))
+      useCollabStore.getState().setBindingState(turn.state)
+
+      if (turn.event === 'timeout') {
+        // Mecanismo A: agotar el plazo pasa a ser un evento, no un final. El
+        // contexto es lo que permitirá confirmar o refutar la hipótesis de por
+        // qué ocurre (cambio rápido entre pestañas), que hoy está inferida
+        // leyendo el código, no observada.
+        reportIncident(
+          'collab.bind_timeout',
+          {
+            waited_ms: turn.waitedMs,
+            retries: turn.retries,
+            ready_diagram: getReadyDiagramId() ?? 'ninguno',
+            active_version: activeVersion,
+          },
+          { diagramId }
+        )
+      }
+
+      if (turn.state === 'activo') {
+        if (turn.event === 'recovered') {
+          // Arrancó tras darse por perdido: el caso que antes quedaba muerto
+          // el resto de la sesión.
+          reportIncident(
+            'collab.bind_recovered',
+            { waited_ms: turn.waitedMs, retries: turn.retries },
+            { diagramId, severity: 'info' }
+          )
+        }
         startBinding()
         return
       }
-      if (Date.now() - bindWaitStartedAt > BIND_CONFIRM_TIMEOUT_MS) {
-        console.warn('[collab] el canvas nunca confirmó el diagrama', diagramId, '— colaboración deshabilitada para esta sesión')
-        return
-      }
+
       const eventBus = modeler.get('eventBus')
       const onImport = () => {
         // Reevaluar identidad: este import.done puede pertenecer a OTRO
@@ -157,7 +225,9 @@ export function useCollab(
       }
       pendingImportHandler = onImport
       eventBus.on('import.done', onImport)
-      pendingRetryTimer = setTimeout(startBindingWhenReady, 300)
+      // Sondeo frecuente mientras hay esperanza, espaciado una vez agotado el
+      // plazo: no se deja de mirar, pero tampoco se vigila en balde.
+      pendingRetryTimer = setTimeout(startBindingWhenReady, turn.nextDelayMs)
     }
 
     // El doc nace VACÍO: no se carga estado Yjs persistido. El canvas se pobló
@@ -221,10 +291,15 @@ export function useCollab(
       disposed = true
       clearPendingImportWait()
       clearInterval(antiEntropyTimer)
+      unsubscribeRoles()
       wrap.removeEventListener('mousemove', onMove)
       wrap.removeEventListener('mouseleave', onLeave)
+      // Último intento de vaciar lo encolado: si los roles resolvieron entre
+      // la última edición y el desmontaje, esos deltas todavía valen.
+      resolvePendingEdits()
       // Volcar los últimos deltas coalescidos antes de desconectar (≤150ms de edición).
       coalescer.dispose()
+      useCollabStore.getState().setBindingState('esperando')
       doc.off('update', onDocUpdate)
       binding?.destroy()
       void channel.disconnect()

@@ -10,6 +10,31 @@ const RANK: Record<CollaboratorRole, number> = { viewer: 1, editor: 2, owner: 3 
 interface CollabState {
   rolesByDiagram: Record<string, CollaboratorRole>
   rolesByProject: Record<string, CollaboratorRole>
+  /**
+   * ¿Ha resuelto `loadRoles()` alguna vez?
+   *
+   * Sin esto, `canEdit()` devuelve `false` tanto para "este usuario es viewer"
+   * como para "todavía no sé quién es", y el llamador no puede distinguirlos.
+   * Esa confusión descartaba ediciones del usuario durante la ventana de
+   * carga — mecanismo B de EXP-011. Ver `useCollab.ts`.
+   */
+  rolesLoaded: boolean
+  /**
+   * Estado del binding de co-edición del diagrama activo.
+   *
+   * `esperando` — todavía no arrancó, es lo normal durante la importación.
+   * `activo`    — sincronizando; los cambios viajan en ambos sentidos.
+   * `agotado`   — pasaron 10 s sin que el canvas confirmara. Se sigue
+   *               reintentando, pero mientras tanto la edición NO se comparte,
+   *               aunque presencia y cursores sigan funcionando.
+   *
+   * Nadie lo pinta todavía: hay una decisión de producto de no mostrar estado
+   * de colaboración en la interfaz. Se expone porque el diagnóstico necesita
+   * poder consultarlo (PLAN-014 paso 3) y para no tener que reabrir el hook
+   * el día que se decida mostrarlo.
+   */
+  bindingState: 'esperando' | 'activo' | 'agotado'
+  setBindingState: (state: 'esperando' | 'activo' | 'agotado') => void
   loadRoles: () => Promise<void>
   /** Rol efectivo en un diagrama: el más permisivo entre su rol directo y el heredado del proyecto. */
   roleFor: (diagramId: string | null) => CollaboratorRole | null
@@ -41,14 +66,22 @@ function effectiveRole(
 export const useCollabStore = create<CollabState>((set, get) => ({
   rolesByDiagram: {},
   rolesByProject: {},
+  // En modo local no hay roles que cargar: la respuesta se conoce desde el
+  // arranque, así que nunca hay ventana de "aún no sé".
+  rolesLoaded: !isSupabaseConfigured,
+
+  bindingState: 'esperando',
+  setBindingState: (bindingState) => set({ bindingState }),
 
   loadRoles: async () => {
     if (!isSupabaseConfigured) return
     try {
       const [diagramRoles, projectRoles] = await Promise.all([getMyRoles(), getMyProjectRoles()])
-      set({ rolesByDiagram: diagramRoles, rolesByProject: projectRoles })
+      set({ rolesByDiagram: diagramRoles, rolesByProject: projectRoles, rolesLoaded: true })
     } catch {
-      // sin sesión todavía / error transitorio
+      // Sin sesión todavía o error transitorio. `rolesLoaded` NO se marca:
+      // seguimos sin saber, y quien pregunte debe tratarlo como incertidumbre,
+      // no como una negativa.
     }
   },
 
