@@ -56,6 +56,28 @@ export interface IDiagramRepository {
   // Thumbnails stored separately to keep main list lean
   getThumbnail(id: string): Promise<string | null>
   /**
+   * Resuelve varios thumbnails de una vez. Devuelve un Map id → src listo para
+   * un `<img>`; los ids sin thumbnail simplemente no aparecen.
+   *
+   * Existe porque pedirlos de uno en uno era el coste dominante de la portada:
+   * 78 descargas autenticadas secuenciales más 78 conversiones a base64, unos
+   * 4 MB por el hilo principal. En la nube esto es **una** llamada que firma
+   * todas las rutas a la vez, y luego el navegador descarga las imágenes en
+   * paralelo con su propia caché.
+   */
+  getThumbnailUrls(ids: string[]): Promise<Map<string, string>>
+  /**
+   * Vuelve a resolver el thumbnail de UN diagrama, ignorando cualquier caché.
+   *
+   * Existe porque las URLs que devuelve `getThumbnailUrls` **caducan**, y el
+   * store solo las pide una vez por sesión: si una tarjeta con `loading="lazy"`
+   * entra en pantalla pasada la vida de la firma, el `<img>` pide una URL
+   * expirada y queda roto. Esto es la red de seguridad del `onError`.
+   *
+   * Devuelve `null` si el diagrama no tiene thumbnail o no se pudo resolver.
+   */
+  refreshThumbnailUrl(id: string): Promise<string | null>
+  /**
    * Devuelve el nuevo updated_at si tuvo que tocar la fila diagrams (cambio de
    * thumbnail_path — el trigger bumpea updated_at), o null si solo subió el blob.
    * El llamador DEBE adoptar ese updated_at como su versión CAS; ignorarlo deja

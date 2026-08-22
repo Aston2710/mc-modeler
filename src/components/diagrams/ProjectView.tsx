@@ -4,6 +4,7 @@ import { Search, Plus, FileText, LayoutGrid, List, X } from 'lucide-react'
 import { useDiagramStore } from '@/store/diagramStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { formatRelativeTime } from '@/utils/dateFormatter'
+import ThumbnailImg from './ThumbnailImg'
 import type { Diagram } from '@/domain/types'
 
 interface ProjectViewProps {
@@ -112,7 +113,7 @@ function ProjectGridCard({ diagram, language, onOpen }: CardProps) {
     <div className="pv-grid-card" onClick={onOpen}>
       <div className="pv-grid-thumb">
         {diagram.thumbnail
-          ? <img src={diagram.thumbnail} alt={diagram.name} />
+          ? <ThumbnailImg diagramId={diagram.id} src={diagram.thumbnail} alt={diagram.name} />
           : <div className="pv-thumb-placeholder"><FileText size={22} /></div>
         }
       </div>
@@ -129,7 +130,7 @@ function ProjectListCard({ diagram, language, onOpen }: CardProps) {
     <div className="pv-list-row" onClick={onOpen}>
       <div className="pv-lr-icon"><FileText size={15} /></div>
       <div className="pv-lr-thumb">
-        {diagram.thumbnail ? <img src={diagram.thumbnail} alt={diagram.name} /> : null}
+        {diagram.thumbnail ? <ThumbnailImg diagramId={diagram.id} src={diagram.thumbnail} alt={diagram.name} /> : null}
       </div>
       <div className="pv-lr-name">{diagram.name}</div>
       <div className="pv-lr-date">{formatRelativeTime(diagram.updatedAt, language)}</div>

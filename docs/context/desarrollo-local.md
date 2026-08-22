@@ -67,6 +67,38 @@ npm run dev
 
 Para entrar: pedir enlace magico para **`dev@local.test`** y recogerlo en **Mailpit** (http://127.0.0.1:54324). GoTrue reconoce el correo ya sembrado y firma como ese usuario, asi que el contenido de ejemplo aparece nada mas entrar. El segundo usuario, **`dev2@local.test`**, sirve para probar compartir, roles, presencia y comentarios con dos navegadores.
 
+## El modo lab tambien es un renderizador headless
+
+Con `MODE=lab` la app carga dos modulos que **no existen en produccion** (`main.tsx` los mete detras de `import.meta.env.MODE === 'lab'`, que Vite sustituye por una constante, asi que rollup descarta el modulo entero — comprobado con `npm run build`):
+
+| Modulo | Que hace |
+|---|---|
+| `src/lab/LabBar.tsx` | inicia sesion sola y permite saltar entre los dos usuarios sembrados |
+| `src/lab/thumbForge.ts` | expone `window.__thumbForge` para renderizar un XML a thumbnail WebP, con `overrides` opcionales para comparar ajustes |
+| `src/lab/ThumbLab.tsx` | boton **THUMBS** abajo a la derecha: compara las seis variantes de definicion del diagrama que elijas, **a tamaño de tarjeta**, sin salir de la app |
+
+El forge existe porque los scripts de administracion necesitan **renderizar** BPMN, y renderizar BPMN necesita un DOM. Se penso usar el UMD de `bpmn-navigated-viewer` en una pagina en blanco y es una via equivocada: el SVG de esta app lo produce un Modeler con los 26 modulos de `MODELER_CONFIG` mas la extension de moddle `flujo`, y `getThemedSvg` lee los tokens del CSSOM vivo. Un viewer pelado devuelve diagramas sin colores de fase ni de grupo.
+
+Lo usa `scripts/backfill-thumbs.mjs` ([PLAN-012](../plans/todo/012-thumbnails-webp-y-entrega-segura.md)):
+
+```
+npm i -D playwright-core          # una vez. NO descarga ningun navegador:
+                                  # usa el Chrome o Edge ya instalado
+npm run lab                       # otra terminal, deja Vite en :7654
+node scripts/backfill-thumbs.mjs --muestras=8   # en seco, contra el laboratorio
+node scripts/backfill-thumbs.mjs --comparar=3   # 6 variantes de ajustes, para elegir
+```
+
+`--comparar` genera el mismo diagrama con varias combinaciones de densidad, calidad y supermuestreo y las guarda juntas en `muestras-thumbs/`. **Nunca escribe en el bucket**, ni con `--apply`. Elige entre **todos** los diagramas, no solo los pendientes —los que ya son WebP son justo los que interesa comparar—, ordenados por tamaño de XML descendente.
+
+Para decidir los ajustes normalmente es mas comodo el boton **THUMBS** de la propia app (`src/lab/ThumbLab.tsx`): pone las seis variantes una al lado de otra al tamaño real de la tarjeta, que es donde hay que juzgarlas. El script sirve cuando quieres los ficheros en disco o comparar contra produccion (`--db=prod --comparar=3`, que lee produccion y no escribe nada).
+
+Sin `overrides`, el forge llama al camino real de `buildThumbnail`: el pase de verdad produce exactamente lo mismo que produce la app al guardar.
+
+La service_role del laboratorio **no hay que pasarla**: el script se la pregunta a `supabase status -o env`. Es deliberado — evita pegar mal la clave y, peor, pegar la de produccion creyendo que apuntas al laboratorio.
+
+**El renderizador y la base de datos son independientes.** El script trae el XML de la base que le digas (`--db=lab` por defecto, `--db=prod` explicito) y usa el navegador solo para convertir. Es decir: se puede reconvertir produccion renderizando con la app del laboratorio, que es justamente como debe hacerse — el pase completo se prueba aqui antes de tocar nada real.
+
 ## Lo que NO hay que hacer
 
 `supabase link` y `supabase db push` son los comandos que **si** tocan produccion. El flujo local no los necesita nunca. Si algun dia hace falta enlazar, es un paso consciente y con aprobacion explicita — ver la regla en la auditoria de base de datos.

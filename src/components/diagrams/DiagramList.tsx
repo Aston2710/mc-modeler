@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { Search, Upload, Plus, FileText, Sun, Moon, FolderPlus, Folder, Share2, Trash2, LogOut, ArrowUpDown, ArrowUp, ArrowDown, Clock, CalendarDays, ArrowDownAZ, Shapes, ImageIcon, LayoutGrid, List, Clock3, ArrowLeftRight, MoreHorizontal, ChevronRight, ExternalLink, RotateCcw } from 'lucide-react'
 import { ImageGallery } from '@/components/images/ImageGallery'
 import { Brand } from '@/components/layout/Brand'
+import ThumbnailImg from './ThumbnailImg'
 import { useDiagramStore } from '@/store/diagramStore'
 import { useUIStore } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
@@ -513,7 +514,7 @@ function DiagramCard({ diagram, role, onOpen, onDelete, language, participants }
       {!isShared && <CardMenu onOpen={onOpen} onDelete={onDelete} />}
       <div className="diagram-thumb">
         {diagram.thumbnail ? (
-          <img src={diagram.thumbnail} alt={diagram.name} />
+          <ThumbnailImg diagramId={diagram.id} src={diagram.thumbnail} alt={diagram.name} />
         ) : (
           <div className="diagram-thumb-placeholder">
             <FileText size={24} />

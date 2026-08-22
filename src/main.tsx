@@ -17,12 +17,28 @@ import App from './App'
 // modulo entero — no llega ni una linea al bundle real.
 const LabBar = import.meta.env.MODE === 'lab' ? lazy(() => import('./lab/LabBar')) : null
 
+// Banco de pruebas de thumbnails: compara ajustes de definicion a ojo, a tamaño
+// de tarjeta. Misma puerta de MODE, asi que tampoco entra en produccion.
+const ThumbLab = import.meta.env.MODE === 'lab' ? lazy(() => import('./lab/ThumbLab')) : null
+
+// Forja de thumbnails para el backfill de PLAN-012: expone window.__thumbForge
+// para que `scripts/backfill-thumbs.mjs` pueda renderizar con el motor real de
+// la app. La usa tambien ThumbLab.
+if (import.meta.env.MODE === 'lab') {
+  void import('./lab/thumbForge').then((m) => m.installThumbForge())
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
     {LabBar && (
       <Suspense fallback={null}>
         <LabBar />
+      </Suspense>
+    )}
+    {ThumbLab && (
+      <Suspense fallback={null}>
+        <ThumbLab />
       </Suspense>
     )}
   </StrictMode>

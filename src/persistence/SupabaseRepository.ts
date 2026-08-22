@@ -89,6 +89,34 @@ function dataUrlToBlob(dataUrl: string): Blob {
 const THUMB_SIZE_LIMIT_BYTES = 5 * 1024 * 1024
 
 /**
+ * Vida de las URLs firmadas de thumbnails: 10 minutos.
+ *
+ * Corta a propósito. Pintar una portada es cosa de segundos, así que este
+ * plazo sobra para el uso legítimo y deja casi sin valor a una URL que se
+ * filtre: para cuando alguien la reenvíe, ya no sirve. Es la contrapartida
+ * aceptada al pasar de descargas autenticadas a URLs (PLAN-012).
+ */
+/**
+ * Vida de la URL firmada de un thumbnail: **90 minutos**.
+ *
+ * Es un compromiso entre dos cosas, y el equilibrio lo fijó el usuario el
+ * 2026-08-22:
+ *
+ * - **Caché.** La caché HTTP del navegador se indexa por URL, así que cada
+ *   re-firma produce una URL nueva y una descarga nueva. Con 10 minutos —el
+ *   valor original— cualquier visita separada por más de 10 minutos volvía a
+ *   bajar la portada entera, y eso tira a la basura buena parte de la ganancia
+ *   de PLAN-012. En una cuenta gratuita, donde el recurso escaso es el egress,
+ *   la cacheabilidad vale más que los bytes.
+ * - **Exposición.** Una URL firmada filtrada sirve hasta que caduca. 90 minutos
+ *   sigue siendo efímero, y el daño es menor que antes: rasterizado a WebP el
+ *   thumbnail ya no lleva dentro el texto del proceso extraíble, solo píxeles.
+ */
+const THUMB_URL_TTL_SECONDS = 90 * 60
+/** Se re-firma con antelación para que ninguna URL caduque estando en uso. */
+const THUMB_URL_RENEW_MARGIN_SECONDS = 5 * 60
+
+/**
  * Enriquece el error de subida de un thumbnail con el dato que hace falta para
  * decidir: cuanto pesaba.
  *
@@ -149,6 +177,10 @@ export class SupabaseRepository implements IDiagramRepository {
   // estable) → el <img> no recarga; y no se re-descarga de Storage en cada carga.
   // Se invalida en saveThumbnail (nuevo dataURL) y al borrar.
   private thumbCache = new Map<string, string | null>()
+  // Cache de URLs firmadas (PLAN-012): id → { url, expira }. Se re-firma al
+  // caducar. Es lo que permite que la portada haga UNA llamada en vez de una
+  // descarga autenticada por tarjeta.
+  private signedThumbs = new Map<string, { url: string; expiresAt: number }>()
 
   private get sb(): SupabaseClient {
     if (!supabase) throw new Error('Supabase no configurado')
@@ -374,6 +406,94 @@ export class SupabaseRepository implements IDiagramRepository {
     await this.sb.storage.from(THUMB_BUCKET).remove([thumbPath(id)])
   }
 
+  /**
+   * Firma en lote las rutas de los thumbnails pedidos (PLAN-012 paso 3).
+   *
+   * Antes, la portada resolvía cada miniatura por separado: una descarga
+   * autenticada más una conversión a base64 por tarjeta. Con 78 tarjetas eran
+   * 78 peticiones al hilo principal y ~4 MB, y el base64 infla un 33 % y se
+   * quedaba retenido en memoria toda la sesión.
+   *
+   * `createSignedUrls` acepta N rutas y devuelve N URLs en **una** llamada. El
+   * `<img>` apunta a una URL real, así que el navegador descarga en paralelo,
+   * usa su propia caché y libera la memoria cuando quiere.
+   *
+   * SEGURIDAD. El bucket sigue privado: firmar aplica las mismas políticas de
+   * siempre, así que solo se obtienen URLs de diagramas a los que ya se tiene
+   * acceso. La caducidad es corta a propósito — lo justo para pintar la
+   * portada, de modo que una URL filtrada quede inservible enseguida.
+   */
+  async getThumbnailUrls(ids: string[]): Promise<Map<string, string>> {
+    const out = new Map<string, string>()
+    if (ids.length === 0) return out
+
+    const now = Date.now()
+    const pending: string[] = []
+
+    for (const id of ids) {
+      // Ya sabemos que no tiene thumbnail: no gastar una firma.
+      if (this.thumbPaths.has(id) && !this.thumbPaths.get(id)) continue
+      const cached = this.signedThumbs.get(id)
+      if (cached && cached.expiresAt > now) {
+        out.set(id, cached.url)
+        continue
+      }
+      pending.push(id)
+    }
+
+    if (pending.length === 0) return out
+
+    const { data, error } = await this.sb.storage
+      .from(THUMB_BUCKET)
+      .createSignedUrls(pending.map(thumbPath), THUMB_URL_TTL_SECONDS)
+
+    if (error || !data) return out
+
+    // El orden de la respuesta sigue al de la petición, pero se empareja por
+    // `path` para no depender de ello.
+    const byPath = new Map<string, string>()
+    for (const row of data) {
+      if (row.signedUrl && !row.error) byPath.set(row.path ?? '', row.signedUrl)
+    }
+
+    // Margen de seguridad: se re-firma un poco antes de la caducidad real, para
+    // que ninguna URL entregada expire mientras el navegador la está usando.
+    const expiresAt = now + (THUMB_URL_TTL_SECONDS - THUMB_URL_RENEW_MARGIN_SECONDS) * 1000
+
+    for (const id of pending) {
+      const url = byPath.get(thumbPath(id))
+      if (!url) {
+        // Sin firma: el objeto no existe. Recordarlo evita reintentar en cada
+        // carga de portada.
+        this.thumbPaths.set(id, null)
+        continue
+      }
+      this.signedThumbs.set(id, { url, expiresAt })
+      out.set(id, url)
+    }
+
+    return out
+  }
+
+  /**
+   * Re-firma el thumbnail de un diagrama tirando lo cacheado (PLAN-012).
+   *
+   * Se llama desde el `onError` del `<img>`. Es la única vía por la que una URL
+   * caducada se recupera: `getThumbnailUrls` no vuelve a pedir lo que el store
+   * ya tiene, así que su margen de re-firma no cubre a un diagrama ya hidratado.
+   *
+   * También limpia `thumbPaths`, porque si constaba que este diagrama no tenía
+   * miniatura la petición se descartaría antes de llegar a Storage — y el caso
+   * de "no la tenía y ahora sí" es exactamente el de un diagrama recién guardado.
+   */
+  async refreshThumbnailUrl(id: string): Promise<string | null> {
+    this.signedThumbs.delete(id)
+    this.thumbPaths.delete(id)
+    this.thumbCache.delete(id)
+    const urls = await this.getThumbnailUrls([id])
+    return urls.get(id) ?? null
+  }
+
   async getThumbnail(id: string): Promise<string | null> {
     // Identidad estable + sin re-descarga: si ya lo resolvimos, devolver el MISMO
     // string (evita recargar el <img> = parpadeo, y evita el GET a Storage).
@@ -417,6 +537,7 @@ export class SupabaseRepository implements IDiagramRepository {
       }
       this.thumbPaths.set(id, null)
       this.thumbCache.set(id, null)
+      this.signedThumbs.delete(id)
       return bumped
     }
     const blob = dataUrlToBlob(dataUrl)
@@ -439,6 +560,9 @@ export class SupabaseRepository implements IDiagramRepository {
     this.thumbPaths.set(id, thumbPath(id))
     // Actualizar el cache con el dataURL recién guardado (identidad estable nueva).
     this.thumbCache.set(id, dataUrl)
+    // La URL firmada apunta al objeto anterior: soltarla para que la próxima
+    // carga de portada firme de nuevo y muestre el thumbnail recién subido.
+    this.signedThumbs.delete(id)
     return bumped
   }
 

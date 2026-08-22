@@ -5,7 +5,8 @@ estado: todo
 creado: 2026-08-10
 cerrado:
 aprobado_por:
-relacionados: [EXP-012, PLAN-010, PLAN-013]
+auditado: 2026-08-21
+relacionados: [EXP-012, PLAN-010, PLAN-011, PLAN-012, PLAN-013]
 ---
 
 # Higiene de datos y políticas de retención
@@ -18,18 +19,27 @@ Ninguna es urgente por espacio; la de Storage sí lo es por gobernanza del dato.
 
 ## Alcance
 
-**Entra:** los 76 ficheros huérfanos de Storage, la retención de `notification_outbox`, la retención de la papelera, y el cierre estructural para que el residuo de Storage no se vuelva a acumular.
+**Entra:** los ficheros huérfanos de Storage, la retención de `notification_outbox`, la retención de la papelera, y el cierre estructural para que el residuo de Storage no se vuelva a acumular.
 
-**No entra:** cambios de esquema. Todo son datos y políticas.
+**Entra también, corregido el 2026-08-21:** el paso 2 es un trigger `AFTER DELETE`, o sea **un cambio de esquema**. Este plan decía *"No entra: cambios de esquema"* y su propio paso 2 lo era — se habría colado en producción por una puerta que el documento declaraba cerrada. Sí sigue fuera cualquier cambio de *columnas* o de tablas.
 
-## Estado medido (2026-08-10)
+**Este plan es dueño del barrido de huérfanos.** [PLAN-012](012-thumbnails-webp-y-entrega-segura.md) describía el mismo barrido, con la misma consulta y las mismas trampas; se quitó de allí el 2026-08-21. Se ejecuta en la misma tanda de laboratorio que [PLAN-011](011-remediacion-de-base-de-datos-pendiente.md), porque los dos son solo base de datos y comparten el ciclo de verificación.
 
-| Acumulación | Hoy | Política actual |
-|---|---|---|
-| Huérfanos en `thumbnails` | **76 ficheros, 3 854 kB** | ninguna |
-| `notification_outbox` | 62 filas, 0 sin enviar, la más antigua del 2026-07-09 | ninguna: nadie borra los enviados |
-| Papelera `diagrams` | 6 elementos, el más antiguo del 2026-07-29 | ninguna: se acumula indefinidamente |
-| Papelera `projects` | 0 | ninguna |
+## Estado medido
+
+Dos mediciones: la original y la de la auditoría de consistencia. Los huérfanos no eran 76.
+
+| Acumulación | 2026-08-10 | **2026-08-21** | Política actual |
+|---|---|---|---|
+| Objetos en `thumbnails` | — | **235, los 235 SVG, 11 MB** | ninguna |
+| Huérfanos en `thumbnails` | 76 ficheros, 3 854 kB | **78 ficheros, 3 896 kB** (33 % del bucket) | ninguna |
+| Diagramas sin thumbnail | — | 20 de 177 | — |
+| Rutas de subproceso en el bucket | — | **0** | — |
+| `notification_outbox` | 62 filas, 0 sin enviar, la más antigua del 2026-07-09 | por remedir al ejecutar | ninguna: nadie borra los enviados |
+| Papelera `diagrams` | 6 elementos, el más antiguo del 2026-07-29 | **9** | ninguna: se acumula indefinidamente |
+| Papelera `projects` | 0 | 0 | ninguna |
+
+Sobre las **0 rutas de subproceso**: tanto este plan como PLAN-012 advertían de la convención `<parentId>/subproc/<elementId>`. Hoy **las 235 rutas del bucket son `<id>/thumb`** y ningún diagrama tiene `parent_diagram_id`. La advertencia se conserva como guarda del criterio de barrido —es gratis y protege si vuelven los subprocesos— pero no hay nada de eso que proteger ahora mismo.
 
 ## Precondiciones — decisiones de producto, no técnicas
 
@@ -39,7 +49,9 @@ Ninguna es urgente por espacio; la de Storage sí lo es por gobernanza del dato.
 
 ## Pasos
 
-### 1 · Barrido de los 76 huérfanos
+### 1 · Barrido de los 78 huérfanos
+
+> **Orden respecto a PLAN-012:** conviene barrer **antes** del backfill de thumbnails, para no gastar tiempo de render en objetos que van a desaparecer. No es un requisito: el script del backfill itera sobre `diagrams`, no sobre el bucket, así que los huérfanos le son invisibles de todas formas.
 
 `storage.protect_delete()` bloquea el `DELETE` por SQL a propósito, y hace bien: `storage.objects` es solo el índice, borrar la fila deja el blob en S3 invisible y facturado. Se cambiarían 76 huérfanos visibles por 76 invisibles.
 

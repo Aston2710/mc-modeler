@@ -4,6 +4,7 @@ Ordenado por ID descendente. `mitigado` no es `resuelto`.
 
 | ID | Incidente | Estado | Severidad | Componentes | Detectado |
 |---|---|---|---|---|---|
+| [EXP-017](017-el-thumbnail-webp-salia-borroso-por-el-tamano-intrinseco-del-svg.md) | `drawImage` amplía el bitmap del tamaño intrínseco del SVG en vez de re-rasterizar el vector | **activo** — corregido en el thumbnail 2026-08-21, **sigue vivo en la exportación PNG/PDF** | media | `src/utils/thumbnailUtils.ts`, `src/hooks/useExport.ts` | 2026-08-21 |
 | [EXP-016](016-el-historial-de-migraciones-no-reproduce-la-base.md) | El historial de migraciones no reproducía la base: faltaban 6 archivos de 35 migraciones aplicadas | resuelto | alta | `supabase/migrations`, `comment_threads`, MCP `apply_migration` | 2026-08-13 |
 | [EXP-015](015-revoke-update-de-columna-es-noop-con-grant-de-tabla.md) | `REVOKE UPDATE (columna)` no surtió efecto porque existía un `GRANT UPDATE` de tabla | resuelto | alta | migraciones `0023`/`0028` | 2026-08-10 |
 | [EXP-014](014-rls-evaluado-por-fila-degradaba-la-lista-de-diagramas.md) | La política RLS de `diagrams` se evaluaba una vez por fila y la lista tardaba 31 ms | resuelto | alta | `private.can_access_diagram`, `diagrams_select` | 2026-08-09 |
@@ -23,7 +24,9 @@ Ordenado por ID descendente. `mitigado` no es `resuelto`.
 
 ## Incidentes activos
 
-Dos abiertos: EXP-011 y EXP-012.
+Tres abiertos: EXP-011, EXP-012 y EXP-017.
+
+**EXP-017 está `activo` aunque el síntoma que lo destapó ya no ocurre.** La causa se corrigió en el thumbnail el 2026-08-21 y **el mismo mecanismo sigue vivo en la exportación a PNG y PDF**: elegir 3× en el modal no da hoy más detalle que 1×. Se estudió el 2026-08-22 sin tocar el código, por decisión del usuario. Cerrarlo por tener un camino arreglado sería la misma trampa que confundir `mitigado` con `resuelto`.
 
 **EXP-011 está mitigado desde el 2026-08-14** ([PLAN-014](../plans/done/014-mitigacion-perdida-de-trabajo-en-colaboracion.md)): sus tres mecanismos dejaron de ser silenciosos. Sigue **activo** porque la mitigación reduce el daño sin arreglar la causa, que continúa sin identificar. La solución de fondo es [MASTER-PLAN-019](../plans/todo/019-master-plan-servidor-autoritativo-de-colaboracion.md).
 
@@ -36,6 +39,8 @@ Tres quedaron resueltos por esas migraciones (013, 014, 015); dos siguen abierto
 EXP-010 se documentó como `activo` porque en la rama de la auditoría el fix no existía: llegó a `main` trece minutos después de crearse esa rama. Quedó `resuelto` al mezclar, el 2026-08-12.
 
 **Los tres resueltos comparten el mismo riesgo de recaída: su corrección parece innecesaria.** El predicado conjuntista de EXP-014 duplica lógica; el `GRANT` columna a columna de EXP-015 parece complicación gratuita; y una tabla de respaldo en `public` seguirá pareciendo inofensiva. Sus secciones de *Prevención* existen sobre todo para quien vaya a "simplificar".
+
+**EXP-017 pertenece a esa misma familia** por motivo distinto: reescribir el `width`/`height` del SVG parece redundante cuando ya se le pasa el tamaño a `drawImage`. Quien lo borre reintroduce el borroso sin que falle ninguna prueba de tamaño de lienzo.
 
 ## Pendiente de completar
 

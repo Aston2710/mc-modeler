@@ -84,6 +84,31 @@ export class LocalRepository implements IDiagramRepository {
     return thumbStore.getItem<string>(id)
   }
 
+  /**
+   * En local no hay nada que firmar: los thumbnails ya son data URLs en
+   * IndexedDB. Se leen en paralelo, que aquí no cuesta red. Cumple el mismo
+   * contrato que la nube para que el llamador no tenga que distinguir.
+   */
+  async getThumbnailUrls(ids: string[]): Promise<Map<string, string>> {
+    const out = new Map<string, string>()
+    const entries = await Promise.all(
+      ids.map(async (id) => [id, await thumbStore.getItem<string>(id)] as const)
+    )
+    for (const [id, url] of entries) {
+      if (url) out.set(id, url)
+    }
+    return out
+  }
+
+  /**
+   * En local esto no puede hacer falta: un data URL de IndexedDB no caduca. Se
+   * implementa igual porque el contrato lo pide, y devolver el valor vigente es
+   * lo correcto — si el `<img>` falló por otra razón, reintentar no hace daño.
+   */
+  async refreshThumbnailUrl(id: string): Promise<string | null> {
+    return (await thumbStore.getItem<string>(id)) ?? null
+  }
+
   async saveThumbnail(id: string, dataUrl: string): Promise<string | null> {
     await thumbStore.setItem(id, dataUrl)
     return null // sin trigger de versión en local

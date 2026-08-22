@@ -157,3 +157,8 @@ scripts/*
 # contiene credenciales ni datos: solo comprueba el puerto y lanza el stack.
 !scripts/lab.mjs
 kpi/
+# Salidas de scripts/backfill-thumbs.mjs (PLAN-012): muestras para revisar la
+# nitidez a ojo, e informe del pase. Son artefactos de una ejecucion concreta,
+# no del proyecto.
+muestras-thumbs/
+backfill-thumbs-*.json
