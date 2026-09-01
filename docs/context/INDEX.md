@@ -13,6 +13,7 @@ Documentos vivos. Se editan en sitio y describen el sistema **como es hoy**, no 
 | [rendimiento-base-de-datos.md](rendimiento-base-de-datos.md) | Cómo medir rendimiento en esta base y dónde está el tiempo realmente | vigente | 2026-08-13 |
 | [flags-operacion.md](flags-operacion.md) | Los tres flags de operación y sus killswitches (`flujo:tabsCache`, `flujo:perf`, `flujo:noBgSave`) | vigente | 2026-08-21 |
 | [operacion-scripts.md](operacion-scripts.md) | Scripts de diagnóstico, backup y restauración (`scripts/*.mjs`, fuera del repo salvo `lab.mjs`) | vigente | 2026-08-21 |
+| [exportacion.md](exportacion.md) | Los cinco formatos, el camino vectorial del PDF, el taller de documento y sus seis límites conocidos | vigente | 2026-08-24 |
 | [patrones.md](patrones.md) | Patrones de arquitectura del cliente | vigente | 2026-07-19 |
 | [patrones-routing.md](patrones-routing.md) | Invariante ortogonal, semántica Bizagi y no-invasión de shapes en la capa de routing | vigente | 2026-08-09 |
 | [patrones-ui-sticky-lane.md](patrones-ui-sticky-lane.md) | Overlay de etiquetas de pool/carril ancladas al viewport | vigente | por-determinar |

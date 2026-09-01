@@ -17,6 +17,10 @@ import { sanitizeBpmnXml, hasNonFiniteCoords } from '@/utils/sanitizeBpmnXml'
 import { isBpmnReadOnly } from '@/bpmn/readOnlyState'
 import { perfStart } from '@/utils/perf'
 import {
+  readDocumentMeta, ensureDocumentMeta, toModdleProps, EMPTY_DOCUMENT_META,
+  type DocumentMeta,
+} from '@/bpmn/elements/documentMeta'
+import {
   isTabsCacheEnabled,
   getOrCreate as cacheGetOrCreate,
   attach as cacheAttach,
@@ -584,6 +588,28 @@ export function useBpmnModeler(
     if (el) removeImage(m.get('modeling'), el, imageId)
   }, [])
 
+  // ── Datos del documento: los campos de la cabecera (PLAN-034) ──
+  // Cuelgan del elemento raíz (Process o Collaboration) dentro de
+  // `extensionElements`, no de `bpmn:Definitions`: extender un tipo concreto
+  // corrompe el nombre del elemento en el XML. Ver EXP-018.
+  const getDocumentMeta = useCallback((): DocumentMeta => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = modelerRef.current as any
+    const raiz = m?.get('canvas')?.getRootElement?.()
+    return raiz ? readDocumentMeta(raiz) : { ...EMPTY_DOCUMENT_META }
+  }, [])
+
+  const setDocumentMeta = useCallback((meta: Partial<DocumentMeta>) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = modelerRef.current as any
+    const raiz = m?.get('canvas')?.getRootElement?.()
+    if (!raiz) return
+    // Vía `modeling` para que entre en el commandStack: así la cabecera tiene
+    // deshacer como cualquier otra edición, y la colaboración se entera.
+    const el = ensureDocumentMeta(m.get('moddle'), raiz)
+    m.get('modeling').updateModdleProperties(raiz, el, toModdleProps(meta))
+  }, [])
+
   return {
     modelerRef,
     activeVersion,
@@ -606,5 +632,7 @@ export function useBpmnModeler(
     getLinkedImages,
     linkImage,
     unlinkImage,
+    getDocumentMeta,
+    setDocumentMeta,
   }
 }

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
   ChevronDown, Check, Plus, Home, Upload, Download, Image as ImageIcon, Save,
-  Undo2, Redo2, CheckSquare, ZoomIn, ZoomOut, Maximize2, MessageSquare, PanelRight,
+  Undo2, Redo2, CheckSquare, ZoomIn, ZoomOut, Maximize2, MessageSquare, PanelRight, Stamp,
   LayoutGrid, List, Table2,
 } from 'lucide-react'
 import { usePreferencesStore } from '@/store/preferencesStore'
@@ -48,6 +48,8 @@ export function MenuBar(props: MenuBarProps) {
   const menuRef = useRef<HTMLDivElement>(null)
 
   const showComments = usePreferencesStore((s) => s.showComments)
+  const showDocumentHeader = usePreferencesStore((s) => s.showDocumentHeader)
+  const setShowDocumentHeader = usePreferencesStore((s) => s.setShowDocumentHeader)
   const setShowComments = usePreferencesStore((s) => s.setShowComments)
   const paletteMode = usePreferencesStore((s) => s.paletteMode)
   const setPaletteMode = usePreferencesStore((s) => s.setPaletteMode)
@@ -159,6 +161,14 @@ export function MenuBar(props: MenuBarProps) {
                 label={t('menu.propertiesPanel')}
                 checked={propertiesPanelOpen}
                 onClick={() => { setPropertiesPanelOpen(!propertiesPanelOpen); close() }}
+              />
+              {/* Solo cambia la vista. Que la cabecera exista es del proyecto, y
+                  que salga impreso se decide al exportar. */}
+              <MenuItem
+                icon={<Stamp size={15} />}
+                label={t('menu.documentHeader')}
+                checked={showDocumentHeader}
+                onClick={() => { setShowDocumentHeader(!showDocumentHeader); close() }}
               />
               <MenuSep />
               <div className="menu-head">{t('menu.palette')}</div>

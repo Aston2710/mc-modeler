@@ -20,7 +20,7 @@ ya resueltos.**
 | cualquier cosa | [`docs/README.md`](docs/README.md) — cómo está organizado y dónde va lo nuevo |
 | preguntar "¿qué toca ahora?" | [`docs/plans/todo/INDEX.md`](docs/plans/todo/INDEX.md) — los tres master plans activos y su orden |
 | escribir código que toque una capa | `docs/context/` — **gobierna el código futuro**, no es historia |
-| diagnosticar un bug de Yjs, XML, colaboración, routing o corrupción | `docs/experience/` — 16 incidentes con su causa y su fix |
+| diagnosticar un bug de Yjs, XML, colaboración, routing o corrupción | `docs/experience/` — 21 incidentes con su causa y su fix |
 | tomar una decisión de arquitectura | `docs/context/decisiones.md` — 12 decisiones con sus alternativas descartadas |
 
 Cuatro reglas del esquema que importan al escribir en él:
@@ -52,7 +52,7 @@ Cuatro reglas del esquema que importan al escribir en él:
 ```
 npm run dev        # Vite dev server
 npm run build      # tsc -b && vite build
-npm run test       # Vitest (26 ficheros, 235 pruebas)
+npm run test       # Vitest (35 ficheros, 393 pruebas)
 npm run lint       # ESLint 9 — src/**, --max-warnings 0
 npm run lab        # laboratorio local: stack Supabase en Docker + Vite en el puerto 7654
 npm run lab:reset  # supabase db reset + Vite en modo lab

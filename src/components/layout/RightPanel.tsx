@@ -28,7 +28,9 @@ interface RightPanelProps {
  * que es quien tiene el modelerRef) vía createPortal hacia el slot
  * #comments-panel-slot que se renderiza aquí.
  */
-export function RightPanel({ collapsed, onToggle, getSelectedElements, onUpdateProperty, readOnly }: RightPanelProps) {
+export function RightPanel({
+  collapsed, onToggle, getSelectedElements, onUpdateProperty, readOnly,
+}: RightPanelProps) {
   const { t } = useTranslation()
   const panelOpen = useCommentStore((s) => s.panelOpen)
   const setPanelOpen = useCommentStore((s) => s.setPanelOpen)

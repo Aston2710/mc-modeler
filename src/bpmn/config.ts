@@ -30,6 +30,7 @@ import PhaseLabelEditingModule from './elements/PhaseLabelEditingModule'
 import GroupConnectionRulesModule from './elements/GroupConnectionRulesModule'
 import ConnectionEndpointRulesModule from './elements/ConnectionEndpointRulesModule'
 import StickyLaneLabelsModule from './canvas/StickyLaneLabelsModule'
+import DocumentFrameModule from './canvas/DocumentFrameModule'
 import CommentContextPadModule from './elements/CommentContextPadModule'
 import ReadOnlyModule from './elements/ReadOnlyModule'
 import flujoModdle from './moddle/flujo.json'
@@ -69,6 +70,7 @@ export const MODELER_CONFIG = {
     GroupConnectionRulesModule,
     ConnectionEndpointRulesModule,
     StickyLaneLabelsModule,
+    DocumentFrameModule,
     CommentContextPadModule,
     ReadOnlyModule,
     BizagiLayouter,

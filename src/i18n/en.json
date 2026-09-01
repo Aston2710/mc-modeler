@@ -96,6 +96,7 @@
     "allImages": "All",
     "newFolder": "New folder",
     "newFolderPrompt": "Folder name",
+    "logosFolder": "Logos",
     "folderExists": "Folder \"{{name}}\" already exists",
     "noFolder": "No folder",
     "moveToFolder": "Move to folder",
@@ -158,6 +159,7 @@
     "fit": "Fit to screen",
     "comments": "Comments",
     "propertiesPanel": "Properties panel",
+    "documentHeader": "Document header",
     "palette": "Element palette",
     "paletteMain": "Main",
     "paletteGrouped": "Grouped",
@@ -277,6 +279,32 @@
       "none": "No color",
       "featured": "Suggested",
       "all": "Palette"
+    },
+    "document": {
+      "title": "Document",
+      "subtitle": "Title block data. Shown when exporting to PDF.",
+      "note": "This data travels inside the diagram and is exported in .bpmn too. Which fields are shown, and with which logo, is decided by the project template.",
+      "fields": {
+        "title": "Document title",
+        "code": "Code",
+        "date": "Date",
+        "revision": "Revision",
+        "type": "Document type",
+        "classification": "Classification",
+        "distribution": "Distribution",
+        "author": "Author",
+        "approver": "Approved by"
+      },
+      "placeholders": {
+        "title": "If left empty, the diagram name is used",
+        "code": "Free text",
+        "date": "dd/mm/yyyy",
+        "revision": "0",
+        "type": "Standard, Instruction, Procedure…",
+        "classification": "Internal, Restricted, Public…",
+        "author": "",
+        "approver": ""
+      }
     }
   },
   "diagrams": {
@@ -377,7 +405,79 @@
       "previewNote": "Preview shows the current theme. Exported file will use {{theme}} theme.",
       "export": "Export",
       "cancel": "Cancel",
-      "emptyDiagram": "Diagram is empty"
+      "emptyDiagram": "Diagram is empty",
+      "page": {
+        "size": "Page size",
+        "margin": "Margins",
+        "marginWide": "25.4 mm",
+        "marginNarrow": "12.7 mm",
+        "marginMin": "6 mm",
+        "rotate": "Drawing rotation",
+        "rotateShort": "90°",
+        "rotateLabel": "Rotate diagram 90°",
+        "rotateHelp": "The document stays portrait; only the drawing turns sideways. Useful when the standard requires a portrait page and the diagram is wide."
+      },
+      "groups": {
+        "format": "Format",
+        "sheet": "Sheet",
+        "documentHeader": "Document header",
+        "raster": "Image",
+        "theme": "Theme"
+      },
+      "fileName": "File",
+      "documentHeader": {
+        "include": "Include document header",
+        "logo": "Logo",
+        "logoNone": "No logo",
+        "logoDrop": "Drop an image here, or click to choose one",
+        "logoFormats": "PNG, SVG or JPG · transparency is kept",
+        "logoUploading": "Uploading…",
+        "logoLoading": "Loading the logo…",
+        "logoReuse": "From this project",
+        "logoReplace": "Replace the logo",
+        "logoClear": "Remove the logo",
+        "logoMissing": "The saved logo is no longer in the library.",
+        "logoLowRes": "{{w}} × {{h}} px · will print soft",
+        "logoError": "That image can't be used as a logo",
+        "logoTooBig": "That image is too large to keep in this browser. Try a smaller one.",
+        "logoHelp": "Saved in the project's image library, under “Logos”. It is not stored in the diagram.",
+        "logoHelpLocal": "This diagram isn't in a project: the logo is kept in this browser and isn't shared.",
+        "readOnly": "Read-only: you can export with the header, but not change the template.",
+        "template": "Project template",
+        "templateLocal": "This browser's template",
+        "templateHelp": "Set once and shared by every diagram in the project.",
+        "templateHelpLocal": "Set once and used by diagrams that aren't in a project. It lives in this browser and isn't shared.",
+        "fieldsOn": "Visible fields",
+        "cost_one": "{{count}} field · {{mm}} mm header, {{part}} % of the page",
+        "cost_other": "{{count}} fields · {{mm}} mm header, {{part}} % of the page",
+        "none": "—"
+      },
+      "sheet": {
+        "zoom": "View size",
+        "fit": "Fit",
+        "actualHelp": "At 100 % the sheet is shown at the size it will be: that is where you judge the type.",
+        "zoomIn": "Zoom in",
+        "zoomOut": "Zoom out"
+      },
+      "contains": {
+        "bpmn": {
+          "title": "What the file carries",
+          "items": [
+            "The whole diagram as standard BPMN 2.0 XML.",
+            "Library images, embedded so the file works outside the app.",
+            "Document data: code, date, revision and the rest of the title block.",
+            "Not the drawn title block: another modeller would ignore it, and this keeps the file clean."
+          ]
+        },
+        "bpm": {
+          "title": "What the file carries",
+          "items": [
+            "The diagram in Bizagi Modeler’s native format.",
+            "Double-click opens it straight in Bizagi.",
+            "Library images, embedded."
+          ]
+        }
+      }
     },
     "import": {
       "title": "Import diagram",
@@ -491,5 +591,43 @@
     "purgeConfirm": "Delete permanently",
     "purgeDiagramConfirm": "This diagram will be deleted forever. This action cannot be undone.",
     "purgeProjectConfirm": "The project and its diagrams will be deleted forever. This action cannot be undone."
+  },
+  "iso7200": {
+    "name": "Document header",
+    "standard": "ISO 7200",
+    "mandatory": "mandatory in ISO 7200",
+    "notIso": "outside ISO 7200",
+    "fields": {
+      "code": "Identification number",
+      "title": "Title",
+      "date": "Date of issue",
+      "status": "Document status",
+      "author": "Created by",
+      "approver": "Approved by",
+      "revision": "Revision",
+      "type": "Document type",
+      "classification": "Classification",
+      "distribution": "Distribution"
+    },
+    "status": {
+      "inPreparation": "In preparation",
+      "underApproval": "Under approval",
+      "released": "Released",
+      "withdrawn": "Withdrawn"
+    },
+    "legalOwner": "Legal owner",
+    "sheetNumber": "Sheet number",
+    "short": {
+      "code": "Number",
+      "title": "Title",
+      "date": "Date",
+      "status": "Status",
+      "approver": "Approved",
+      "author": "Created",
+      "revision": "Revision",
+      "type": "Type",
+      "classification": "Classification",
+      "distribution": "Distribution"
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDiagramStore } from '@/store/diagramStore'
 import { useUIStore } from '@/store/uiStore'
@@ -15,8 +15,7 @@ import { NewProjectModal } from '@/components/modals/NewProjectModal'
 import { LinkDiagramModal } from '@/components/modals/LinkDiagramModal'
 import { useAutoSave } from '@/hooks/useAutoSave'
 import { useKeyboard } from '@/hooks/useKeyboard'
-//import { useExport, type ExportFormat, type PngScale, type PdfOrientation, type ExportTheme } from '@/hooks/useExport'
-import { useExport, type ExportFormat, type PngScale, type PdfOrientation, type ExportTheme } from '@/hooks/useExport'
+import { useExport } from '@/hooks/useExport'
 import { buildThumbnail, topPoolCrop } from '@/utils/thumbnailUtils'
 import { isCanvasReadyFor } from '@/collab/canvasSession'
 import { setBpmnReadOnly } from '@/bpmn/readOnlyState'
@@ -33,7 +32,7 @@ import { CanvasZoomControl } from '@/components/layout/CanvasZoomControl'
 import { BpmnCanvas, type BpmnCanvasHandle } from '@/components/canvas/BpmnCanvas'
 import { DiagramList } from '@/components/diagrams/DiagramList'
 import { NewDiagramModal } from '@/components/modals/NewDiagramModal'
-import { ExportModal } from '@/components/modals/ExportModal'
+import { ExportModal, type ExportRequest } from '@/components/modals/ExportModal'
 import { ImportModal } from '@/components/modals/ImportModal'
 import { ValidationModal } from '@/components/modals/ValidationModal'
 import { ShortcutsModal } from '@/components/modals/ShortcutsModal'
@@ -43,6 +42,17 @@ import { ProjectView } from '@/components/diagrams/ProjectView'
 import { ImageGallery } from '@/components/images/ImageGallery'
 import { ImageLightbox } from '@/components/images/ImageLightbox'
 import { useImageStore } from '@/store/imageStore'
+import { diagramRepository } from '@/persistence'
+import {
+  resolveDocumentHeader, DEFAULT_STORED_DOCUMENT_HEADER,
+  type DocumentHeaderTemplate, type StoredDocumentHeader,
+} from '@/utils/documentHeader'
+import { prepareLogo } from '@/utils/logoImage'
+import { loadLocalDocumentHeader, saveLocalDocumentHeader } from '@/utils/localDocumentHeader'
+import {
+  EMPTY_DOCUMENT_META, type DocumentMeta, type DocumentMetaField,
+} from '@/bpmn/elements/documentMeta'
+import { fieldShort } from '@/i18n/fieldLabels'
 import type { LibraryImage } from '@/domain/types'
 
 export default function App() {
@@ -514,18 +524,144 @@ export default function App() {
     canvasRef.current?.scrollToElement(elementId)
   }, [closeModal])
 
+  /**
+   * Plantilla de la cabecera (PLAN-034). Se guardan las dos formas: la
+   * **almacenada** es la que se persiste, y la **resuelta** —con los bytes del
+   * logo ya preparados— es la que se dibuja. El logo se resuelve aquí una vez,
+   * no en cada exportación.
+   *
+   * **HAY PLANTILLA CON PROYECTO Y SIN ÉL**, y solo cambia dónde vive:
+   *
+   * - Con proyecto → `projects.doc_template`, compartida por el equipo, con el
+   *   logo **por referencia** a la biblioteca de imágenes.
+   * - Sin proyecto → `localStorage`, solo de este navegador, con el logo **por
+   *   valor**: la biblioteca es por proyecto, así que no hay nada a lo que
+   *   apuntar. Ver `utils/localDocumentHeader.ts`.
+   *
+   * Antes el segundo caso no existía y un diagrama suelto veía la cabecera a
+   * medias: los campos que la plantilla neutra ya traía, sin logo y sin poder
+   * elegir cuáles salen.
+   */
+  const [storedTemplate, setStoredTemplate] = useState<StoredDocumentHeader | null>(null)
+  const [docTemplate, setDocTemplate] = useState<DocumentHeaderTemplate | null>(null)
+  const activeProjectId = activeDiagram()?.projectId ?? null
+
+  /** Los bytes del logo, ya preparados para jsPDF. Ver `utils/logoImage.ts`. */
+  const resolverPlantilla = useCallback(
+    (base: StoredDocumentHeader) => resolveDocumentHeader(
+      base, (id) => useImageStore.getState().resolve(id), fieldShort, prepareLogo
+    ),
+    []
+  )
+
+  useEffect(() => {
+    let cancelado = false
+    const cargar = activeProjectId
+      ? diagramRepository.getProjectDocTemplate(activeProjectId)
+      : Promise.resolve(loadLocalDocumentHeader())
+    cargar
+      .then(async (guardada) => {
+        if (cancelado) return
+        const base = guardada ?? DEFAULT_STORED_DOCUMENT_HEADER
+        setStoredTemplate(base)
+        const resuelta = await resolverPlantilla(base)
+        if (!cancelado) setDocTemplate(resuelta)
+      })
+      // Una plantilla que no carga no puede impedir trabajar: se exporta sin cabecera.
+      .catch(() => { if (!cancelado) { setStoredTemplate(null); setDocTemplate(null) } })
+    return () => { cancelado = true }
+  }, [activeProjectId, resolverPlantilla])
+
+  /**
+   * Aplica un cambio a la plantilla y lo guarda donde corresponda. Es lo que
+   * hace que la cabecera se pueda **configurar**: sin esto había almacenamiento
+   * y dibujado, pero ningún camino para tocarlo desde la interfaz.
+   */
+  const patchDocTemplate = useCallback(async (patch: Partial<StoredDocumentHeader>) => {
+    const siguiente: StoredDocumentHeader = {
+      ...(storedTemplate ?? DEFAULT_STORED_DOCUMENT_HEADER),
+      ...patch,
+    }
+    setStoredTemplate(siguiente)
+    // Se resuelve antes de guardar para que la vista reaccione al instante; si
+    // el guardado falla, el aviso lo da el repositorio y el estado se recarga
+    // al cambiar de diagrama.
+    setDocTemplate(await resolverPlantilla(siguiente))
+    if (activeProjectId) {
+      await diagramRepository.saveProjectDocTemplate(activeProjectId, siguiente)
+    } else if (!saveLocalDocumentHeader(siguiente)) {
+      // Sin proyecto no hay repositorio que avise. Y aquí importa saberlo: esto
+      // no es recordar el último tamaño de hoja, es una configuración que la
+      // persona acaba de componer.
+      addToast({ type: 'error', title: t('errors.saveFailed') })
+    }
+  }, [activeProjectId, storedTemplate, resolverPlantilla, addToast, t])
+
+  /**
+   * Los datos del documento, como estado de React.
+   *
+   * NO se leen del canvas en cada render. El canvas es la fuente de verdad —van
+   * en el XML—, pero escribir en él **no vuelve a renderizar React**: los
+   * controles de la cabecera son controlados, así que sin este espejo se
+   * escribiría una letra y el campo se quedaría como estaba. Se sincroniza al
+   * abrir el diálogo, que es el único momento en que puede haber divergido.
+   */
+  const [docMeta, setDocMeta] = useState<DocumentMeta>(EMPTY_DOCUMENT_META)
+  useEffect(() => {
+    if (activeModal === 'export') {
+      setDocMeta(canvasRef.current?.getDocumentMeta() ?? EMPTY_DOCUMENT_META)
+    }
+  }, [activeModal])
+
+  /**
+   * Escribe un campo de la cabecera desde el diálogo de exportación.
+   *
+   * Va por `setDocumentMeta`, que pasa por `modeling.updateModdleProperties`: el
+   * cambio entra en el commandStack, tiene deshacer y la colaboración se entera.
+   */
+  const editDocumentField = useCallback((field: DocumentMetaField, value: string) => {
+    if (!canEditActive) return
+    canvasRef.current?.setDocumentMeta({ [field]: value })
+    setDocMeta((m: DocumentMeta) => ({ ...m, [field]: value }))
+  }, [canEditActive])
+
+  /**
+   * Personas que se pueden elegir en los campos de persona. Hoy, quien está
+   * conectado: es el caso que cubre el 90 % —«lo elaboré yo»— y evita teclear un
+   * nombre. La lista de colaboradores del proyecto entra cuando se necesite;
+   * mientras tanto, sin nadie conocido el campo se escribe.
+   */
+  const people = useMemo(() => {
+    const u = session?.user
+    const nombre = (u?.user_metadata?.full_name as string | undefined) || u?.email
+    return nombre ? [nombre] : []
+  }, [session])
+
   const { run: runExport } = useExport()
-  const handleExportConfirm = useCallback(async (
-    format: ExportFormat,
-    scale?: PngScale,
-    orientation?: PdfOrientation,
-    theme?: ExportTheme,
-  ) => {
+  const handleExportConfirm = useCallback(async (req: ExportRequest) => {
     closeModal()
     const diagram = activeDiagram()
     if (!diagram) return
-    await runExport({ format, scale, orientation, theme, diagramName: diagram.name, getXml, getSvg })
-  }, [closeModal, activeDiagram, runExport, getXml, getSvg])
+    await runExport({
+      format: req.format,
+      scale: req.scale,
+      theme: req.theme,
+      page: req.page,
+      fileName: req.fileName,
+      // PLAN-034: la cabecera se dibuja con la plantilla del proyecto y los datos
+      // del propio diagrama. Sin proyecto no hay plantilla, y sin plantilla no
+      // hay cabecera: un diagrama suelto exporta exactamente como antes.
+      //
+      // Y sin pedirla tampoco: `includeHeader` es la decisión de ESTA
+      // exportación, así que sin marcarla no se pasa plantilla y no se reserva
+      // ni un milímetro de hueco.
+      documentHeader: req.includeHeader ? (docTemplate ?? undefined) : undefined,
+      // Los datos vienen del diálogo, ya con sus valores por defecto resueltos:
+      // el PDF tiene que ser la hoja que se estaba mirando, no otra lectura.
+      documentMeta: req.documentMeta,
+      diagramName: diagram.name, getXml, getSvg,
+    })
+  }, [closeModal, activeDiagram, runExport, getXml, getSvg, docTemplate])
 
   const handleStartCreate = useCallback((bpmnType: string, event: MouseEvent) => {
     if (!canEditActive) return
@@ -715,6 +851,7 @@ export default function App() {
                 onReady={handleCanvasReady}
                 onChanged={handleChanged}
                 onSubProcessOpen={handleSubProcessOpen}
+                documentHeader={docTemplate}
               />
               <CanvasZoomControl
                 onZoomIn={() => canvasRef.current?.zoom(useUIStore.getState().zoom + 0.1)}
@@ -753,6 +890,14 @@ export default function App() {
           onExport={handleExportConfirm}
           onCancel={closeModal}
           isExporting={isExporting}
+          documentHeader={docTemplate ?? undefined}
+          storedHeader={storedTemplate ?? undefined}
+          documentMeta={docMeta}
+          onEditDocumentField={canEditActive ? editDocumentField : undefined}
+          onSaveTemplate={patchDocTemplate}
+          canConfigureTemplate={canEditActive}
+          projectId={activeProjectId}
+          people={people}
         />
       )}
       {activeModal === 'import' && (

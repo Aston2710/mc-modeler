@@ -12,6 +12,8 @@ import type { Anchor } from '@/store/commentStore'
 import { useDiagramStore } from '@/store/diagramStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { uploadImageDataUrl } from '@/utils/imageStorage'
+import type { DocumentMeta } from '@/bpmn/elements/documentMeta'
+import type { DocumentHeaderTemplate } from '@/utils/documentHeader'
 
 export interface BpmnCanvasHandle {
   importXml: (xml: string, diagramId: string) => Promise<void>
@@ -33,6 +35,9 @@ export interface BpmnCanvasHandle {
   getLinkedImages: (elementId: string) => string[]
   linkImage: (elementId: string, imageId: string) => void
   unlinkImage: (elementId: string, imageId: string) => void
+  /** Campos de la cabecera del documento (PLAN-034). */
+  getDocumentMeta: () => DocumentMeta
+  setDocumentMeta: (meta: Partial<DocumentMeta>) => void
 }
 
 interface BpmnCanvasProps {
@@ -40,10 +45,17 @@ interface BpmnCanvasProps {
   onChanged?: () => void
   onSelectionChange?: (ids: string[]) => void
   onSubProcessOpen?: (elementId: string) => void
+  /**
+   * Plantilla de la cabecera del proyecto, para verla sobre el lienzo. Entra por
+   * prop porque vive en el proyecto, no en el diagrama: el módulo del canvas no
+   * puede ir a buscarla. `null` = este diagrama no está en un proyecto con
+   * plantilla, y entonces no hay nada que dibujar.
+   */
+  documentHeader?: DocumentHeaderTemplate | null
 }
 
 export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
-  function BpmnCanvas({ onReady, onChanged, onSelectionChange, onSubProcessOpen }, ref) {
+  function BpmnCanvas({ onReady, onChanged, onSelectionChange, onSubProcessOpen, documentHeader }, ref) {
     const containerRef = useRef<HTMLDivElement>(null)
     const wrapRef = useRef<HTMLDivElement>(null)
     const hScrollRef = useRef<HTMLDivElement>(null)
@@ -53,6 +65,7 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
 
     const [ready, setReady] = useState(false)
     const showComments = usePreferencesStore((s) => s.showComments)
+    const showDocumentHeader = usePreferencesStore((s) => s.showDocumentHeader)
     const handleReady = useCallback(() => {
       setReady(true)
       onReady?.()
@@ -86,6 +99,22 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
       return () => document.removeEventListener('bpmn:comment:create', handler)
     }, [])
 
+    /**
+     * La cabecera del lienzo (PLAN-034 fase 4).
+     *
+     * Depende de `activeVersion` porque con el cache de pestañas el modeler que
+     * hay detrás **cambia de instancia** al saltar de diagrama; sin eso la
+     * plantilla se quedaría empujada en la instancia anterior y la pestaña nueva
+     * saldría sin cabecera. Es el mismo motivo por el que `useCollab` lo recibe.
+     */
+    useEffect(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const frame = (modeler.modelerRef.current as any)?.get?.('documentFrame', false)
+      if (!frame) return
+      frame.setTemplate(documentHeader ?? null)
+      frame.setVisible(showDocumentHeader)
+    }, [modeler.modelerRef, modeler.activeVersion, ready, documentHeader, showDocumentHeader])
+
     useImperativeHandle(ref, () => ({
       importXml: modeler.importXml,
       exportXml: modeler.exportXml,
@@ -106,6 +135,8 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
       getLinkedImages: modeler.getLinkedImages,
       linkImage: modeler.linkImage,
       unlinkImage: modeler.unlinkImage,
+      getDocumentMeta: modeler.getDocumentMeta,
+      setDocumentMeta: modeler.setDocumentMeta,
     }))
 
     // ── Scrollbars visibles estilo Bizagi ──────────────────────────────────

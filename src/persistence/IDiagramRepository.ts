@@ -1,4 +1,5 @@
 import type { Diagram, Folder, Project, UserPreferences } from '@/domain/types'
+import type { StoredDocumentHeader } from '@/utils/documentHeader'
 
 /**
  * Se lanza cuando un guardado con control optimista (CAS) detecta que el diagrama
@@ -101,4 +102,17 @@ export interface IDiagramRepository {
   // Preferences
   getPreferences(): Promise<UserPreferences>
   savePreferences(prefs: UserPreferences): Promise<void>
+
+  /**
+   * Plantilla de la cabecera del proyecto (PLAN-034). `null` si el proyecto no
+   * define ninguna, que es el estado por defecto de todos.
+   *
+   * Va en un método aparte y NO en `getProjects()` a propósito: la lista de
+   * proyectos se carga en la portada y no muestra la cabecera. Traerlo ahí sería
+   * repetir la trampa de `select('*')` que PLAN-012 desmontó con
+   * `LIST_COLUMNS`. Se pide solo cuando se va a exportar o a editar.
+   */
+  getProjectDocTemplate(projectId: string): Promise<StoredDocumentHeader | null>
+  /** `null` quita la cabecera del proyecto. */
+  saveProjectDocTemplate(projectId: string, template: StoredDocumentHeader | null): Promise<void>
 }

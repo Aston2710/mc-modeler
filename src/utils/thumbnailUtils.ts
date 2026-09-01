@@ -1,5 +1,6 @@
 // src/utils/thumbnailUtils.ts
 import { getThemedSvg } from '@/hooks/useExport'
+import { setSvgPixelSize } from '@/utils/svgRaster'
 
 /** Recorte en coordenadas de diagrama (las mismas del viewBox de saveSVG). */
 export interface CropRect {
@@ -196,28 +197,6 @@ export function sizeSvgForRaster(
   const height = Math.max(1, Math.round(h * scale))
 
   return { svg: setSvgPixelSize(svg, width, height), width, height }
-}
-
-/**
- * Fija el `width`/`height` de la etiqueta `<svg>` **raíz**, sin tocar el
- * `viewBox` ni nada de dentro.
- *
- * `replace` con una regex sin la bandera `g` sustituye solo la primera
- * ocurrencia, que es la etiqueta de apertura. Es deliberado: el fondo que
- * inyecta `injectThemeIntoSvg` es un `<rect width="100%" height="100%">` y
- * reescribirlo lo dejaría fuera de sitio.
- */
-function setSvgPixelSize(svg: string, width: number, height: number): string {
-  return svg.replace(/<svg\b[^>]*>/, (tag) => {
-    let out = tag
-    out = /\bwidth="[^"]*"/.test(out)
-      ? out.replace(/\bwidth="[^"]*"/, `width="${width}"`)
-      : out.replace(/<svg\b/, `<svg width="${width}"`)
-    out = /\bheight="[^"]*"/.test(out)
-      ? out.replace(/\bheight="[^"]*"/, `height="${height}"`)
-      : out.replace(/<svg\b/, `<svg height="${height}"`)
-    return out
-  })
 }
 
 /**
