@@ -1,9 +1,16 @@
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { jsPDF } from 'jspdf'
+// `jspdf` y `svg2pdf.js` NO se importan aquí a propósito: los carga
+// `pdfDocument.ts` con `import()` dinámico. Exportar no está en el camino
+// crítico y son cientos de kB que no tienen por qué entrar al arranque.
 import { useUIStore } from '@/store/uiStore'
 import { exportToBpm } from '@/utils/bpmExport'
 import { inlineImages } from '@/utils/imageStorage'
+import { setSvgPixelSize } from '@/utils/svgRaster'
+import { renderDiagramPdf } from '@/utils/pdfDocument'
+import { DEFAULT_PAGE_SPEC, type PageSpec } from '@/utils/pageLayout'
+import { DEFAULT_DOCUMENT_HEADER, drawDocumentHeader, documentHeaderHeight, type DocumentHeaderTemplate } from '@/utils/documentHeader'
+import { EMPTY_DOCUMENT_META, type DocumentMeta } from '@/bpmn/elements/documentMeta'
 
 export type ExportFormat = 'bpmn' | 'png' | 'svg' | 'pdf' | 'bpm'
 export type PngScale = 1 | 2 | 3
@@ -215,10 +222,23 @@ function parseSvgSize(svg: string): { w: number; h: number } {
 
 // Converts a themed SVG string to a PNG data URL via offscreen canvas.
 // The SVG already contains a background <rect>, canvas fill is belt-and-suspenders.
+//
+// EL TAMAÑO SE FIJA EN EL ORIGEN, NO EN EL DESTINO (EXP-017). Un `<img>` con un
+// SVG dentro tiene un tamaño intrínseco —el de sus atributos `width`/`height`—,
+// el navegador rasteriza el vector UNA vez a ese tamaño, y `drawImage` reescala
+// ese bitmap en vez de re-rasterizar. Como bpmn-js mide en unidades de diagrama,
+// agrandar solo el lienzo producía una ampliación borrosa: elegir 3× no daba más
+// detalle que 1×, solo más peso. Reescribiendo `width`/`height` del SVG al
+// tamaño de destino, el navegador rasteriza el vector a la resolución final.
+//
+// Parece redundante junto a los argumentos de `drawImage` e invita a borrarlo.
+// No lo es: son mecanismos distintos. Ver EXP-017.
 export function svgToDataUrl(svg: string, scale: number, bg: string, padding = 20): Promise<string> {
   const { w, h } = parseSvgSize(svg)
   const cw = Math.round((w + padding * 2) * scale)
   const ch = Math.round((h + padding * 2) * scale)
+  const dibujoW = Math.max(1, Math.round(w * scale))
+  const dibujoH = Math.max(1, Math.round(h * scale))
 
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas')
@@ -227,15 +247,21 @@ export function svgToDataUrl(svg: string, scale: number, bg: string, padding = 2
     const ctx = canvas.getContext('2d')
     if (!ctx) { reject(new Error('No 2d context')); return }
 
+    try {
+      ctx.imageSmoothingEnabled = true
+      ctx.imageSmoothingQuality = 'high'
+    } catch { /* entorno sin soporte: filtro por defecto */ }
+
     ctx.fillStyle = bg
     ctx.fillRect(0, 0, cw, ch)
 
-    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
+    const svgPx = setSvgPixelSize(svg, dibujoW, dibujoH)
+    const blob = new Blob([svgPx], { type: 'image/svg+xml;charset=utf-8' })
     const url  = URL.createObjectURL(blob)
     const img  = new Image()
 
     img.onload = () => {
-      ctx.drawImage(img, padding * scale, padding * scale, w * scale, h * scale)
+      ctx.drawImage(img, padding * scale, padding * scale, dibujoW, dibujoH)
       URL.revokeObjectURL(url)
       resolve(canvas.toDataURL('image/png'))
     }
@@ -263,9 +289,31 @@ function downloadText(text: string, filename: string, mimeType: string) {
 interface ExportOptions {
   format: ExportFormat
   scale?: PngScale
+  /** @deprecated Usar `page.orientation`. Se conserva para no romper llamadas. */
   orientation?: PdfOrientation
+  /**
+   * Hoja del PDF: tamaño, orientación, giro del diagrama, márgenes y alto del
+   * cabecera. Lo que no venga sale de `DEFAULT_PAGE_SPEC` — Carta apaisada con
+   * márgenes reducidos, que es lo que más diagramas deja legibles según la
+   * medición de los 177 de producción.
+   */
+  page?: Partial<PageSpec>
+  /**
+   * Plantilla de la cabecera. Viene del proyecto, no del código: aquí no hay
+   * ningún logo ni formato por defecto más allá de un recuadro genérico
+   * apagado. Ver `utils/documentHeader.ts`.
+   */
+  documentHeader?: DocumentHeaderTemplate
+  /** Datos del documento del diagrama (`flujo:DocumentMeta`). */
+  documentMeta?: DocumentMeta
   theme?: ExportTheme
   diagramName: string
+  /**
+   * Nombre del fichero, sin extensión. Se sanea igual que el del diagrama —da
+   * igual de dónde venga: lo que llegue aquí acaba en un `download`, así que no
+   * se confía en que ya venga limpio.
+   */
+  fileName?: string
   getXml: () => Promise<string>
   getSvg: () => Promise<string>
 }
@@ -277,9 +325,12 @@ export function useExport() {
 
   const run = useCallback(async (opts: ExportOptions) => {
     const { format, diagramName, getXml, getSvg } = opts
-    const safeName  = diagramName.replace(/[^a-z0-9_-]/gi, '_').toLowerCase()
+    const limpiar   = (s: string) => s.replace(/[^a-z0-9_-]/gi, '_').toLowerCase()
+    const safeName  = limpiar(opts.fileName?.trim() || diagramName) || 'diagrama'
     const theme     = opts.theme ?? 'current'
-    const themeName = resolveThemeName(theme)
+    // `themeName` ya no hace falta: el color del texto de la cabecera lo fija la
+    // plantilla, no el tema de la app. Un documento normativo se imprime igual
+    // trabaje quien lo exporte en claro o en oscuro.
     const bg        = resolveBg(theme)
 
     setExporting(true)
@@ -308,31 +359,37 @@ export function useExport() {
         downloadBlob(blob, `${safeName}.png`)
 
       } else if (format === 'pdf') {
-        const orientation = opts.orientation ?? 'landscape'
-        const themedSvg   = await getThemedSvg(theme, getSvg)
-        const dataUrl     = await svgToDataUrl(themedSvg, 2, bg)
-
-        const img = new Image()
-        await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej; img.src = dataUrl })
-
-        const pdf   = new jsPDF({ orientation, unit: 'mm', format: 'a4' })
-        const pageW = pdf.internal.pageSize.getWidth()
-        const pageH = pdf.internal.pageSize.getHeight()
-        const margin = 16
-        const maxW   = pageW - margin * 2
-        const maxH   = pageH - margin * 2 - 10
-        const ratio  = Math.min(maxW / img.width, maxH / img.height)
-        const w = img.width  * ratio
-        const h = img.height * ratio
-        const x = (pageW - w) / 2
-
-        const headerTextColor = themeName === 'dark' ? 200 : 100
-        pdf.setFontSize(10)
-        pdf.setTextColor(headerTextColor)
-        pdf.text(diagramName, margin, margin + 4)
-        pdf.text(new Date().toLocaleDateString(), pageW - margin, margin + 4, { align: 'right' })
-        pdf.addImage(dataUrl, 'PNG', x, margin + 12, w, h)
-        pdf.save(`${safeName}.pdf`)
+        // VECTORIAL (PLAN-034 fase 1). Antes se rasterizaba a PNG y se metía con
+        // `addImage`: el PDF era una foto, borrosa al ampliar y sin texto
+        // seleccionable. Ahora el diagrama va como vector, que es lo que hace
+        // viable la premisa de "todo en una sola imagen" — no cabe legible en
+        // una hoja (53 % por debajo de 4 pt en Carta vertical), pero se amplía.
+        const tpl = opts.documentHeader ?? DEFAULT_DOCUMENT_HEADER
+        const meta = opts.documentMeta ?? EMPTY_DOCUMENT_META
+        const spec: PageSpec = {
+          ...DEFAULT_PAGE_SPEC,
+          ...opts.page,
+          // `orientation` se conserva por compatibilidad con quien llame con la
+          // firma antigua; `page` manda si viene.
+          orientation: opts.page?.orientation ?? opts.orientation ?? DEFAULT_PAGE_SPEC.orientation,
+          // El hueco de la cabecera lo decide la plantilla, no quien exporta: así
+          // el diagrama nunca se solapa con él.
+          headerHeight: documentHeaderHeight(tpl),
+        }
+        const themedSvg = await getThemedSvg(theme, getSvg)
+        const blob = await renderDiagramPdf(themedSvg, {
+          spec,
+          background: bg,
+          drawHeader: (pdf, page) =>
+            drawDocumentHeader(pdf, {
+              tpl,
+              meta,
+              fallbackTitle: diagramName,
+              margin: spec.margin,
+              pageWidth: page.width,
+            }),
+        })
+        downloadBlob(blob, `${safeName}.pdf`)
       }
     } catch (err) {
       addToast({
