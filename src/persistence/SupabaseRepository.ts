@@ -4,6 +4,7 @@ import type { IDiagramRepository } from './IDiagramRepository'
 import { DiagramConflictError } from './IDiagramRepository'
 import type { Diagram, Folder, Project, UserPreferences } from '@/domain/types'
 import { LocalRepository } from './LocalRepository'
+import { parseStoredDocumentHeader, type StoredDocumentHeader } from '@/utils/documentHeader'
 
 const THUMB_BUCKET = 'thumbnails'
 const thumbPath = (id: string) => `${id}/thumb`
@@ -279,10 +280,17 @@ export class SupabaseRepository implements IDiagramRepository {
   }
 
   // ── Proyectos ──────────────────────────────────────────────────
+  // Columnas de la LISTA de proyectos — NUNCA `doc_template`. La portada no
+  // muestra la cabecera, y `select('*')` sobre una columna que crece es la misma
+  // trampa que PLAN-012 desmontó con `LIST_COLUMNS` en `diagrams`. La plantilla
+  // se pide con `getProjectDocTemplate` cuando de verdad hace falta.
+  private static readonly PROJECT_LIST_COLUMNS =
+    'id, owner_id, name, created_at, updated_at, deleted_at'
+
   async getProjects(): Promise<Project[]> {
     const { data, error } = await this.sb
       .from('projects')
-      .select('*')
+      .select(SupabaseRepository.PROJECT_LIST_COLUMNS)
       .is('deleted_at', null)
       .order('updated_at', { ascending: false })
     if (error) throw error
@@ -632,6 +640,32 @@ export class SupabaseRepository implements IDiagramRepository {
 
   async deleteFolder(id: string): Promise<void> {
     const { error } = await this.sb.from('folders').delete().eq('id', id)
+    if (error) throw error
+  }
+
+  /**
+   * Plantilla de la cabecera del proyecto (PLAN-034).
+   *
+   * Se normaliza siempre con `parseStoredDocumentHeader`: la columna es `jsonb` y
+   * puede traer una versión antigua o basura, y una plantilla rota no puede
+   * impedir abrir un proyecto.
+   */
+  async getProjectDocTemplate(projectId: string): Promise<StoredDocumentHeader | null> {
+    const { data, error } = await this.sb
+      .from('projects')
+      .select('doc_template')
+      .eq('id', projectId)
+      .maybeSingle()
+    if (error) throw error
+    const raw = (data as { doc_template: unknown } | null)?.doc_template
+    return raw == null ? null : parseStoredDocumentHeader(raw)
+  }
+
+  async saveProjectDocTemplate(projectId: string, template: StoredDocumentHeader | null): Promise<void> {
+    const { error } = await this.sb
+      .from('projects')
+      .update({ doc_template: template })
+      .eq('id', projectId)
     if (error) throw error
   }
 

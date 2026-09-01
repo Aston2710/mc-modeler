@@ -1,6 +1,10 @@
 import localforage from 'localforage'
 import type { IDiagramRepository } from './IDiagramRepository'
 import type { Diagram, Folder, Project, UserPreferences } from '@/domain/types'
+import { parseStoredDocumentHeader, type StoredDocumentHeader } from '@/utils/documentHeader'
+
+/** Plantillas de cabecera por proyecto (PLAN-034), en su propia clave. */
+const DOC_TEMPLATES_KEY = 'flujo:docTemplates'
 
 const SCHEMA_VERSION = 1
 
@@ -14,6 +18,7 @@ const DEFAULT_PREFS: UserPreferences = {
   lastOpenedDiagramId: null,
   paletteMode: 'grid',
   showComments: true,
+  showDocumentHeader: false,
   diagramSort: { key: 'updated', dir: 'desc' },
 }
 
@@ -162,6 +167,24 @@ export class LocalRepository implements IDiagramRepository {
 
   async getProjects(): Promise<Project[]> {
     return (await this.readProjectsRaw()).filter((p) => !p.deletedAt)
+  }
+
+  /**
+   * Plantilla de la cabecera por proyecto (PLAN-034). En local va en su propia
+   * clave de IndexedDB, no dentro del proyecto, por el mismo motivo que en la
+   * nube tiene su propia columna: la lista de proyectos no la necesita.
+   */
+  async getProjectDocTemplate(projectId: string): Promise<StoredDocumentHeader | null> {
+    const todas = (await store.getItem<Record<string, unknown>>(DOC_TEMPLATES_KEY)) ?? {}
+    const raw = todas[projectId]
+    return raw == null ? null : parseStoredDocumentHeader(raw)
+  }
+
+  async saveProjectDocTemplate(projectId: string, template: StoredDocumentHeader | null): Promise<void> {
+    const todas = (await store.getItem<Record<string, unknown>>(DOC_TEMPLATES_KEY)) ?? {}
+    if (template === null) delete todas[projectId]
+    else todas[projectId] = template
+    await store.setItem(DOC_TEMPLATES_KEY, todas)
   }
 
   async saveProject(project: Project): Promise<void> {

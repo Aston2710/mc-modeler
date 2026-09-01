@@ -76,6 +76,17 @@ export interface UserPreferences {
   lastOpenedDiagramId: string | null
   paletteMode: 'grid' | 'dropdown' | 'bizagi'
   showComments: boolean
+  /**
+   * Ver la cabecera del documento sobre el lienzo (PLAN-034 fase 4). Es una
+   * preferencia de VISTA: no cambia lo que se exporta ni lo que se guarda. Que
+   * el proyecto tenga plantilla se decide en el proyecto; esto solo dice si
+   * quien está dibujando quiere verla ahora.
+   *
+   * **Nace apagada.** El lienzo es para dibujar; la cabecera pertenece al
+   * documento y se compone al exportar. Quien la quiera delante mientras dibuja
+   * la enciende en Ver → Cabecera de documento, y su elección se recuerda.
+   */
+  showDocumentHeader: boolean
   diagramSort: DiagramSort
 }
 

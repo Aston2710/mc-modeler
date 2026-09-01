@@ -96,6 +96,7 @@
     "allImages": "Todas",
     "newFolder": "Nueva carpeta",
     "newFolderPrompt": "Nombre de la carpeta",
+    "logosFolder": "Logos",
     "folderExists": "La carpeta \"{{name}}\" ya existe",
     "noFolder": "Sin carpeta",
     "moveToFolder": "Mover a carpeta",
@@ -158,6 +159,7 @@
     "fit": "Ajustar a pantalla",
     "comments": "Comentarios",
     "propertiesPanel": "Panel de propiedades",
+    "documentHeader": "Cabecera de documento",
     "palette": "Paleta de elementos",
     "paletteMain": "Principal",
     "paletteGrouped": "Agrupada",
@@ -277,6 +279,32 @@
       "none": "Sin color",
       "featured": "Sugeridos",
       "all": "Paleta"
+    },
+    "document": {
+      "title": "Documento",
+      "subtitle": "Datos de la cabecera. Aparecen al exportar a PDF.",
+      "note": "Estos datos viajan dentro del diagrama y se exportan también en .bpmn. Qué campos se muestran y con qué logo lo decide la plantilla del proyecto.",
+      "fields": {
+        "title": "Título del documento",
+        "code": "Código",
+        "date": "Fecha",
+        "revision": "Revisión",
+        "type": "Tipo de documento",
+        "classification": "Clasificación",
+        "distribution": "Distribución",
+        "author": "Autor",
+        "approver": "Aprobado por"
+      },
+      "placeholders": {
+        "title": "Si se deja vacío, se usa el nombre del diagrama",
+        "code": "Texto libre",
+        "date": "dd/mm/aaaa",
+        "revision": "0",
+        "type": "Norma, Instructivo, Procedimiento…",
+        "classification": "Interna, Restringida, Pública…",
+        "author": "",
+        "approver": ""
+      }
     }
   },
   "diagrams": {
@@ -377,7 +405,79 @@
       "previewNote": "La vista previa muestra el tema actual. El archivo exportado usará el tema {{theme}}.",
       "export": "Exportar",
       "cancel": "Cancelar",
-      "emptyDiagram": "El diagrama está vacío"
+      "emptyDiagram": "El diagrama está vacío",
+      "page": {
+        "size": "Tamaño de hoja",
+        "margin": "Márgenes",
+        "marginWide": "25,4 mm",
+        "marginNarrow": "12,7 mm",
+        "marginMin": "6 mm",
+        "rotate": "Giro del dibujo",
+        "rotateShort": "90°",
+        "rotateLabel": "Girar el diagrama 90°",
+        "rotateHelp": "El documento sigue vertical; solo el dibujo va de lado. Útil cuando la norma exige hoja vertical y el diagrama es ancho."
+      },
+      "groups": {
+        "format": "Formato",
+        "sheet": "Hoja",
+        "documentHeader": "Cabecera de documento",
+        "raster": "Imagen",
+        "theme": "Tema"
+      },
+      "fileName": "Archivo",
+      "documentHeader": {
+        "include": "Incluir cabecera de documento",
+        "logo": "Logo",
+        "logoNone": "Sin logo",
+        "logoDrop": "Arrastra una imagen o pulsa para elegirla",
+        "logoFormats": "PNG, SVG o JPG · la transparencia se conserva",
+        "logoUploading": "Subiendo…",
+        "logoLoading": "Cargando el logo…",
+        "logoReuse": "Del proyecto",
+        "logoReplace": "Cambiar el logo",
+        "logoClear": "Quitar el logo",
+        "logoMissing": "El logo guardado ya no está en la biblioteca.",
+        "logoLowRes": "{{w}} × {{h}} px · se verá blando al imprimir",
+        "logoError": "No se pudo usar esa imagen como logo",
+        "logoTooBig": "La imagen pesa demasiado para guardarla en este navegador. Prueba con una más pequeña.",
+        "logoHelp": "Se guarda en la biblioteca del proyecto, en la carpeta «Logos». No se guarda en el diagrama.",
+        "logoHelpLocal": "Este diagrama no está en un proyecto: el logo se guarda en este navegador y no se comparte.",
+        "readOnly": "Solo lectura: puedes exportar con la cabecera, pero no cambiar la plantilla.",
+        "template": "Plantilla del proyecto",
+        "templateLocal": "Plantilla de este navegador",
+        "templateHelp": "Se define una vez y la comparten todos los diagramas del proyecto.",
+        "templateHelpLocal": "Se define una vez y la usan los diagramas que no están en ningún proyecto. Vive en este navegador y no se comparte.",
+        "fieldsOn": "Campos visibles",
+        "cost_one": "{{count}} campo · cabecera de {{mm}} mm, {{part}} % de la hoja",
+        "cost_other": "{{count}} campos · cabecera de {{mm}} mm, {{part}} % de la hoja",
+        "none": "—"
+      },
+      "sheet": {
+        "zoom": "Tamaño de la vista",
+        "fit": "Encajar",
+        "actualHelp": "Al 100 % la hoja se ve del tamaño que tendrá: es donde se juzga la letra.",
+        "zoomIn": "Ampliar",
+        "zoomOut": "Reducir"
+      },
+      "contains": {
+        "bpmn": {
+          "title": "Qué lleva el archivo",
+          "items": [
+            "El diagrama completo en XML estándar BPMN 2.0.",
+            "Las imágenes de la biblioteca, incrustadas para que el archivo funcione fuera de la app.",
+            "Los datos del documento: código, fecha, revisión y el resto de la cabecera.",
+            "No lleva la cabecera dibujado: otro modelador lo ignoraría, y así no ensucia el archivo."
+          ]
+        },
+        "bpm": {
+          "title": "Qué lleva el archivo",
+          "items": [
+            "El diagrama en el formato nativo de Bizagi Modeler.",
+            "Doble clic lo abre directamente en Bizagi.",
+            "Las imágenes de la biblioteca, incrustadas."
+          ]
+        }
+      }
     },
     "import": {
       "title": "Importar diagrama",
@@ -491,5 +591,43 @@
     "purgeConfirm": "Eliminar definitivamente",
     "purgeDiagramConfirm": "El diagrama se eliminará para siempre. Esta acción no se puede deshacer.",
     "purgeProjectConfirm": "Se eliminará el proyecto y sus diagramas para siempre. Esta acción no se puede deshacer."
+  },
+  "iso7200": {
+    "name": "Cabecera de documento",
+    "standard": "ISO 7200",
+    "mandatory": "obligatorio en ISO 7200",
+    "notIso": "fuera de ISO 7200",
+    "fields": {
+      "code": "Nº de identificación",
+      "title": "Título",
+      "date": "Fecha de edición",
+      "status": "Estado del documento",
+      "author": "Creado por",
+      "approver": "Aprobado por",
+      "revision": "Revisión",
+      "type": "Tipo de documento",
+      "classification": "Clasificación",
+      "distribution": "Distribución"
+    },
+    "status": {
+      "inPreparation": "En preparación",
+      "underApproval": "En aprobación",
+      "released": "Liberado",
+      "withdrawn": "Retirado"
+    },
+    "legalOwner": "Propietario legal",
+    "sheetNumber": "Nº de hoja",
+    "short": {
+      "code": "Código",
+      "title": "Título",
+      "date": "Fecha",
+      "status": "Estado",
+      "author": "Elaboró",
+      "approver": "Aprobó",
+      "revision": "Revisión",
+      "type": "Tipo",
+      "classification": "Clasificación",
+      "distribution": "Distribución"
+    }
   }
 }
