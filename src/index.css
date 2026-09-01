@@ -1,10 +1,20 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 /* ========================================================
-   Design tokens — origen histórico: design-prototype/styles.css (carpeta ya
+   Design tokens â€” origen histÃ³rico: design-prototype/styles.css (carpeta ya
    borrada). Esta hoja es hoy la fuente de verdad de los tokens.
    ======================================================== */
 :root {
+  /* LO QUE DIBUJA EL NAVEGADOR, NO NOSOTROS.
+     `color-scheme` es lo unico que gobierna las listas de los `<select>`
+     nativos, los calendarios de `<input type="date">`, las barras de scroll y
+     los cuadros del sistema. Sin esta linea el navegador los pinta EN CLARO
+     aunque la app este en oscuro: opciones blancas sobre fondo blanco â€”
+     invisibles hasta pasar el ratonâ€” y el resaltado azul del sistema.
+     Se declara por tema, no una sola vez, porque el tema lo pone
+     `data-theme` en <html> y el navegador tiene que seguirlo. */
+  color-scheme: light;
+
   --primary: #4f46e5;
   --primary-600: #4338ca;
   --primary-50: #eef2ff;
@@ -74,6 +84,10 @@
 }
 
 [data-theme="dark"] {
+  /* Ver la nota de `color-scheme` en `:root`: sin esto las listas nativas y los
+     calendarios salen en claro dentro de una app oscura. */
+  color-scheme: dark;
+
   --primary: #818cf8;
   --primary-600: #6366f1;
   --primary-50: #1e1b3a;
@@ -511,7 +525,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .collapsed-rail.right { border-right: none; border-left: 1px solid var(--border); }
 
 /* ========================================================
-   Palette — Dropdown mode
+   Palette â€” Dropdown mode
    ======================================================== */
 .palette--dd { padding: 4px 0; }
 
@@ -557,7 +571,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 }
 
 /* ========================================================
-   Palette — Bizagi mode
+   Palette â€” Bizagi mode
    ======================================================== */
 .palette--bz { padding: 6px 4px; }
 
@@ -622,7 +636,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   top: 0; left: 0; right: 10px; bottom: 10px;
 }
 
-/* ── Canvas scrollbars ───────────────────────────────────────────────────── */
+/* â”€â”€ Canvas scrollbars â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .bpmn-scrollbar {
   position: absolute; z-index: 20;
   background: var(--bg-2);
@@ -670,20 +684,20 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .djs-context-pad { z-index: 10; }
 .bjs-powered-by { display: none !important; }
 
-/* ── Fondo SVG transparente para mostrar el canvas-grid ─────────────────── */
+/* â”€â”€ Fondo SVG transparente para mostrar el canvas-grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .bjs-container svg { background: transparent !important; }
 
-/* Drop-state variables — canvas always transparent regardless of drag state */
+/* Drop-state variables â€” canvas always transparent regardless of drag state */
 .djs-parent {
   --shape-drop-allowed-fill-color: transparent;
   --shape-drop-not-allowed-fill-color: color-mix(in srgb, #dc2626 8%, transparent);
   --canvas-fill-color: transparent;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   COLORES DE TEXTO — Adaptativos al tema (light/dark)
-   bpmn-js renderiza los textos con fill inline → !important lo sobrescribe
-   ══════════════════════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   COLORES DE TEXTO â€” Adaptativos al tema (light/dark)
+   bpmn-js renderiza los textos con fill inline â†’ !important lo sobrescribe
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /* Texto dentro de shapes (labels internos) */
 .djs-shape .djs-visual text {
@@ -696,9 +710,9 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   fill: var(--text) !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    SEQUENCE FLOWS / CONNECTIONS
-   ══════════════════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .djs-connection .djs-visual > :is(polyline, path, line) {
   stroke: var(--text-2) !important;
 }
@@ -706,9 +720,9 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   fill: var(--text) !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   SELECCIÓN: Contorno y handles
-   ══════════════════════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   SELECCIÃ“N: Contorno y handles
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /* Outline por defecto (tasks, subprocesses, etc.) */
 .djs-outline {
@@ -734,14 +748,14 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   stroke-dasharray: 5 3 !important;
 }
 
-/* Stroke de selección: tasks/subprocesses mantienen azul primario */
+/* Stroke de selecciÃ³n: tasks/subprocesses mantienen azul primario */
 .djs-shape.selected .djs-visual > :is(rect, circle, polygon, path, ellipse) {
   stroke: var(--primary) !important;
   stroke-width: 2px !important;
 }
 
 /* Eventos y gateways: mantienen su stroke natural al seleccionar
-   (la selección la indica el outline + halo, no el stroke del shape) */
+   (la selecciÃ³n la indica el outline + halo, no el stroke del shape) */
 .djs-shape--start-event.selected .djs-visual > :is(circle, ellipse) {
   stroke: var(--start-stroke) !important;
   stroke-width: 2px !important;
@@ -779,7 +793,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   stroke: var(--int-stroke) !important;
 }
 
-/* Halo de selección (rect inyectado por SelectionHalo, visible solo al seleccionar) */
+/* Halo de selecciÃ³n (rect inyectado por SelectionHalo, visible solo al seleccionar) */
 .djs-selection-halo {
   display: none;
   fill: color-mix(in srgb, var(--primary) 10%, transparent);
@@ -790,9 +804,9 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   display: block;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   LASSO SELECTION — Recuadro azul estilo Windows
-   ══════════════════════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   LASSO SELECTION â€” Recuadro azul estilo Windows
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .djs-lasso-overlay {
   fill: color-mix(in srgb, var(--primary) 12%, transparent) !important;
   stroke: var(--primary) !important;
@@ -802,10 +816,10 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   ry: 2px;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   CONTEXT PAD — Botones con colores BPMN por tipo de elemento
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   CONTEXT PAD â€” Botones con colores BPMN por tipo de elemento
    Basado en Bizagi Modeler: cada elemento tiene el color de su tipo
-   ══════════════════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /* Base: panel con tema */
 .djs-context-pad {
@@ -817,7 +831,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   width: 28px !important;
   height: 28px !important;
   line-height: 28px !important;
-  /* background-color only — shorthand 'background' resets background-image to none,
+  /* background-color only â€” shorthand 'background' resets background-image to none,
      which kills imageUrl icons set inline by bpmn-js */
   background-color: var(--panel) !important;
   background-size: 60% 60% !important;
@@ -837,12 +851,12 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   transform: scale(1.1) !important;
   z-index: 1 !important;
 }
-/* diagram-js envuelve cada grupo en <div class="group"> (block) → cada grupo
-   salta de línea y deja huecos. display:contents disuelve ese wrapper: todas las
+/* diagram-js envuelve cada grupo en <div class="group"> (block) â†’ cada grupo
+   salta de lÃ­nea y deja huecos. display:contents disuelve ese wrapper: todas las
    entradas fluyen como hermanas y se empaquetan sin espacios en blanco. */
 .djs-context-pad .group { display: contents !important; }
 
-/* Append Task → azul (como las tareas) */
+/* Append Task â†’ azul (como las tareas) */
 .djs-context-pad .entry.bpmn-icon-task {
   background: var(--task-fill) !important;
   border-color: var(--task-stroke) !important;
@@ -852,7 +866,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   background: color-mix(in srgb, var(--task-fill) 80%, var(--task-stroke) 20%) !important;
 }
 
-/* Append Gateway → amarillo/naranja */
+/* Append Gateway â†’ amarillo/naranja */
 .djs-context-pad .entry.bpmn-icon-gateway-none,
 .djs-context-pad .entry.bpmn-icon-gateway-xor {
   background: var(--gateway-fill) !important;
@@ -864,7 +878,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   background: color-mix(in srgb, var(--gateway-fill) 80%, var(--gateway-stroke) 20%) !important;
 }
 
-/* Append End Event → rojo */
+/* Append End Event â†’ rojo */
 .djs-context-pad .entry.bpmn-icon-end-event-none {
   background: var(--end-fill) !important;
   border-color: var(--end-stroke) !important;
@@ -874,7 +888,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   background: color-mix(in srgb, var(--end-fill) 80%, var(--end-stroke) 20%) !important;
 }
 
-/* Append Intermediate Event → amarillo */
+/* Append Intermediate Event â†’ amarillo */
 .djs-context-pad .entry.bpmn-icon-intermediate-event-none,
 .djs-context-pad .entry.bpmn-icon-intermediate-event-catch-message,
 .djs-context-pad .entry.bpmn-icon-intermediate-event-catch-timer,
@@ -885,14 +899,14 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   color: var(--int-stroke) !important;
 }
 
-/* Append Receive Task → azul igual que tareas */
+/* Append Receive Task â†’ azul igual que tareas */
 .djs-context-pad .entry.bpmn-icon-receive-task {
   background: var(--task-fill) !important;
   border-color: var(--task-stroke) !important;
   color: var(--task-stroke) !important;
 }
 
-/* Connect → primario */
+/* Connect â†’ primario */
 .djs-context-pad .entry.bpmn-icon-connection-multi {
   background: var(--primary-50) !important;
   border-color: var(--primary) !important;
@@ -902,14 +916,14 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   background: var(--primary-100) !important;
 }
 
-/* Change element (wrench) → neutro */
+/* Change element (wrench) â†’ neutro */
 .djs-context-pad .entry.bpmn-icon-screw-wrench {
   background: var(--bg-2) !important;
   border-color: var(--border-strong) !important;
   color: var(--text-2) !important;
 }
 
-/* Delete (trash) → rojo de error */
+/* Delete (trash) â†’ rojo de error */
 .djs-context-pad .entry.bpmn-icon-trash {
   background: color-mix(in srgb, var(--error) 12%, transparent) !important;
   border-color: var(--error) !important;
@@ -919,16 +933,16 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   background: color-mix(in srgb, var(--error) 25%, transparent) !important;
 }
 
-/* Text annotation → sutil */
+/* Text annotation â†’ sutil */
 .djs-context-pad .entry.bpmn-icon-text-annotation {
   background: var(--bg-2) !important;
   border-color: var(--border) !important;
   color: var(--text-3) !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    POPUP MENU (morph / replace element)
-   ══════════════════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .djs-popup .djs-popup-header {
   background: var(--bg-2) !important;
   border-bottom: 1px solid var(--border) !important;
@@ -945,9 +959,9 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .djs-popup .entry:hover { background: var(--bg-2) !important; }
 .djs-popup .entry.selected { background: var(--primary-50) !important; color: var(--primary) !important; }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    DROP HINTS
-   ══════════════════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .djs-drop-not-ok .djs-visual > :is(rect, circle, polygon, path) {
   stroke: var(--error) !important;
 }
@@ -955,28 +969,28 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   stroke: var(--ok) !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    SNAPPING / ALIGNMENT GUIDES
-   ══════════════════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .djs-snap-line {
   stroke: var(--primary) !important;
   opacity: 0.6 !important;
 }
 
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   DIAGRAM-JS CSS VARIABLES — Sobreescribir las variables de .djs-parent
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   DIAGRAM-JS CSS VARIABLES â€” Sobreescribir las variables de .djs-parent
    para que todos los widgets internos (lasso, resizers, etc.) usen el tema
-   ══════════════════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .djs-parent {
-  /* Canvas background → SIEMPRE transparente para mostrar nuestra grid */
+  /* Canvas background â†’ SIEMPRE transparente para mostrar nuestra grid */
   --canvas-fill-color: transparent !important;
 
-  /* Lasso selection → azul suave estilo Windows */
+  /* Lasso selection â†’ azul suave estilo Windows */
   --lasso-fill-color: color-mix(in srgb, var(--primary) 12%, transparent) !important;
   --lasso-stroke-color: var(--primary) !important;
 
-  /* Contornos de selección */
+  /* Contornos de selecciÃ³n */
   --element-selected-outline-stroke-color: var(--primary) !important;
   --element-selected-outline-secondary-stroke-color: var(--accent) !important;
 
@@ -988,7 +1002,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   --snap-line-stroke-color: color-mix(in srgb, var(--primary) 50%, transparent) !important;
 
   /* Feedback de connect/drop durante drag (reconectar flechas, soltar shapes).
-     Defaults de diagram-js son casi-blancos fijos → rompen modo oscuro. */
+     Defaults de diagram-js son casi-blancos fijos â†’ rompen modo oscuro. */
   --shape-connect-allowed-fill-color: color-mix(in srgb, var(--ok) 20%, var(--panel)) !important;
   --shape-drop-allowed-fill-color: color-mix(in srgb, var(--ok) 20%, var(--panel)) !important;
   --shape-drop-not-allowed-fill-color: color-mix(in srgb, var(--error) 18%, var(--panel)) !important;
@@ -1017,19 +1031,19 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   --tooltip-error-color: var(--error) !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   CANVAS SVG BACKGROUND — Siempre transparente (muestra nuestra grid CSS)
-   ══════════════════════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   CANVAS SVG BACKGROUND â€” Siempre transparente (muestra nuestra grid CSS)
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .djs-container svg,
 .djs-container svg.drop-not-ok,
 .djs-container svg.new-parent {
   background: transparent !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    TEXT EDITING INLINE (doble click sobre un elemento)
-   — Fondo transparente + color del texto según tema
-   ══════════════════════════════════════════════════════════════════════════ */
+   â€” Fondo transparente + color del texto segÃºn tema
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /* Contenedor del editor de texto inline */
 [class*="djs-direct-editing"] {
@@ -1044,7 +1058,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   outline: 1px solid var(--primary) !important;
 }
 
-/* La capa de superposición del editor (diagram-js DirectEditing) */
+/* La capa de superposiciÃ³n del editor (diagram-js DirectEditing) */
 .djs-container [style*="position: absolute"] > textarea,
 .djs-container [style*="position: absolute"] > div[contenteditable] {
   background: transparent !important;
@@ -1114,7 +1128,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   display: flex; flex-direction: column; min-height: 0; overflow: hidden;
 }
 
-/* RightPanel: pestañas de modo Propiedades | Comentarios */
+/* RightPanel: pestaÃ±as de modo Propiedades | Comentarios */
 .rp-tabs {
   display: flex; align-items: center; gap: 16px;
   padding: 0 12px; height: 40px; flex-shrink: 0;
@@ -1197,13 +1211,18 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 }
 .f-input.mono { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; }
 .f-textarea { height: auto; min-height: 64px; padding: 6px 8px; resize: vertical; line-height: 1.5; }
+/* Las opciones de una lista nativa las pinta el navegador. Con `color-scheme`
+   ya salen legibles, y el color explicito es el cinturon: en el taller de
+   exportacion no queda ningun `<select>` (ver components/ui/Picker.tsx), pero en
+   el resto de la app si. */
+.f-select option { background: var(--panel); color: var(--text); }
 .f-select {
   appearance: none;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M3 4.5L6 7.5L9 4.5' stroke='%2398a2b3' stroke-width='1.5' fill='none' stroke-linecap='round'/></svg>");
   background-repeat: no-repeat; background-position: right 8px center; padding-right: 26px;
 }
 
-/* ── Selector de color (estilo draw.io): botón + panel con rejilla ───────── */
+/* â”€â”€ Selector de color (estilo draw.io): botÃ³n + panel con rejilla â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .color-trigger {
   width: 100%; height: 30px; display: flex; align-items: center; gap: 8px;
   padding: 0 8px; cursor: pointer;
@@ -1222,7 +1241,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   background: currentColor; border: 1px solid rgb(0 0 0 / 0.2);
 }
 /* "Sin color": el gris del tema con una diagonal, para distinguir "ninguno" de
-   un gris elegido a propósito. */
+   un gris elegido a propÃ³sito. */
 .color-trigger-chip.is-none {
   background:
     linear-gradient(to top right,
@@ -1241,7 +1260,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 }
 
 /* Panel emergente. `fixed` para que no lo recorte el overflow del sidebar; la
-   posición la calcula el componente desde el rect del botón. */
+   posiciÃ³n la calcula el componente desde el rect del botÃ³n. */
 .color-pop {
   position: fixed; z-index: 200;
   background: var(--panel); border: 1px solid var(--border);
@@ -1344,7 +1363,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   padding: 14px 20px; border-top: 1px solid var(--border); background: var(--bg-1);
 }
 
-/* ── Pantalla de autenticación ─────────────────────────────────── */
+/* â”€â”€ Pantalla de autenticaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .auth-screen {
   position: fixed; inset: 0; z-index: 100;
   background: var(--bg-1);
@@ -1364,23 +1383,23 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   content: ''; flex: 1; height: 1px; background: var(--border);
 }
 
-/* ── Fila de colaborador (ShareModal) ──────────────────────────── */
+/* â”€â”€ Fila de colaborador (ShareModal) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .collab-row {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
   background: var(--bg-1);
 }
 
-/* ── Fila de proyectos (home) ──────────────────────────────────── */
+/* â”€â”€ Fila de proyectos (home) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
-/* ── Badge de diagrama compartido ──────────────────────────────── */
+/* â”€â”€ Badge de diagrama compartido â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .shared-badge {
   position: absolute; top: 8px; left: 8px; z-index: 1;
   font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px;
   background: var(--accent); color: #fff; letter-spacing: .02em;
 }
 
-/* ── Presencia: avatares ───────────────────────────────────────── */
+/* â”€â”€ Presencia: avatares â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .presence-avatars { display: inline-flex; align-items: center; padding: 0 4px; }
 .presence-avatar {
   width: 26px; height: 26px; border-radius: 50%;
@@ -1392,7 +1411,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .presence-avatar:first-child { margin-left: 0; }
 .presence-avatar--more { background: var(--bg-3) !important; color: var(--text-2); }
 
-/* ── Presencia: cursores remotos ───────────────────────────────── */
+/* â”€â”€ Presencia: cursores remotos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .remote-cursors-layer {
   position: absolute; inset: 0; overflow: hidden;
   pointer-events: none; z-index: 20;
@@ -1427,13 +1446,193 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   transition: background 0.2s;
 }
 
-.export-preview__img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+/* Llena el recuadro en vez de quedarse en su tamano intrinseco: la vista previa
+   es un SVG, asi que ampliarla no pierde nitidez y un diagrama pequeno dejaba
+   media caja en blanco. */
+.export-preview__img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
 .export-preview__loading { color: var(--text-3); font-size: 12px; }
 
-/* ========================================================
-   Home / Diagrams List
-   ======================================================== */
+/* Casilla dentro de un `.field`, alineada con la altura de un `.f-select`. */
+.f-check {
+  display: flex; align-items: center; gap: 6px;
+  min-height: 30px; font-size: 12.5px; color: var(--text-2);
+  cursor: pointer; user-select: none;
+}
+.f-check input { cursor: pointer; }
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   LA MESA DE DIBUJO â€” exportaciÃ³n a documento (PLAN-034)
+
+   Esto no es un diÃ¡logo de ajustes: es un banco de delineante. La hoja es la
+   Ãºnica superficie clara, y todo lo demÃ¡s es instrumentaciÃ³n a su alrededor.
+   Tres decisiones y su motivo:
+
+   Â· Las medidas van en JetBrains Mono, que es el registro del instrumento, y
+     nunca en la tipografÃ­a del cromo.
+   Â· El texto DE LA HOJA va en Arial porque es la fuente que usa el PDF. Que
+     coincidan no es estÃ©tica: es que la previsualizaciÃ³n no mienta.
+   Â· La hoja se acota como un plano, asÃ­ el tamaÃ±o de papel y la zona de dibujo
+     se leen sin leyenda.
+
+   Ni una medida del documento vive aquÃ­: todas las posiciones son porcentajes
+   que calcula `utils/pageLayout`. Si alguna se cableara, esta vista podrÃ­a
+   divergir de la exportaciÃ³n, que es peor que no tenerla. */
+
+:root {
+  /* Mas oscuro que el panel a proposito: la hoja tiene que leerse como un
+     OBJETO sobre una superficie, no como una zona blanca dentro de otra. */
+  --doc-bench: #d9dee7;
+  --doc-dim: #5f7d94;     /* azul acero de cota, como en CAD */
+  --doc-ink: #10161f;     /* tinta */
+  --doc-pencil: #b4451f;  /* rojo de lÃ¡piz de delineante, para lo ilegible */
+}
+[data-theme="dark"] {
+  --doc-bench: #0e1015;
+  --doc-dim: #7d9db4;
+  --doc-ink: #10161f;
+  --doc-pencil: #d4643c;
+}
+
+.sheet {
+  display: flex; flex-direction: column; gap: 8px;
+  /* El banco se ajusta al papel. Estirado al ancho del diÃ¡logo dejaba una
+     franja gris enorme alrededor de una hoja pequeÃ±a, y el gris no significaba
+     nada. El espÃ©cimen vive fuera, a todo el ancho. */
+  align-self: center;
+  width: max-content; max-width: 100%; max-height: 100%;
+  /* Ojo: `BENCH_PAD_X/Y` en DocumentSheet.tsx descuentan ESTE relleno del hueco
+     medido. Si cambia aquÃ­, cambia allÃ­, o la hoja se sale del banco. */
+  padding: 10px 12px;
+  background: var(--doc-bench);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.sheet__row { display: flex; align-items: flex-end; justify-content: center; gap: 8px; }
+.sheet__stack { display: flex; flex-direction: column; gap: 6px; flex: none; }
+
+/* â”€â”€ Cotas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.sheet__dim {
+  display: flex; align-items: center; gap: 6px;
+  color: var(--doc-dim);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px; letter-spacing: -0.02em;
+  flex: none;
+}
+.sheet__dim--h { padding: 0 2px; }
+.sheet__dim--v { flex-direction: column; writing-mode: vertical-rl; }
+.sheet__dimval { white-space: nowrap; }
+.sheet__dimline { flex: 1; background: currentColor; opacity: 0.55; }
+.sheet__dim--h .sheet__dimline { height: 1px; min-width: 12px; }
+.sheet__dim--v .sheet__dimline { width: 1px; min-height: 12px; }
+
+/* â”€â”€ La hoja â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.sheet__paper {
+  position: relative;
+  /* La caja la calcula DocumentSheet en pixeles: flex:1 y max-height ganaban
+     a la proporcion y la hoja no giraba. Ver su comentario. */
+  flex: none;
+  background: #ffffff;
+  color: var(--doc-ink);
+  /* Sombra de papel sobre banco, no de tarjeta de interfaz. */
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.18), 0 8px 22px -8px rgb(0 0 0 / 0.35);
+  overflow: hidden;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* GuÃ­as de margen: discontinuas y tenues, como el trazado auxiliar de un plano. */
+.sheet__guides {
+  position: absolute;
+  border: 1px dashed color-mix(in srgb, var(--doc-dim) 45%, transparent);
+  pointer-events: none;
+}
+
+.sheet__block {
+  position: absolute;
+  /* Por encima de la imagen: la banda manda sobre el dibujo. */
+  z-index: 1;
+  display: flex;
+  border: 1px solid var(--doc-ink);
+  box-sizing: border-box;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.sheet__cell {
+  display: flex; align-items: center; justify-content: center;
+  box-sizing: border-box; overflow: hidden;
+  padding: 0.2em 0.4em;
+  /* Sin tamano propio: lo hereda de la banda, que lo pone al tamano real
+     escalado. Un valor fijo aqui desborda el recuadro en vertical. */
+  line-height: 1.2;
+}
+.sheet__cell--title { border-left: 1px solid var(--doc-ink); }
+.sheet__cell--rows {
+  border-left: 1px solid var(--doc-ink);
+  flex-direction: column; align-items: flex-start; justify-content: center;
+}
+.sheet__rowline { display: flex; gap: 0.35em; align-items: baseline; white-space: nowrap; max-width: 100%; }
+.sheet__rowlabel { font-weight: 700; }
+.sheet__logo { max-width: 100%; max-height: 100%; object-fit: contain; }
+.sheet__ph { color: #9aa4b2; font-style: italic; }
+.sheet__title { font-weight: 700; text-align: center; font-size: 1.35em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+
+.sheet__diagram {
+  position: absolute; object-fit: fill;
+  /* La imagen es decoracion: sin esto se queda los clics de las celdas
+     editables del cajetin, que es justo lo que la hoja existe para permitir.
+     Con el diagrama girado su caja tapa la banda y la edicion se rompe. */
+  pointer-events: none;
+}
+
+/* â”€â”€ Columnas del modal de exportaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Un documento se compone en vertical, asi que el dialogo es alto y estrecho,
+   no ancho. `.export-cols` desaparecio con la fase 5: ver `.exp`. */
+.modal--doc {
+  /* CASI LA VENTANA ENTERA, y con alto FIJO. Con solo un maximo, el dialogo se
+     ajusta al contenido y no hay sobrante que repartir: la hoja no puede crecer.
+     Con alto fijo, todo lo que la rodea ocupa un alto conocido y la hoja se lleva
+     el resto.
+
+     No es afan de grandeza: el documento es lo que se viene a mirar, y una hoja
+     apaisada esta limitada por el ALTO â€”a 860 px de ancho le sobraba escala
+     horizontal de 2,8x y le faltaba verticalâ€”. Con 1280x96vh la hoja aun se
+     quedaba en 745 px de ancho con 400 px de aire a los lados. */
+  width: 98vw;
+  height: 96vh;
+}
+
+/* Sin nada que previsualizar â€”`.bpmn`, `.bpm`â€” el alto fijo dejaba media
+   pantalla en blanco. Ahi el dialogo mide lo que dice. */
+.modal--doc-auto { height: auto; max-height: 90vh; }
+
+/* El cromo, al minimo. Cada pixel de cabecera, relleno o pie es un pixel que la
+   hoja no tiene, y ninguno de los tres es lo que se viene a mirar: el pie es
+   una salida y una accion, no una barra de herramientas.
+
+   La cabecera lleva ademas los formatos, centrados entre el titulo y la X: la
+   eleccion que manda vive arriba y no en una fila que le quite alto a la hoja. */
+.modal--doc .modal-header { padding: 10px 14px 10px 18px; gap: 14px; }
+.modal--doc .modal-headline { min-width: 0; }
+.modal--doc .modal-header .exp__formats { margin-left: auto; }
+.modal--doc .modal-header .icon-btn { flex: none; }
+/* El cuerpo NO scrollea: quien scrollea es el inspector. Si el cuerpo entero se
+   pudiera desplazar, la hoja se iria hacia arriba al mirar los campos, que es
+   justo lo que hay que evitar. En los formatos de datos no hay taller y el
+   contenido sÃ­ puede necesitar desplazarse. */
+.modal--doc .modal-body { padding: 14px 18px; overflow: hidden; }
+.modal--doc-auto .modal-body { overflow-y: auto; }
+.expw__stage .export-preview__box { flex: 1; height: auto; min-height: 0; }
+.modal--doc .modal-footer { padding: 9px 14px; background: transparent; }
+.modal--doc .modal-footer .btn-ghost {
+  height: 28px; background: transparent; border-color: transparent; color: var(--text-3);
+}
+.modal--doc .modal-footer .btn-ghost:hover {
+  background: var(--bg-2); border-color: transparent; color: var(--text);
+}
+.modal--doc .modal-footer .btn-primary { height: 28px; padding: 0 14px; }
+
 .home {
   position: absolute; inset: 0; z-index: 50;
   background: var(--bg-1); overflow-y: auto;
@@ -1550,7 +1749,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .create-label { font-size: 13px; font-weight: 600; color: var(--text); }
 .create-sub { font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
 
-/* ── Home v2: sidebar de navegación + contenido ── */
+/* â”€â”€ Home v2: sidebar de navegaciÃ³n + contenido â”€â”€ */
 .home-shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); }
 .home-side {
   border-right: 1px solid var(--border); background: var(--panel);
@@ -1601,7 +1800,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .home-subrow { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
 .home-main .diagrams-grid { max-width: none; margin: 0; }
 
-/* Menú "···" de la tarjeta (reemplaza la X) */
+/* MenÃº "Â·Â·Â·" de la tarjeta (reemplaza la X) */
 .card-kebab {
   position: absolute; top: 8px; right: 8px; z-index: 2;
   width: 28px; height: 28px; border-radius: 7px;
@@ -1617,7 +1816,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 /* utilidad: cifras tabulares para metadatos */
 .num { font-variant-numeric: tabular-nums; }
 
-/* Búsqueda global (barra superior del Home) */
+/* BÃºsqueda global (barra superior del Home) */
 .home-globalsearch {
   flex: 1; max-width: 460px; display: flex; align-items: center; gap: 9px;
   background: var(--bg-2); border: 1px solid var(--border); border-radius: 999px;
@@ -1669,7 +1868,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .dr-meta { font-size: 12px; color: var(--text-3); flex-shrink: 0; }
 .diagram-row .card-kebab { position: static; opacity: 1; background: transparent; border: 0; width: 28px; height: 28px; backdrop-filter: none; }
 
-/* Presencia en vivo en la tarjeta/fila (avatares pequeños de quién edita) */
+/* Presencia en vivo en la tarjeta/fila (avatares pequeÃ±os de quiÃ©n edita) */
 .card-presence { display: inline-flex; align-items: center; }
 .diagram-meta .card-presence { margin-top: 8px; }
 .diagram-row .card-presence { margin-right: 6px; }
@@ -1809,12 +2008,12 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .drop-zone .dz-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
 .drop-zone .dz-sub { font-size: 12px; color: var(--text-3); }
 
-/* Bendpoints invisible but clickable — SmartBendpoints JS filters corners vs endpoints */
+/* Bendpoints invisible but clickable â€” SmartBendpoints JS filters corners vs endpoints */
 .djs-bendpoint {
   opacity: 0 !important;
 }
 
-/* Suppress segment handles and bendpoints on connection hover — only show on selection */
+/* Suppress segment handles and bendpoints on connection hover â€” only show on selection */
 .djs-bendpoints.hover .djs-segment-dragger,
 .djs-bendpoints.hover .djs-bendpoint { display: none !important; }
 
@@ -2025,12 +2224,12 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 }
 .pv-fab:hover { transform: scale(1.06); box-shadow: var(--shadow-lg); }
 
-/* ── Ocultar la flecha de drill-down nativa de bpmn-js en subprocesos ──────────
-   Usamos nuestro propio marcador ⊞ navegable (SubProcessNavMarker), así que la
+/* â”€â”€ Ocultar la flecha de drill-down nativa de bpmn-js en subprocesos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   Usamos nuestro propio marcador âŠž navegable (SubProcessNavMarker), asÃ­ que la
    flecha azul nativa de la esquina inferior sobra. */
 .bjs-drilldown { display: none !important; }
 
-/* ── Fila de selección de diagrama a enlazar (LinkDiagramModal) ───────────────── */
+/* â”€â”€ Fila de selecciÃ³n de diagrama a enlazar (LinkDiagramModal) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .link-row {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
@@ -2334,7 +2533,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .btn-primary-sm:hover { background: var(--primary-600); }
 .btn-primary-sm:disabled { opacity: .4; cursor: not-allowed; }
 
-/* Canvas pins — rendered inside bpmn-js overlays layer */
+/* Canvas pins â€” rendered inside bpmn-js overlays layer */
 .comment-pin {
   width: 22px; height: 22px; border-radius: 50%; border: 2px solid;
   display: flex; align-items: center; justify-content: center;
@@ -2348,7 +2547,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .comment-pin--resolved { background: var(--bg-3); border-color: var(--border-strong); color: var(--text-3); }
 .comment-pin--orphaned { background: rgb(180,83,9); border-color: rgb(217,119,6); color: #fff; }
 
-/* Floating button for multi-selection comments — positioned by bpmn-js overlay */
+/* Floating button for multi-selection comments â€” positioned by bpmn-js overlay */
 .selection-comment-btn {
   display: flex; align-items: center; gap: 5px;
   padding: 5px 10px; border-radius: var(--radius);
@@ -2361,7 +2560,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .selection-comment-btn:hover { opacity: 0.88; transform: translateY(-1px); }
 .selection-comment-btn:active { transform: scale(0.97); }
 
-/* Element highlight overlay — sits over the element inside bpmn-js overlays layer */
+/* Element highlight overlay â€” sits over the element inside bpmn-js overlays layer */
 /* The .djs-overlay wrapper is patched to pointer-events:none in JS; CSS :has() as fallback */
 .djs-overlay:has(.comment-hl) { pointer-events: none !important; }
 .comment-hl {
@@ -2377,7 +2576,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   border: 1.5px dashed var(--border-strong);
   background: transparent;
 }
-/* Región de comentario de selección — <rect> SVG en la capa comment-regions
+/* RegiÃ³n de comentario de selecciÃ³n â€” <rect> SVG en la capa comment-regions
    del canvas (coords de mundo): stroke/fill, no border. Mismo lenguaje visual
    que .comment-hl--open / --resolved. */
 .comment-region { pointer-events: none; }
@@ -2397,7 +2596,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .link-row-name { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .link-row-date { font-size: 11px; color: var(--text-3); }
 
-/* ── Biblioteca de imágenes ─────────────────────────────────────── */
+/* â”€â”€ Biblioteca de imÃ¡genes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .image-gallery .modal-body { overflow: hidden; }
 .ig-sidebar {
   width: 180px; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px;
@@ -2429,7 +2628,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .ig-card-thumb { position: relative; aspect-ratio: 4 / 3; background: var(--bg-2); overflow: hidden; }
 .ig-card-name { padding: 8px 10px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Acciones: overlay sobre la parte baja de la imagen, visibles solo en hover
-   → la tarjeta en reposo es toda imagen (máxima legibilidad). */
+   â†’ la tarjeta en reposo es toda imagen (mÃ¡xima legibilidad). */
 .ig-card-actions {
   position: absolute; left: 0; right: 0; bottom: 0;
   display: flex; align-items: center; gap: 6px; padding: 8px;
@@ -2451,7 +2650,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .ig-empty { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px 0; color: var(--text-3); }
 .ig-empty p { margin: 0; font-size: 13px; }
 
-/* ── Badge de imagen vinculada (overlay bpmn-js) ────────────────── */
+/* â”€â”€ Badge de imagen vinculada (overlay bpmn-js) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .image-badge {
   width: 22px; height: 22px; display: grid; place-items: center; border-radius: 6px;
   background: var(--accent, #8b5cf6); color: #fff; cursor: pointer; pointer-events: auto;
@@ -2463,7 +2662,7 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
   font-weight: 700; display: grid; place-items: center; box-sizing: border-box;
 }
 
-/* ── Lightbox ───────────────────────────────────────────────────── */
+/* â”€â”€ Lightbox â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .lightbox-backdrop {
   position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.82);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
@@ -2479,3 +2678,583 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 .lightbox-next { right: 20px; }
 /* Cerrar: esquina superior derecha (anula el top:50%/transform de .lightbox-nav) */
 .lightbox-close { top: 20px; right: 24px; left: auto; bottom: auto; transform: none; }
+
+
+/* Los formatos de datos no tienen nada que enseÃ±ar, asÃ­ que en vez de un hueco
+   vacÃ­o se dice quÃ© viaja de verdad dentro del fichero. */
+.export-facts {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 16px 18px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.export-facts__title { font-size: 12.5px; font-weight: 600; color: var(--text-1); }
+.export-facts__list { display: flex; flex-direction: column; gap: 5px; }
+.export-facts__item {
+  position: relative; padding-left: 14px;
+  font-size: 12px; color: var(--text-2); line-height: 1.45;
+}
+.export-facts__item::before {
+  content: ''; position: absolute; left: 2px; top: 7px;
+  width: 4px; height: 4px; border-radius: 50%;
+  background: var(--doc-dim);
+}
+
+/* â”€â”€ CajetÃ­n en el lienzo (PLAN-034 fase 4) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   Capa de solo lectura sobre el canvas. `pointer-events: none` en TODO el
+   Ã¡rbol: si un hijo lo reactivara, el cajetÃ­n robarÃ­a clics al diagrama y
+   dejarÃ­a de ser un marco para convertirse en un obstÃ¡culo.
+
+   Se dibuja con tinta sobre papel, no con los colores de la interfaz: es una
+   vista de lo que se imprime, y el papel es blanco en los dos temas. */
+.doc-frame {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1;
+}
+.doc-frame__band {
+  position: absolute;
+  display: flex;
+  box-sizing: border-box;
+  border: 1px solid currentColor;
+  background: #ffffff;
+  font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.1;
+  overflow: hidden;
+}
+/* Sin sitio encima del contenido: se apoya en el origen y deja ver lo que tapa. */
+.doc-frame__band.is-overlapping { background: color-mix(in srgb, #ffffff 72%, transparent); }
+
+.doc-frame__cell {
+  box-sizing: border-box;
+  display: flex; align-items: center;
+  padding: 0 0.5em;
+  min-width: 0;
+  overflow: hidden;
+}
+.doc-frame__cell + .doc-frame__cell { border-left: 1px solid currentColor; }
+.doc-frame__cell--logo { justify-content: center; padding: 0.25em; }
+.doc-frame__cell--logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.doc-frame__cell--title {
+  justify-content: center; text-align: center;
+  font-weight: 700; font-size: 1.35em;
+  white-space: nowrap;
+}
+.doc-frame__cell--rows { flex-direction: column; justify-content: center; align-items: stretch; gap: 0.1em; }
+.doc-frame__line { display: flex; gap: 0.4em; white-space: nowrap; }
+.doc-frame__label { font-weight: 700; }
+.doc-frame__value { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Un hueco sin rellenar se ve como hueco. No se inventa contenido. */
+.doc-frame__cell--title.is-empty::after,
+.doc-frame__value.is-empty { opacity: 0.35; }
+.doc-frame__cell--title.is-empty::after { content: 'â€”'; font-weight: 400; }
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   EL TALLER DE DOCUMENTO â€” exportar (PLAN-034 fase 6)
+
+   Sustituye a la columna unica de la fase 5, que era de SUMA CERO: alto fijo y
+   todo apilado en el mismo eje, asi que cada bloque que aparecia le quitaba
+   alto a la hoja. Encender la cabecera metia 180 px de editor y la hoja caia de
+   745x576 a 490x380 â€” se hacia pequeno justo lo unico que se viene a mirar.
+
+   Ahora hay dos zonas con trabajos distintos y ejes independientes:
+
+   Â· EL ESCENARIO es la hoja. Ocupa lo que sobre y NO encoge. Se encaja o se ve
+     al 100 %, y ampliada se arrastra.
+   Â· EL INSPECTOR lleva lo que se decide, en secciones plegables y CON SU PROPIO
+     SCROLL: anadir campos alarga esa columna, nunca estrecha la hoja.
+
+   Ni una medida del documento vive aqui: las posiciones son porcentajes que
+   calcula `utils/pageLayout`. */
+.expw {
+  display: grid;
+  /* La hoja se lleva todo; el inspector mide lo que necesita para que un
+     `<input type="date">` y un contador quepan sin apretarse. */
+  grid-template-columns: minmax(0, 1fr) 316px;
+  gap: 14px;
+  height: 100%; min-height: 0;
+}
+.expw__stage { min-width: 0; min-height: 0; display: flex; }
+.expw__wait {
+  flex: 1; display: grid; place-items: center;
+  color: var(--text-3); font-size: 12px;
+}
+
+/* Estrecho: el inspector baja. La hoja sigue siendo lo primero. */
+@media (max-width: 900px) {
+  .expw { grid-template-columns: minmax(0, 1fr); grid-template-rows: 1fr auto; }
+}
+
+/* â”€â”€ El escenario â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.stage { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0; }
+
+.stage__bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  flex: 0 0 auto;
+}
+.stage__dims {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: -0.02em; color: var(--doc-dim);
+}
+
+/* El medidor del hueco: crece por reparto de flex y recorta lo que sobre, asi
+   que su tamano NO depende de la hoja y la medicion no se realimenta. */
+.stage__view {
+  flex: 1 1 auto; min-height: 0; min-width: 0;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--doc-bench);
+  border: 1px solid var(--border);
+  touch-action: none;
+}
+/* Solo hay que arrastrar cuando la hoja no cabe: el cursor lo dice antes de
+   intentarlo. */
+.stage__view.is-grab { cursor: grab; }
+.stage__view.is-grab:active { cursor: grabbing; }
+
+/* â”€â”€ Zoom: encajar para la composicion, 100 % para la letra â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.zoom {
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 2px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.zoom__btn, .zoom__step {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 22px; padding: 0 8px;
+  border: 1px solid transparent; border-radius: calc(var(--radius) - 2px);
+  background: transparent; color: var(--text-2);
+  font-size: 11.5px; cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.zoom__step { padding: 0 5px; }
+.zoom__btn:hover, .zoom__step:hover { background: var(--bg-3); color: var(--text); }
+.zoom__btn.is-on {
+  background: var(--panel); border-color: var(--border); color: var(--text);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+.zoom__btn:focus-visible, .zoom__step:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.zoom__sep { width: 1px; height: 14px; background: var(--border); margin: 0 2px; }
+.zoom__val {
+  min-width: 44px; text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px; color: var(--text-2);
+}
+
+/* â”€â”€ El inspector â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.rail {
+  min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 8px;
+  padding-right: 2px;
+}
+.rail::-webkit-scrollbar { width: 8px; }
+.rail::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.rail__sec {
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--bg-1);
+  flex: 0 0 auto;
+}
+.rail__head {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 8px 10px;
+  background: none; border: 0; cursor: pointer; text-align: left;
+}
+.rail__head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius-md); }
+.rail__chev { color: var(--text-3); flex: none; transition: transform 0.12s ease; }
+.rail__sec.is-open .rail__chev { transform: rotate(90deg); }
+.rail__title {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--text-3);
+}
+.rail__head:hover .rail__title { color: var(--text-1); }
+.rail__badge {
+  margin-left: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px; letter-spacing: -0.02em;
+  padding: 1px 5px; border-radius: 3px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+.rail__body {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 2px 10px 10px;
+}
+
+/* Una decision por fila: su nombre a la izquierda, su mando a la derecha. */
+.rail__row { display: flex; align-items: center; gap: 8px; min-height: 26px; }
+.rail__label {
+  flex: 1 1 auto; min-width: 0;
+  font-size: 12px; color: var(--text-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rail__ctl { flex: 0 0 auto; display: flex; align-items: center; max-width: 62%; }
+.rail__ctl .pick { max-width: 100%; }
+.rail__switch { padding: 2px 0 4px; }
+.rail__note { margin: 0; font-size: 11.5px; color: var(--text-3); line-height: 1.4; }
+.rail__computed {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; color: var(--text-3);
+}
+.rail__cfg {
+  display: inline-flex; align-items: center; gap: 5px; align-self: flex-start;
+  margin-top: 2px; padding: 4px 8px;
+  font-size: 11.5px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-2); color: var(--text-2);
+  cursor: pointer;
+}
+.rail__cfg:hover { background: var(--bg-3); color: var(--text-1); }
+
+/* â”€â”€ Formatos: en la cabecera del dialogo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   Es la decision que manda sobre todas las demas, y cinco tarjetas de 200 px en
+   una fila propia eran el elemento mas grande del dialogo siendo la eleccion mas
+   pequena: le quitaban alto a la hoja. */
+.exp__formats {
+  display: flex; gap: 2px;
+  width: max-content; max-width: 100%;
+  padding: 2px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.exp__fmt {
+  display: flex; align-items: baseline; gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid transparent; border-radius: calc(var(--radius) - 2px);
+  background: transparent; color: var(--text-2);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.exp__fmt:hover { background: var(--bg-3); color: var(--text-1); }
+.exp__fmt.is-on {
+  background: var(--panel);
+  border-color: var(--border);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+.exp__fmt-name { font-size: 12px; font-weight: 600; line-height: 1.2; }
+.exp__fmt-ext {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px; letter-spacing: -0.02em;
+  color: var(--text-3);
+}
+.exp__fmt.is-on .exp__fmt-ext { color: var(--accent); }
+.exp__fmt:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* â”€â”€ El nombre del fichero, en el pie â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   Es lo ultimo que se decide y lo primero que se ve al descargarlo. Va a la
+   izquierda del pie: el pie deja de ser una franja vacia con dos botones. */
+.fname {
+  display: flex; align-items: center; gap: 6px;
+  margin-right: auto; min-width: 0;
+}
+.fname__label { font-size: 11.5px; color: var(--text-3); flex: none; }
+.fname__in {
+  width: 220px; max-width: 34vw; height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-2); color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px; outline: none;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+}
+.fname__in:focus {
+  border-color: var(--primary); background: var(--panel);
+  box-shadow: 0 0 0 3px var(--primary-50);
+}
+.fname__ext {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px; color: var(--text-3); flex: none;
+}
+
+/* â”€â”€ Desplegable de la aplicacion (ver components/ui/Picker.tsx) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   NO es un `<select>`. Lo era, y la lista la dibujaba el navegador: se veia en
+   blanco sobre blanco â€”el popup toma el color del select, y el nuestro estaba
+   transparente para no duplicar el textoâ€”, el resaltado era el azul del sistema
+   y arrastraba sombras y esquinas ajenas al dialogo. Nada de eso se arregla con
+   CSS, asi que la lista es nuestra.
+
+   Alto 26 px, dos menos que un boton: es un mando, no una accion. */
+.pick {
+  display: inline-flex; align-items: center; justify-content: space-between; gap: 6px;
+  max-width: 100%; height: 26px; padding: 0 7px 0 9px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-2); color: var(--text);
+  font-size: 12px; line-height: 1; text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+}
+.pick:hover { background: var(--bg-3); border-color: var(--border-strong); }
+.pick:focus-visible, .pick.is-open {
+  border-color: var(--primary); background: var(--panel);
+  box-shadow: 0 0 0 3px var(--primary-50);
+  outline: none;
+}
+.pick__val { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick__val.is-empty { color: var(--text-3); font-style: italic; }
+.pick__chev { color: var(--text-3); flex: none; }
+.pick.is-open .pick__chev { color: var(--primary); }
+
+/* La lista va en `fixed` a proposito: el inspector tiene `overflow-y: auto`, asi
+   que cualquier popup en flujo quedaria recortado por el borde de la columna. */
+.pick__list {
+  position: fixed; z-index: 200;
+  max-height: 236px; overflow-y: auto; overscroll-behavior: contain;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  animation: pick-in 0.1s ease-out;
+}
+@keyframes pick-in { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+.pick__list::-webkit-scrollbar { width: 8px; }
+.pick__list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.pick__opt {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  height: 26px; padding: 0 8px;
+  border-radius: var(--radius-sm);
+  color: var(--text-2); font-size: 12px;
+  cursor: pointer;
+}
+/* El resaltado es el de la app â€”un fondo suyoâ€”, no el azul del sistema. */
+.pick__opt.is-marked { background: var(--bg-2); color: var(--text); }
+.pick__opt.is-on { color: var(--text); font-weight: 500; }
+.pick__opt.is-on svg { color: var(--accent); flex: none; }
+.pick__optlabel { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pick__list { animation: none; }
+}
+
+/* â”€â”€ Los controles de los campos del documento (DocumentFieldControl) â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   Sustituyen a la replica de la cabecera "a tamano de trabajo" de la fase 5.
+   Esa replica existia porque la hoja era diminuta y sus celdas de 3 mm no se
+   podian pulsar (EXP-019); con la hoja grande, dos representaciones del mismo
+   objeto solo repartian la atencion. Aqui son mandos normales del inspector, con
+   el control que pide cada campo. */
+.dfc__in {
+  width: 100%; min-width: 0; height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-2); color: var(--text);
+  font-size: 12px; outline: none;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+}
+.dfc__in::placeholder { color: var(--text-3); font-style: italic; }
+.dfc__in:hover { background: var(--bg-3); }
+.dfc__in:focus {
+  border-color: var(--primary); background: var(--panel);
+  box-shadow: 0 0 0 3px var(--primary-50);
+}
+.dfc__in--sel { cursor: pointer; }
+/* El calendario nativo: se deja el icono del navegador, que es el que la gente
+   reconoce, pero teÃ±ido con el color del texto secundario. */
+.dfc__in[type="date"] { padding-right: 4px; }
+.dfc__in[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.55; cursor: pointer; }
+.dfc__in[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+
+.dfc__ro { font-size: 12px; color: var(--text-2); }
+.dfc__ro em { color: var(--text-3); }
+
+/* La revision es un contador: sube y baja, nunca se teclea. */
+.dfc__counter {
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-2);
+}
+.dfc__step {
+  width: 20px; height: 20px;
+  display: grid; place-items: center;
+  border: 0; border-radius: calc(var(--radius) - 2px);
+  background: transparent; color: var(--text-2);
+  font-size: 13px; line-height: 1; cursor: pointer;
+}
+.dfc__step:hover:not(:disabled) { background: var(--bg-3); color: var(--text); }
+.dfc__step:disabled { opacity: 0.35; cursor: not-allowed; }
+.dfc__count {
+  min-width: 26px; text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; color: var(--text);
+}
+
+/* â”€â”€ La plantilla del proyecto: detrÃ¡s de un botÃ³n, se toca una vez â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.dht {
+  display: flex; flex-direction: column; gap: 7px;
+  padding: 12px 14px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.dht__head {
+  display: flex; align-items: center;
+  font-size: 12px; font-weight: 600; color: var(--text-1);
+}
+.dht__close {
+  margin-left: auto;
+  border: none; background: transparent; color: var(--text-3);
+  font-size: 12px; cursor: pointer; padding: 2px 4px;
+}
+.dht__close:hover { color: var(--text-1); }
+.dht__help { margin: 0; font-size: 11px; color: var(--text-3); line-height: 1.4; }
+.dht__field { display: flex; flex-direction: column; gap: 4px; }
+.dht__flabel { font-size: 11.5px; color: var(--text-2); }
+.dht__group {
+  margin-top: 4px;
+  display: flex; flex-direction: column; gap: 2px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--text-3);
+}
+/* El precio de la eleccion, en la unidad en que se paga. Cada campo es una linea
+   del recuadro y el recuadro le quita alto al diagrama; con nueve campos la
+   cabecera pasa de 18 a ~36 mm y eso antes no se veia en ninguna parte. */
+.dht__cost {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; font-weight: 400; letter-spacing: -0.02em; text-transform: none;
+  color: var(--doc-dim);
+}
+/* Una columna dentro del inspector: dos no caben en 316 px sin apretar la
+   etiqueta de procedencia, que es la que evita defender un campo citando una
+   norma que no lo contiene. */
+.dht__fields { display: flex; flex-direction: column; gap: 1px; }
+.dht__check {
+  display: flex; align-items: center; gap: 7px;
+  padding: 3px 0;
+  font-size: 12px; color: var(--text-1);
+  cursor: pointer;
+}
+.dht__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dht__tag {
+  flex: 0 0 auto;
+  font-size: 9px; letter-spacing: 0.02em;
+  padding: 1px 5px; border-radius: 999px;
+  background: var(--bg-3); color: var(--text-3);
+}
+.dht__tag--iso {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+
+/* â”€â”€ El logo: se trae aqui, sin abrir la biblioteca â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   Era un desplegable con NOMBRES de imagen, y ademas no habia forma de traer
+   un logo nuevo sin cerrar el dialogo. Un logo se elige mirandolo, asi que
+   todo lo que se ve aqui es la imagen: la que esta puesta, en grande, y las
+   del proyecto en una tira. Ver DocumentLogoField.tsx. */
+.lgf { display: flex; flex-direction: column; gap: 8px; }
+/* La entrada real vive fuera de la vista: el mando es la zona de arrastre. */
+.lgf__file { display: none; }
+
+.lgf__drop {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  width: 100%; padding: 14px 10px;
+  background: var(--bg-1);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.lgf__drop:hover:not(:disabled) { border-color: var(--accent); color: var(--text-1); }
+.lgf__drop:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lgf__drop:disabled { cursor: progress; opacity: 0.7; }
+/* Soltar es la accion principal, asi que el estado "encima" se ve de lejos. */
+.lgf__drop.is-over {
+  border-style: solid; border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  color: var(--text-1);
+}
+.lgf__dropicon { color: var(--text-3); }
+.lgf__drop:hover .lgf__dropicon, .lgf__drop.is-over .lgf__dropicon { color: var(--accent); }
+.lgf__dropmain { font-size: 12px; line-height: 1.3; text-align: center; }
+.lgf__dropsub { font-size: 10.5px; color: var(--text-3); text-align: center; }
+
+.lgf__card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.lgf__card--wait {
+  justify-content: center; min-height: 52px;
+  font-size: 11.5px; color: var(--text-3);
+}
+/* Tablero de ajedrez detras de la miniatura: es lo unico que distingue un logo
+   con fondo transparente de uno con fondo blanco, y esa diferencia ahora llega
+   intacta al PDF. */
+.lgf__preview {
+  flex: none; width: 56px; height: 38px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden;
+  background-color: #ffffff;
+  background-image:
+    linear-gradient(45deg, #d7dae1 25%, transparent 25%, transparent 75%, #d7dae1 75%),
+    linear-gradient(45deg, #d7dae1 25%, transparent 25%, transparent 75%, #d7dae1 75%);
+  background-size: 10px 10px;
+  background-position: 0 0, 5px 5px;
+}
+/* Sin biblioteca el logo son bytes sueltos: no hay entrada de catálogo que
+   resolver, así que la miniatura es un <img> directo. */
+.lgf__previewimg { width: 100%; height: 100%; object-fit: contain; }
+.lgf__meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.lgf__name {
+  font-size: 12px; color: var(--text-1);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* El tamano no es adorno: la celda mide ~20 mm y por debajo de 200 px el logo
+   sale blando AL IMPRIMIR, que es donde ya no tiene arreglo. */
+.lgf__dims {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: -0.02em; color: var(--doc-dim);
+}
+.lgf__dims.is-warn { color: var(--warning); }
+.lgf__acts { flex: none; display: flex; gap: 2px; }
+.lgf__act {
+  display: grid; place-items: center;
+  width: 26px; height: 26px;
+  border: 1px solid transparent; border-radius: var(--radius);
+  background: transparent; color: var(--text-3);
+  cursor: pointer;
+}
+.lgf__act:hover:not(:disabled) { background: var(--bg-3); color: var(--text-1); }
+.lgf__act:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.lgf__act:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.lgf__warn { margin: 0; font-size: 11px; color: var(--warning); line-height: 1.4; }
+.lgf__link {
+  border: none; background: none; padding: 0;
+  color: var(--accent); font-size: inherit; cursor: pointer; text-decoration: underline;
+}
+
+.lgf__lib { display: flex; flex-direction: column; gap: 4px; }
+.lgf__libtitle {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--text-3);
+}
+/* Una tira que se desplaza: la columna mide 316 px y un proyecto puede tener
+   veinte imagenes. Se ven las primeras y las demas estan a un gesto. */
+.lgf__strip {
+  display: flex; gap: 5px;
+  overflow-x: auto; padding-bottom: 3px;
+  scrollbar-width: thin;
+}
+.lgf__strip::-webkit-scrollbar { height: 6px; }
+.lgf__strip::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.lgf__chip {
+  flex: none; width: 40px; height: 30px; padding: 2px;
+  background: var(--bg-1);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  cursor: pointer; overflow: hidden;
+  transition: border-color 0.12s ease;
+}
+.lgf__chip:hover { border-color: var(--accent); }
+.lgf__chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* La hoja ya no se edita: sus valores son texto, no botones (ver DocumentSheet). */
+.sheet__rowval { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
