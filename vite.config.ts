@@ -39,6 +39,24 @@ export default defineConfig(({ mode }) => {
     port: isLab ? LAB_PORT : 5175,
     strictPort: true,
     open: isLab,
+    /**
+     * Lo que no es código no dispara recargas.
+     *
+     * `docs/` y las salidas de los scripts viven dentro del repositorio y no
+     * forman parte del grafo de módulos, pero el watcher las ve cambiar y
+     * recarga la página. Con una sesión de pruebas abierta eso es un desastre
+     * silencioso: el diálogo se cierra solo a media captura y los pasos
+     * siguientes fallan sin decir por qué. Ver EXP-019.
+     */
+    watch: {
+      ignored: [
+        '**/docs/**',
+        '**/verificacion-pdf/**',
+        '**/spike-vector/**',
+        '**/muestras-thumbs/**',
+        '**/.syntesis/**',
+      ],
+    },
   },
   resolve: {
     alias: {

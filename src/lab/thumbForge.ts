@@ -35,6 +35,15 @@ import {
   buildThumbnail, buildThumbnailSvg, svgToWebp, svgToDataUrl, topPoolCrop,
   thumbTargetBox, THUMB_BOX, THUMB_QUALITY, THUMB_SUPERSAMPLE,
 } from '@/utils/thumbnailUtils'
+import { getThemedSvg } from '@/hooks/useExport'
+import { renderDiagramPdf, svgViewBox } from '@/utils/pdfDocument'
+import {
+  DEFAULT_PAGE_SPEC, fitScale, labelPointSize, type PageSpec,
+} from '@/utils/pageLayout'
+import {
+  DEFAULT_DOCUMENT_HEADER, drawDocumentHeader, documentHeaderHeight, type DocumentHeaderTemplate,
+} from '@/utils/documentHeader'
+import { EMPTY_DOCUMENT_META, type DocumentMeta } from '@/bpmn/elements/documentMeta'
 
 export interface ForgeResult {
   dataUrl: string
@@ -57,8 +66,28 @@ export interface ForgeOverrides {
   supersample?: number
 }
 
+export interface ForgePdfResult {
+  /** El PDF en base64, para que el script lo escriba a disco y lo inspeccione. */
+  base64: string
+  bytes: number
+  /** Escala de encaje en mm por unidad, y el tamaño de letra que produce. */
+  scale: number
+  pointSize: number
+  diagram: { width: number; height: number }
+}
+
 interface ForgeApi {
   render(xml: string, overrides?: ForgeOverrides): Promise<ForgeResult>
+  /**
+   * Compone el PDF por el camino REAL de la app (`renderDiagramPdf`), para poder
+   * verificar la salida vectorial contra diagramas de produccion sin pasar por
+   * la interfaz. PLAN-034 fase 1.
+   */
+  renderPdf(
+    xml: string,
+    spec?: Partial<PageSpec>,
+    cabecera?: { tpl?: Partial<DocumentHeaderTemplate>; meta?: Partial<DocumentMeta>; titulo?: string }
+  ): Promise<ForgePdfResult>
   target(): { width: number; height: number; quality: number; supersample: number; dpr: number }
   dispose(): void
 }
@@ -136,6 +165,50 @@ const api: ForgeApi = {
       bytes: base64Bytes(dataUrl),
       fellBackToSvg: mime === 'image/svg+xml',
       ajustes: { dpr, quality, supersample, width: box.width, height: box.height },
+    }
+  },
+
+  async renderPdf(
+    xml: string,
+    spec?: Partial<PageSpec>,
+    cabecera?: { tpl?: Partial<DocumentHeaderTemplate>; meta?: Partial<DocumentMeta>; titulo?: string }
+  ): Promise<ForgePdfResult> {
+    const m = ensureModeler()
+    await m.importXML(xml)
+
+    const tpl: DocumentHeaderTemplate = { ...DEFAULT_DOCUMENT_HEADER, ...cabecera?.tpl }
+    const meta: DocumentMeta = { ...EMPTY_DOCUMENT_META, ...cabecera?.meta }
+    const completo: PageSpec = {
+      ...DEFAULT_PAGE_SPEC,
+      ...spec,
+      headerHeight: documentHeaderHeight(tpl),
+    }
+    // El mismo SVG temado que usa la exportación real.
+    const svg = await getThemedSvg('light', async () => (await m.saveSVG()).svg)
+    const blob = await renderDiagramPdf(svg, {
+      spec: completo,
+      background: '#ffffff',
+      drawHeader: (pdf, page) =>
+        drawDocumentHeader(pdf, {
+          tpl, meta,
+          fallbackTitle: cabecera?.titulo ?? '',
+          margin: completo.margin,
+          pageWidth: page.width,
+        }),
+    })
+
+    const buf = new Uint8Array(await blob.arrayBuffer())
+    let bin = ''
+    for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i])
+
+    const caja = svgViewBox(svg)
+    const escala = fitScale(completo, caja.width, caja.height)
+    return {
+      base64: btoa(bin),
+      bytes: buf.length,
+      scale: escala,
+      pointSize: labelPointSize(escala),
+      diagram: { width: caja.width, height: caja.height },
     }
   },
 

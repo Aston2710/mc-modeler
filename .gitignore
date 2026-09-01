@@ -162,3 +162,8 @@ kpi/
 # no del proyecto.
 muestras-thumbs/
 backfill-thumbs-*.json
+# Salidas de los scripts de PLAN-034: muestras para revisar a ojo y mediciones
+# de una ejecucion concreta. Artefactos, no proyecto.
+spike-vector/
+verificacion-pdf/
+legibilidad-diagramas.csv
