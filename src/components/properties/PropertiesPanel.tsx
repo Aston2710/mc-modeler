@@ -82,6 +82,10 @@ export function PropertiesPanel({
   }, [selectedIds])
 
   if (!el || !bo) {
+    // Aquí vivieron los datos del documento (PLAN-034 fase 2), y se fueron en la
+    // fase 5: obligaban a ir a un sitio para rellenar y a otro para verlo, y la
+    // barra de propiedades habla de lo SELECCIONADO. La cabecera se compone
+    // entera en el diálogo de exportación, que es donde se usa.
     return (
       <div className="props-content">
         <div className="props-empty">

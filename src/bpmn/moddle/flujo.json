@@ -38,6 +38,22 @@
       ]
     },
     {
+      "name": "DocumentMeta",
+      "superClass": ["Element"],
+      "properties": [
+        { "name": "docTitle", "isAttr": true, "type": "String" },
+        { "name": "docCode", "isAttr": true, "type": "String" },
+        { "name": "docDate", "isAttr": true, "type": "String" },
+        { "name": "docRevision", "isAttr": true, "type": "String" },
+        { "name": "docType", "isAttr": true, "type": "String" },
+        { "name": "docClassification", "isAttr": true, "type": "String" },
+        { "name": "docDistribution", "isAttr": true, "type": "String" },
+        { "name": "docAuthor", "isAttr": true, "type": "String" },
+        { "name": "docApprover", "isAttr": true, "type": "String" },
+        { "name": "docStatus", "isAttr": true, "type": "String" }
+      ]
+    },
+    {
       "name": "PhaseName",
       "extends": ["bpmn:Group"],
       "properties": [
