@@ -1,5 +1,17 @@
 # Planes pendientes
 
+## Prioridad 1
+
+| ID | Plan | Estado |
+|---|---|---|
+| [PLAN-034](034-vista-documento-y-cajetin-configurable.md) | **Vista Documento: cabecera de documento ISO 7200 y exportación a la medida de la hoja** | en curso — **prioridad 1**, es el único plan con compromiso externo. **Fases 0–6 implementadas y probadas en el laboratorio**; la cabecera se llama como la nombra **ISO 7200**; falta aplicar la migración a producción, cerrar [EXP-021](../../experience/021-la-cabecera-en-el-lienzo-se-solapa-con-el-diagrama.md), el visto bueno visual y la aprobación de cierre |
+
+Nace de la reunión con el equipo de procesos de la empresa. Va por delante de los tres master plans por decisión del usuario (2026-08-22). Lleva su medición hecha: 177 diagramas de producción y 235 SVG exportados, más la geometría real del estándar leída del `.docx`.
+
+Colisión que hay que resolver antes de construir: su capa de personalización es **la misma familia de decisión** que la D5 de [MASTER-PLAN-027](027-master-plan-modulo-diagramas-de-arquitectura.md). Debería decidirse una vez.
+
+---
+
 Tres master plans activos. **Abre el que corresponda al frente:**
 
 | Master plan | Qué abarca | Progreso |
@@ -76,8 +88,10 @@ Sus cinco decisiones abiertas —qué significa "auditable", retención (`pg_cro
 | PLAN-016 | migrar el cliente a Broadcast; aplicar el SQL antes causa regresión silenciosa |
 | PLAN-017 | 3 decisiones de producto |
 | PLAN-011 | depende de PLAN-012 para no tocar dos veces los mismos 6 sitios |
-| PLAN-012 | nada técnico: falta ejecutar el backfill (`scripts/backfill-thumbs.mjs`, **lo corre el usuario**, laboratorio primero) y commitear |
+| PLAN-012 | nada: aplicado en producción el 2026-08-22. Falta el visto bueno visual y la aprobación de cierre |
 | MASTER-PLAN-027 fase 0 | aprobación del master plan (`aprobado_por` vacío), el detalle de C4, y replantear D4 antes de tocar el esquema |
+| PLAN-034 | la migración `20260823000000_projects_doc_template` está **aplicada y verificada solo en el laboratorio** (10/10, incluida la comprobación como usuario real). Producción necesita aprobación explícita |
+| **cerrar** PLAN-034 | [EXP-021](../../experience/021-la-cabecera-en-el-lienzo-se-solapa-con-el-diagrama.md) — la cabecera en el lienzo solapa el diagrama y el PDF no. Bloquea su criterio de aceptación 8. **No bloquea el despliegue**: el arreglo está diseñado y escrito, y se aplazó a propósito el 2026-09-01 |
 
 ## Al cerrar un plan agrupado
 

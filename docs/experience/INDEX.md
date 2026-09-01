@@ -4,6 +4,10 @@ Ordenado por ID descendente. `mitigado` no es `resuelto`.
 
 | ID | Incidente | Estado | Severidad | Componentes | Detectado |
 |---|---|---|---|---|---|
+| [EXP-021](021-la-cabecera-en-el-lienzo-se-solapa-con-el-diagrama.md) | La cabecera en el lienzo se dibuja **encima** del diagrama cuando el contenido empieza arriba — un `Math.max(0, …)` le impide subir del origen. El PDF nunca solapa: la vista enseña algo que la exportación no puede producir. **Causa identificada y arreglo diseñado entero, sin implementar** | **activo** | media | `DocumentFrameModule.ts`, `index.css` | 2026-08-28 |
+| [EXP-020](020-el-logo-del-cajetin-salia-negro-y-deformado-en-el-pdf.md) | El logo del cajetín salía como una mancha negra deformada: `processWEBP` de jsPDF re-codifica a JPEG —que no tiene alfa— y la proporción del logo estaba cableada a la del estándar medido | resuelto | media | `documentHeader.ts`, `logoImage.ts`, `imageCompress.ts` | 2026-08-27 |
+| [EXP-019](019-la-previsualizacion-se-veia-bien-y-no-se-podia-usar.md) | La hoja de PLAN-034 salía impecable en las capturas y no se podía editar: la imagen del diagrama se quedaba los clics, y la celda editable —declarada dentro de su padre— remontaba el `<input>` en cada tecla | resuelto | media | `DocumentSheet.tsx`, `index.css`, `scripts/capturar-ui.mjs` | 2026-08-23 |
+| [EXP-018](018-extender-un-tipo-concreto-de-bpmn-corrompe-el-nombre-del-elemento.md) | Extender un tipo **concreto** en el moddle serializa `<bpmn:SequenceFlow>` en vez de `<bpmn:sequenceFlow>`: **139 de 177 diagramas tienen XML no canónico** | **activo** | alta | `moddle/flujo.json`, `current_xml` | 2026-08-23 |
 | [EXP-017](017-el-thumbnail-webp-salia-borroso-por-el-tamano-intrinseco-del-svg.md) | `drawImage` amplía el bitmap del tamaño intrínseco del SVG en vez de re-rasterizar el vector | **activo** — corregido en el thumbnail 2026-08-21, **sigue vivo en la exportación PNG/PDF** | media | `src/utils/thumbnailUtils.ts`, `src/hooks/useExport.ts` | 2026-08-21 |
 | [EXP-016](016-el-historial-de-migraciones-no-reproduce-la-base.md) | El historial de migraciones no reproducía la base: faltaban 6 archivos de 35 migraciones aplicadas | resuelto | alta | `supabase/migrations`, `comment_threads`, MCP `apply_migration` | 2026-08-13 |
 | [EXP-015](015-revoke-update-de-columna-es-noop-con-grant-de-tabla.md) | `REVOKE UPDATE (columna)` no surtió efecto porque existía un `GRANT UPDATE` de tabla | resuelto | alta | migraciones `0023`/`0028` | 2026-08-10 |
@@ -24,7 +28,13 @@ Ordenado por ID descendente. `mitigado` no es `resuelto`.
 
 ## Incidentes activos
 
-Tres abiertos: EXP-011, EXP-012 y EXP-017.
+Cinco abiertos: EXP-011, EXP-012, EXP-017, EXP-018 y EXP-021. **EXP-019 y EXP-020 nacen resueltos**: los dos se detectaron y se corrigieron el mismo día, dentro de PLAN-034.
+
+**EXP-021 es el único abierto con el arreglo ya diseñado y escrito.** No está pendiente de investigar ni de decidir: está pendiente de *aplicarse*. Se dejó fuera del despliegue del 2026-09-01 por decisión del usuario —salía antes lo ya probado—, y su documento lleva el parche completo: qué línea quita el clamp, qué se borra de CSS, y **cuál de las pruebas actuales afirma justo lo contrario del arreglo y hay que reescribir**. Quien lo retome no tiene que rediagnosticar nada.
+
+**EXP-020 y EXP-021 comparten familia con EXP-017**: los tres son discrepancias entre lo que se ve y lo que se produce —una rasterización, un decodificador, una vista de lienzo—. La lección repetida es que **el pixel que se ve en pantalla no prueba el pixel que se escribe en el archivo**.
+
+**EXP-018 es el de mayor alcance de los cuatro**: afecta al XML canónico, que es la fuente de verdad del proyecto (DEC-001). No lo introdujo PLAN-034 — se descubrió *al* implementarlo, porque el primer intento de anclar los datos de la cabecera reprodujo el mismo error sobre el elemento raíz y una prueba existente lo cazó. Las tres extensiones anteriores llevaban rompiéndolo desde que se añadieron, sin prueba que las cubriera.
 
 **EXP-017 está `activo` aunque el síntoma que lo destapó ya no ocurre.** La causa se corrigió en el thumbnail el 2026-08-21 y **el mismo mecanismo sigue vivo en la exportación a PNG y PDF**: elegir 3× en el modal no da hoy más detalle que 1×. Se estudió el 2026-08-22 sin tocar el código, por decisión del usuario. Cerrarlo por tener un camino arreglado sería la misma trampa que confundir `mitigado` con `resuelto`.
 
