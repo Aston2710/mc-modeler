@@ -15,6 +15,7 @@ interface PreferencesState extends UserPreferences {
   setLastOpened: (id: string | null) => Promise<void>
   setPaletteMode: (v: 'grid' | 'dropdown' | 'bizagi') => Promise<void>
   setShowComments: (v: boolean) => Promise<void>
+  setShowDocumentHeader: (v: boolean) => Promise<void>
   setDiagramSort: (v: DiagramSort) => Promise<void>
 }
 
@@ -32,6 +33,7 @@ const save = async (s: PreferencesState) => {
     lastOpenedDiagramId: s.lastOpenedDiagramId,
     paletteMode: s.paletteMode,
     showComments: s.showComments,
+    showDocumentHeader: s.showDocumentHeader,
     diagramSort: s.diagramSort,
   }
   await diagramRepository.savePreferences(prefs)
@@ -48,6 +50,7 @@ export const usePreferencesStore = create<PreferencesState>()(
     lastOpenedDiagramId: null,
     paletteMode: 'grid',
     showComments: true,
+    showDocumentHeader: false,
     diagramSort: { key: 'updated', dir: 'desc' },
     loaded: false,
 
@@ -100,6 +103,11 @@ export const usePreferencesStore = create<PreferencesState>()(
 
     setShowComments: async (v) => {
       set((s) => { s.showComments = v })
+      await save(get())
+    },
+
+    setShowDocumentHeader: async (v) => {
+      set((s) => { s.showDocumentHeader = v })
       await save(get())
     },
 
