@@ -566,7 +566,11 @@
     "storageFull": "Storage almost full. Consider exporting and deleting old diagrams.",
     "maxElements": "Element limit of {{max}} reached in this diagram",
     "invalidBpmn": "File does not contain valid BPMN: {{error}}",
-    "unknownError": "Unknown error"
+    "unknownError": "Unknown error",
+    "modelRepairedTitle": "Saved, after repairing the diagram",
+    "modelRepaired_one": "1 malformed element was found and repaired. Your work is saved.",
+    "modelRepaired_other": "{{count}} malformed elements were found and repaired. Your work is saved.",
+    "modelRepairedWithLoss": "Repaired {{repaired}} elements and had to drop {{removed}} that could not be recovered. Everything else is saved — please review the diagram."
   },
   "common": {
     "confirm": "Confirm",

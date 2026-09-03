@@ -1,5 +1,13 @@
 # Planes pendientes
 
+## Prioridad 0 — incidente de producción con pérdida de trabajo
+
+| ID | Plan | Estado |
+|---|---|---|
+| [PLAN-035](035-copiar-pegar-y-guardado-resiliente.md) | **El guardado no pierde trabajo** — saneo del árbol, copiar/pegar robusto y borrador local | **en-progreso** — nace de [EXP-022](../../experience/022-una-pieza-mal-formada-cancela-el-guardado-entero.md) el 2026-09-02. **Capas A y C implementadas y probadas** (414 pruebas, lint y `tsc` limpios, sin cambios de BD); quedan la verificación manual del pegado con imagen vinculada, decidir la capa B, y **la capa D (borrador local) que necesita plan propio y 2 decisiones de producto** |
+
+Va por delante de PLAN-034 porque hubo pérdida de trabajo real en producción. No compite con él: no comparte ningún archivo.
+
 ## Prioridad 1
 
 | ID | Plan | Estado |
@@ -83,6 +91,8 @@ Sus cinco decisiones abiertas —qué significa "auditable", retención (`pg_cro
 
 | Plan | Bloqueado por |
 |---|---|
+| **cerrar** EXP-022 | el registro de PLAN-013. Hoy `save.model_repaired` solo llega a la consola del navegador, así que no hay forma de saber si la causa raíz sigue viva |
+| PLAN-035 capa D | 2 decisiones de producto, y coordinación con EXP-011 / PLAN-014 sobre qué pasa si otro colaborador tocó el diagrama |
 | PLAN-020 y todo MASTER-PLAN-019 | los datos de PLAN-013 |
 | PLAN-013 | 5 decisiones de producto |
 | PLAN-016 | migrar el cliente a Broadcast; aplicar el SQL antes causa regresión silenciosa |

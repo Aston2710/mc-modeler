@@ -16,6 +16,9 @@ import { forceCanonicalBpmnPrefix } from '@/utils/normalizeBpmnXml'
 import { sanitizeBpmnXml, hasNonFiniteCoords } from '@/utils/sanitizeBpmnXml'
 import { isBpmnReadOnly } from '@/bpmn/readOnlyState'
 import { perfStart } from '@/utils/perf'
+import { reportIncident } from '@/utils/incidents'
+import { sanitizeModelTree, describeReport } from '@/bpmn/model/sanitizeModelTree'
+import i18n from '@/i18n'
 import {
   readDocumentMeta, ensureDocumentMeta, toModdleProps, EMPTY_DOCUMENT_META,
   type DocumentMeta,
@@ -45,6 +48,12 @@ export function useBpmnModeler(
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const modelerRef = useRef<any>(null)
+  /**
+   * Id del diagrama importado en la instancia activa. Solo para atribuir
+   * incidentes: sin esto, un `save.model_repaired` no dice de qué diagrama es y
+   * el registro deja de servir para investigar.
+   */
+  const activeDiagramIdRef = useRef<string | null>(null)
   const setZoom = useUIStore((s) => s.setZoom)
   const setSelectedElements = useUIStore((s) => s.setSelectedElements)
   // Se incrementa cada vez que la instancia ACTIVA cambia (cache de pestañas).
@@ -285,6 +294,7 @@ export function useBpmnModeler(
   }, [containerRef, wireInstance, applyThemeTo])
 
   const importXml = useCallback(async (xml: string, diagramId: string) => {
+    activeDiagramIdRef.current = diagramId
     // ── Flag ON: cache de instancias por diagrama (Fase 2) ──
     // App llama importXml en cada cambio de pestaña. Con el cache: la 1ª vez por
     // diagrama se crea instancia + importa; las siguientes solo se re-adjunta la
@@ -382,15 +392,69 @@ export function useBpmnModeler(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const modeler = modelerRef.current as any
     if (!modeler) throw new Error('Modeler not initialized')
-    const { xml } = await modeler.saveXML({ format: true })
+
+    let xml: string
+    try {
+      xml = (await modeler.saveXML({ format: true })).xml as string
+    } catch (err) {
+      // ── Capa A de PLAN-035: el guardado NO se detiene por una pieza mal
+      // formada. Ver EXP-022.
+      //
+      // El serializer de moddle-xml es todo o nada: un solo objeto del árbol
+      // que no haya nacido de la factoría de moddle cancela el guardado
+      // COMPLETO del diagrama. El 2026-09-02 eso dejó horas de trabajo vivas
+      // solo en la memoria de una pestaña, sin ninguna forma de sacarlas.
+      //
+      // Aquí se sanea el árbol y se reintenta UNA vez. Un solo reintento a
+      // propósito: si tras sanear sigue fallando, la causa es otra y no la
+      // arregla insistir.
+      const report = sanitizeModelTree(modeler.get('moddle'), modeler.getDefinitions())
+      if (!report.changed) throw err
+
+      const base = {
+        repaired: report.repaired,
+        removed: report.removed,
+        detail: describeReport(report),
+      }
+      const diagramId = activeDiagramIdRef.current ?? undefined
+
+      try {
+        xml = (await modeler.saveXML({ format: true })).xml as string
+      } catch (err2) {
+        // Se reparó lo que se pudo y aun así no se puede escribir: aquí sí se
+        // pierde trabajo, y tiene que constar como error.
+        reportIncident('save.model_unrepairable', base, { severity: 'error', diagramId })
+        throw err2
+      }
+
+      // Se rescató el guardado. Se registra como ERROR aunque haya salido bien:
+      // significa que hay una fuente de piezas mal formadas todavía viva, y un
+      // arreglo automático en silencio es cómo eso se esconde durante un año.
+      reportIncident('save.model_repaired', base, { severity: 'error', diagramId })
+      useUIStore.getState().addToast({
+        type: 'warning',
+        title: i18n.t('errors.modelRepairedTitle'),
+        message: report.removed > 0
+          ? i18n.t('errors.modelRepairedWithLoss', { repaired: report.repaired, removed: report.removed })
+          : i18n.t('errors.modelRepaired', { count: report.repaired }),
+        // Persistente: si se tocó el diagrama, quien trabaja tiene que verlo y
+        // descartarlo a mano, no perdérselo porque el aviso se fue solo.
+        duration: 0,
+      })
+    }
+
     // Guarda de persistencia: NUNCA devolver XML con coordenadas no finitas. Es
     // lo que convirtió un glitch transitorio en corrupción durable (el autosave
     // guardó NaN). Lanzar aquí hace que el autosave reintente y el guardado
     // manual avise, en vez de persistir basura. Ver docs/plan-canvas-y-fix-corrupcion.md.
-    if (hasNonFiniteCoords(xml as string)) {
+    //
+    // NO se unifica con el saneo de arriba, y es deliberado: esa comprobación
+    // se NIEGA a guardar porque el dato está mal y escribirlo hace daño; el
+    // saneo REPARA porque el dato está bien y solo estaba mal envuelto.
+    if (hasNonFiniteCoords(xml)) {
       throw new Error('Coordenadas no finitas (NaN/Infinity) en el diagrama — guardado abortado para no corromper el dato.')
     }
-    return xml as string
+    return xml
   }, [])
 
   const exportSvg = useCallback(async (): Promise<string> => {

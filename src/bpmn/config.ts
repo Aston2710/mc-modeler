@@ -35,8 +35,11 @@ import CommentContextPadModule from './elements/CommentContextPadModule'
 import ReadOnlyModule from './elements/ReadOnlyModule'
 import flujoModdle from './moddle/flujo.json'
 
-// @ts-ignore
-import NativeCopyPasteModule from 'bpmn-js-native-copy-paste'
+// Copiar/pegar por el portapapeles del sistema. **Nuestra versión**, no la
+// dependencia: la original descartaba tipos desconocidos en silencio, dejaba
+// pasar objetos sin descriptor —que rompen el guardado del diagrama entero— y
+// perdía `$attrs`. Ver `elements/NativeCopyPasteModule.ts` y EXP-022.
+import NativeCopyPasteModule from './elements/NativeCopyPasteModule'
 
 // NOTA: BizagiDragRouter eliminado — bpmn-js llama al layouter registrado
 // automáticamente durante el drag a través del canal oficial 'layouter'.
