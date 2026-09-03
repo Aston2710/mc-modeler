@@ -4,6 +4,7 @@ Ordenado por ID descendente. `mitigado` no es `resuelto`.
 
 | ID | Incidente | Estado | Severidad | Componentes | Detectado |
 |---|---|---|---|---|---|
+| [EXP-022](022-una-pieza-mal-formada-cancela-el-guardado-entero.md) | **Una sola pieza mal formada en el árbol del modelo cancela el guardado del diagrama ENTERO** — tres horas de trabajo vivas solo en la memoria de una pestaña. La fila de Postgres nunca se corrompió. Capas A y C de PLAN-035 implementadas; **el disparador no está reproducido** | **mitigado** | **crítica** | `useBpmnModeler.ts`, `sanitizeModelTree.ts`, `NativeCopyPasteModule.ts`, `moddle-xml` | 2026-09-02 |
 | [EXP-021](021-la-cabecera-en-el-lienzo-se-solapa-con-el-diagrama.md) | La cabecera en el lienzo se dibuja **encima** del diagrama cuando el contenido empieza arriba — un `Math.max(0, …)` le impide subir del origen. El PDF nunca solapa: la vista enseña algo que la exportación no puede producir. **Causa identificada y arreglo diseñado entero, sin implementar** | **activo** | media | `DocumentFrameModule.ts`, `index.css` | 2026-08-28 |
 | [EXP-020](020-el-logo-del-cajetin-salia-negro-y-deformado-en-el-pdf.md) | El logo del cajetín salía como una mancha negra deformada: `processWEBP` de jsPDF re-codifica a JPEG —que no tiene alfa— y la proporción del logo estaba cableada a la del estándar medido | resuelto | media | `documentHeader.ts`, `logoImage.ts`, `imageCompress.ts` | 2026-08-27 |
 | [EXP-019](019-la-previsualizacion-se-veia-bien-y-no-se-podia-usar.md) | La hoja de PLAN-034 salía impecable en las capturas y no se podía editar: la imagen del diagrama se quedaba los clics, y la celda editable —declarada dentro de su padre— remontaba el `<input>` en cada tecla | resuelto | media | `DocumentSheet.tsx`, `index.css`, `scripts/capturar-ui.mjs` | 2026-08-23 |
@@ -28,7 +29,11 @@ Ordenado por ID descendente. `mitigado` no es `resuelto`.
 
 ## Incidentes activos
 
-Cinco abiertos: EXP-011, EXP-012, EXP-017, EXP-018 y EXP-021. **EXP-019 y EXP-020 nacen resueltos**: los dos se detectaron y se corrigieron el mismo día, dentro de PLAN-034.
+Seis abiertos: EXP-011, EXP-012, EXP-017, EXP-018, EXP-021 y EXP-022. **EXP-019 y EXP-020 nacen resueltos**: los dos se detectaron y se corrigieron el mismo día, dentro de PLAN-034.
+
+**EXP-022 es el único con pérdida de trabajo real** y el único `mitigado` de la lista junto a EXP-011. Su arreglo está implementado y probado (414 pruebas), pero **qué produjo la pieza mal formada sigue sin identificarse**: el copiar/pegar es el sospechoso por mecanismo y la vuelta completa del portapapeles sobre un diagrama corriente sale limpia, medido. Se eligió a propósito un arreglo **genérico** —el guardado repara y sigue— precisamente para no depender de conocer el disparador.
+
+Deja además una fragilidad de fondo que ningún parche cierra: **el guardado es todo o nada.** Mientras `current_xml` sea un documento entero (DEC-001) escrito de una pieza, cualquier defecto local del árbol es un defecto global del guardado. Y descubrió que **no hay ninguna copia local del trabajo no guardado** — es la capa D de PLAN-035.
 
 **EXP-021 es el único abierto con el arreglo ya diseñado y escrito.** No está pendiente de investigar ni de decidir: está pendiente de *aplicarse*. Se dejó fuera del despliegue del 2026-09-01 por decisión del usuario —salía antes lo ya probado—, y su documento lleva el parche completo: qué línea quita el clamp, qué se borra de CSS, y **cuál de las pruebas actuales afirma justo lo contrario del arreglo y hay que reescribir**. Quien lo retome no tiene que rediagnosticar nada.
 

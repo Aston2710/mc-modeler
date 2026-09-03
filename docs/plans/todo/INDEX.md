@@ -1,5 +1,16 @@
 # Planes pendientes
 
+## Prioridad 0 — incidente de producción con pérdida de trabajo
+
+| ID | Plan | Estado |
+|---|---|---|
+| [PLAN-035](035-copiar-pegar-y-guardado-resiliente.md) | **El guardado no pierde trabajo** — saneo del árbol y copiar/pegar robusto | **en-progreso** — nace de [EXP-022](../../experience/022-una-pieza-mal-formada-cancela-el-guardado-entero.md) el 2026-09-02. **Capas A y C implementadas, probadas y commiteadas** (417 pruebas, lint y `tsc` limpios, sin cambios de BD, rama `plan-035-copiar-pegar-y-guardado-resiliente`); quedan la verificación manual del pegado con imagen vinculada y decidir si la capa B merece escribirse |
+| [PLAN-036](036-borrador-local-de-trabajo-no-guardado.md) | **Borrador local del trabajo no guardado** — que un cierre o un cuelgue no cuesten horas | todo — la capa D de PLAN-035, con plan propio. Diseño cerrado (tres carriles, comprobación de ancestro, reutiliza la UI de conflicto existente); **bloqueado por 5 decisiones abiertas** (A retención · B dos pestañas · C modo local · D cuota · E solo lectura) |
+
+Van por delante de PLAN-034 porque hubo pérdida de trabajo real en producción. No compiten con él: no comparten ningún archivo.
+
+**PLAN-036 es el que cierra el hueco de fondo**, no PLAN-035. Aquel evita que un defecto del árbol cueste el guardado; este evita que *cualquier* cosa —red, cierre, cuelgue, choque de CAS— cueste el trabajo. Hoy, con Supabase configurado, el repositorio de IndexedDB **no se instancia nunca**: no hay ninguna copia local de lo no guardado.
+
 ## Prioridad 1
 
 | ID | Plan | Estado |
@@ -83,6 +94,8 @@ Sus cinco decisiones abiertas —qué significa "auditable", retención (`pg_cro
 
 | Plan | Bloqueado por |
 |---|---|
+| **cerrar** EXP-022 | el registro de PLAN-013. Hoy `save.model_repaired` solo llega a la consola del navegador, así que no hay forma de saber si la causa raíz sigue viva |
+| PLAN-036 | 5 decisiones abiertas (retención, dos pestañas, modo local, cuota, solo lectura). El diseño ya está cerrado; falta decidir, no investigar |
 | PLAN-020 y todo MASTER-PLAN-019 | los datos de PLAN-013 |
 | PLAN-013 | 5 decisiones de producto |
 | PLAN-016 | migrar el cliente a Broadcast; aplicar el SQL antes causa regresión silenciosa |

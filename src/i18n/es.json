@@ -566,7 +566,11 @@
     "storageFull": "Almacenamiento casi lleno. Considera exportar y eliminar diagramas antiguos.",
     "maxElements": "Límite de {{max}} elementos alcanzado en este diagrama",
     "invalidBpmn": "El archivo no contiene un BPMN válido: {{error}}",
-    "unknownError": "Error desconocido"
+    "unknownError": "Error desconocido",
+    "modelRepairedTitle": "Se guardó, reparando el diagrama",
+    "modelRepaired_one": "Había 1 elemento mal formado y se reparó. Tu trabajo está guardado.",
+    "modelRepaired_other": "Había {{count}} elementos mal formados y se repararon. Tu trabajo está guardado.",
+    "modelRepairedWithLoss": "Se repararon {{repaired}} elementos y hubo que quitar {{removed}} que no se pudieron recuperar. El resto está guardado — revisa el diagrama."
   },
   "common": {
     "confirm": "Confirmar",

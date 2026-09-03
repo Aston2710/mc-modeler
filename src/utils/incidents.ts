@@ -40,6 +40,14 @@ export type IncidentCode =
   | 'collab.cas_double_conflict'
   /** El XML no pasó la validación de guardado; se evitó pisar datos buenos. */
   | 'save.invalid_xml'
+  /**
+   * El árbol del modelo tenía piezas mal formadas, se repararon y el guardado
+   * salió adelante. **Aquí NO se pierde trabajo** — es la red que lo evita.
+   * Si esto aparece, hay una fuente de piezas mal formadas que sigue viva.
+   */
+  | 'save.model_repaired'
+  /** Se reparó lo que se pudo y el guardado siguió fallando: aquí sí se pierde. */
+  | 'save.model_unrepairable'
   /** La BD dice que hay thumbnail y Storage no lo tiene. */
   | 'storage.thumb_missing'
 

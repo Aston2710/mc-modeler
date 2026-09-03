@@ -35,6 +35,24 @@ import CommentContextPadModule from './elements/CommentContextPadModule'
 import ReadOnlyModule from './elements/ReadOnlyModule'
 import flujoModdle from './moddle/flujo.json'
 
+// Copiar/pegar por el portapapeles del sistema.
+//
+// ATENCIÓN — aquí sigue la DEPENDENCIA ORIGINAL a propósito, no nuestro módulo.
+//
+// `elements/NativeCopyPasteModule.ts` ya existe, está probado y corrige los tres
+// agujeros de esta dependencia (descarta tipos desconocidos en silencio, deja
+// pasar objetos sin descriptor —que rompen el guardado del diagrama entero— y
+// pierde `$attrs`, y con él el vínculo de imagen de los objetos de datos).
+//
+// Pero **su cableado no está verificado en un navegador real**: jsdom no tiene
+// `navigator.clipboard`, así que las pruebas cubren la lógica de ida y vuelta y
+// NO el enganche al portapapeles ni las prioridades de evento. Cambiar esta
+// línea afecta a cada copiar/pegar de todos los usuarios, así que la capa C se
+// despliega dormida (decisión del usuario, 2026-09-03).
+//
+// Mientras esté así, un objeto sin descriptor todavía puede colarse al pegar —
+// pero ya NO cuesta el diagrama: la capa A lo repara al guardar. Ver EXP-022 y
+// PLAN-035, que lleva el paso de activación pendiente.
 // @ts-ignore
 import NativeCopyPasteModule from 'bpmn-js-native-copy-paste'
 
