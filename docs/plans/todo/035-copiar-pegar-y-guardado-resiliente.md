@@ -21,7 +21,7 @@ Cuatro capas, ordenadas por valor. **A y C están implementadas**; B y D no.
 |:-:|---|---|
 | **A** | El guardado repara la pieza mal formada y sigue, en vez de detenerse | **implementada** |
 | **B** | Detectar la pieza al pegarla, no tres horas después al guardar | no implementada |
-| **C** | El copiar/pegar deja de producir piezas mal formadas | **implementada** |
+| **C** | El copiar/pegar deja de producir piezas mal formadas | **implementada y probada, desplegada DORMIDA** |
 | **D** | Borrador local: si no se puede llevar a Postgres, no se pierde | no implementada — **plan propio** |
 
 Se eligió A + C en la primera tanda por un motivo concreto: **el disparador del
@@ -81,10 +81,30 @@ descriptor**, por dos vías redundantes a propósito —el traductor fabrica bie
 después una pasada barre lo que quede—. La segunda no debería encontrar nada;
 existe porque el coste de que encuentre algo y no lo barra es un diagrama entero.
 
-La dependencia original **se mantiene instalada** aunque ya no se use en
-producción: `nativeCopyPaste.test.ts` la importa para **afirmar su
-comportamiento roto**, igual que hace `moddle/extensionCasing.test.ts`. Si algún
-día la arreglan, esas pruebas fallan y obligan a revisar si el fork sobra.
+La dependencia original **se mantiene instalada**: `nativeCopyPaste.test.ts` la
+importa para **afirmar su comportamiento roto**, igual que hace
+`moddle/extensionCasing.test.ts`. Si algún día la arreglan, esas pruebas fallan
+y obligan a revisar si el fork sobra.
+
+### Se desplegó DORMIDA — decisión del usuario, 2026-09-03
+
+En el despliegue a producción del 2026-09-03, `bpmn/config.ts` **sigue
+importando la dependencia original**. El módulo nuevo va en el código, probado,
+pero sin cablear.
+
+El motivo es una asimetría de riesgo real: la capa A solo corre cuando `saveXML`
+ya falló, así que no puede romper el camino feliz; la capa C corre en **cada
+copiar y pegar de todos los usuarios**, y su **cableado** —`navigator.clipboard`,
+prioridades de evento, `hints.clip`— **no está cubierto por las pruebas**, porque
+jsdom no tiene portapapeles asíncrono y el módulo se autodesactiva ahí. Lo
+probado es la lógica de ida y vuelta, no el enganche.
+
+Consecuencia mientras esté dormida: un objeto sin descriptor **todavía puede
+colarse al pegar**, y `$attrs` se sigue perdiendo al copiar. Pero ya no cuesta el
+diagrama — la capa A lo repara al guardar. Se cambia riesgo de pérdida total por
+un defecto conocido y acotado.
+
+**Activarla es una línea** en `config.ts`. El paso está en *Pendiente*.
 
 ## Capa B — detectar al pegar · no implementada
 
@@ -99,7 +119,11 @@ Es un añadido, no un sustituto: A hay que tenerla igual porque protege de
 orígenes que no conocemos. Con C implementada, B cubre un caso cada vez más
 estrecho — conviene decidir si merece la pena antes de escribirla.
 
-## Capa D — borrador local · no implementada, plan propio
+## Capa D — borrador local · movida a [PLAN-036](036-borrador-local-de-trabajo-no-guardado.md)
+
+Se separó el 2026-09-03 con su diseño ya cerrado. Lo que sigue es el resumen; el
+detalle, las tres vías de escritura, la comprobación de ancestro y las cinco
+decisiones abiertas viven en PLAN-036.
 
 **Postgres sigue siendo la fuente de la verdad (DEC-001).** El borrador no
 compite con eso: es una **sala de espera**.
@@ -108,13 +132,17 @@ Hoy el hueco es total: con Supabase configurado, `persistence/index.ts:16-18` no
 instancia el repositorio de IndexedDB **en absoluto**. Entre dibujar algo y que
 Postgres lo confirme, el trabajo no existe fuera de la RAM del navegador.
 
-Forma propuesta:
+Forma acordada, en corto:
 
-- copia local en cada intento de guardado, y **sobre todo en cada fallo**;
+- copia local **periódica**, enganchada al autoguardado y reusando el XML que ya
+  serializó — no al cerrar, porque un cuelgue no dispara ningún evento y el
+  `unload` mata las escrituras asíncronas pendientes;
 - se descarta cuando la nube confirma — no acumula;
-- al reabrir, si la copia local es **estrictamente más nueva** que la de la nube,
-  se ofrece recuperarla; **decide la persona**;
-- en caso de duda gana la nube.
+- al reabrir se recupera **en silencio y sin preguntar**, si nadie más escribió;
+- si la nube avanzó desde el ancestro del borrador, va a la **UI de conflicto que
+  ya existe** — nunca sobrescribe. Ahí está el enganche con
+  [EXP-011](../../experience/011-perdida-silenciosa-de-cambios-entre-colaboradores.md)
+  y [PLAN-014](../done/014-mitigacion-perdida-de-trabajo-en-colaboracion.md).
 
 Cuesta cero en infraestructura (vive en el navegador), lo que encaja con
 mantener Supabase en plan gratuito.
@@ -123,13 +151,7 @@ Su límite hay que decirlo de frente: es **por navegador y por equipo**. Abrir
 desde otro ordenador no lo encuentra, y limpiar los datos del navegador se lo
 lleva. Es una red contra perder trabajo, **no un sistema de respaldo**.
 
-Va aparte porque toca el flujo de abrir un diagrama y necesita **dos decisiones
-de producto**:
-
-1. qué se enseña exactamente cuando hay un borrador más nuevo;
-2. qué pasa si además otro colaborador tocó el diagrama mientras tanto — que es
-   terreno de [EXP-011](../../experience/011-perdida-silenciosa-de-cambios-entre-colaboradores.md)
-   y [PLAN-014](../done/014-mitigacion-perdida-de-trabajo-en-colaboracion.md).
+Le quedan **cinco decisiones abiertas**, listadas en PLAN-036.
 
 ## Verificación
 
@@ -152,11 +174,15 @@ tocó, para no mover una suite que ya pasaba.
 
 ## Pendiente
 
-- [ ] **Verificación manual en el laboratorio** de la capa C: copiar y pegar un
-      objeto de datos con imagen vinculada y comprobar a ojo que el globo morado
-      sobrevive. Es lo único que jsdom no puede afirmar.
+- [ ] **Activar la capa C.** Está desplegada dormida. Dos pasos, en orden:
+      1. verificar en un navegador real —copiar y pegar un objeto de datos con
+         imagen vinculada y comprobar a ojo que el globo morado sobrevive, y que
+         copiar/pegar normal sigue funcionando entre pestañas—;
+      2. cambiar la importación de `bpmn/config.ts` al módulo propio. Una línea.
+      **No activar sin el paso 1**: es la única parte del módulo que ninguna
+      prueba puede afirmar, porque jsdom no tiene `navigator.clipboard`.
 - [ ] Decidir si la capa B merece escribirse ahora que C está.
-- [ ] Redactar el plan de la capa D con sus dos decisiones de producto.
+- [x] Redactar el plan de la capa D → [PLAN-036](036-borrador-local-de-trabajo-no-guardado.md), 2026-09-03.
 - [ ] Cerrar EXP-022 requiere el registro de PLAN-013: hoy
       `save.model_repaired` solo llega a la consola del navegador, así que no
       hay forma de saber si sigue ocurriendo.
