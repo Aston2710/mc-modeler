@@ -13,6 +13,7 @@ import {
   documentHeaderHeight,
   fitLogo,
   drawDocumentHeader,
+  enableDocumentHeader,
   parseStoredDocumentHeader,
   resolveDocumentHeader,
   type DocumentHeaderTemplate,
@@ -57,6 +58,28 @@ describe('la plantilla por defecto no lleva marca de nadie', () => {
   it('sale apagada: un diagrama nuevo no tiene cabecera', () => {
     expect(DEFAULT_DOCUMENT_HEADER.enabled).toBe(false)
     expect(documentHeaderHeight(DEFAULT_DOCUMENT_HEADER)).toBe(0)
+  })
+
+  /**
+   * EXP-023. La plantilla guardada trae `enabled: false` SIEMPRE —nadie lo
+   * enciende desde que la casilla de exportar dejó de escribirlo en el
+   * proyecto—, así que quien dibuja tiene que encenderla al vuelo. Sin esto la
+   * cabecera se veía en la hoja del diálogo y no salía ni en el PDF ni en el
+   * lienzo, que es como se fue a producción.
+   */
+  it('se puede encender para dibujarla sin tocar la guardada', () => {
+    const guardada = DEFAULT_DOCUMENT_HEADER
+    const dibujable = enableDocumentHeader(guardada, true)
+
+    expect(dibujable.enabled).toBe(true)
+    expect(documentHeaderHeight(dibujable)).toBeGreaterThan(0)
+    // La original no se toca: es el objeto que comparte todo el que la lee.
+    expect(guardada.enabled).toBe(false)
+    expect(documentHeaderHeight(guardada)).toBe(0)
+  })
+
+  it('y se puede apagar igual de barato', () => {
+    expect(documentHeaderHeight(enableDocumentHeader(tpl(), false))).toBe(0)
   })
 
   it('las etiquetas de reserva son genéricas de documento controlado', () => {

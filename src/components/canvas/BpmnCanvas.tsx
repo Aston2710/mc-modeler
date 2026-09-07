@@ -13,7 +13,7 @@ import { useDiagramStore } from '@/store/diagramStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { uploadImageDataUrl } from '@/utils/imageStorage'
 import type { DocumentMeta } from '@/bpmn/elements/documentMeta'
-import type { DocumentHeaderTemplate } from '@/utils/documentHeader'
+import { enableDocumentHeader, type DocumentHeaderTemplate } from '@/utils/documentHeader'
 
 export interface BpmnCanvasHandle {
   importXml: (xml: string, diagramId: string) => Promise<void>
@@ -111,7 +111,10 @@ export const BpmnCanvas = forwardRef<BpmnCanvasHandle, BpmnCanvasProps>(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const frame = (modeler.modelerRef.current as any)?.get?.('documentFrame', false)
       if (!frame) return
-      frame.setTemplate(documentHeader ?? null)
+      // El `enabled` que trae la plantilla guardada es siempre `false` y vetaba
+      // el dibujado entero: el interruptor del menú movía `_visible` y no se
+      // veía nada. Quien manda aquí es `setVisible`. EXP-023.
+      frame.setTemplate(documentHeader ? enableDocumentHeader(documentHeader, true) : null)
       frame.setVisible(showDocumentHeader)
     }, [modeler.modelerRef, modeler.activeVersion, ready, documentHeader, showDocumentHeader])
 

@@ -10,6 +10,7 @@ import { svgViewBox } from '@/utils/pdfDocument'
 import { loadExportPreferences, saveExportPreferences } from '@/utils/exportPreferences'
 import {
   DEFAULT_DOCUMENT_HEADER, DEFAULT_STORED_DOCUMENT_HEADER, documentHeaderHeight,
+  enableDocumentHeader,
   type DocumentHeaderTemplate, type StoredDocumentHeader,
 } from '@/utils/documentHeader'
 import { sheetNumber } from '@/utils/iso7200'
@@ -177,7 +178,7 @@ export function ExportModal({
    */
   const [incluirCabecera, setIncluirCabecera] = useState(recordado.includeHeader ?? false)
   const tpl = useMemo(
-    () => ({ ...plantilla, enabled: incluirCabecera }),
+    () => enableDocumentHeader(plantilla, incluirCabecera),
     [plantilla, incluirCabecera],
   )
   const [size, setSize] = useState<PageSizeId>(recordado.size ?? DEFAULT_PAGE_SPEC.size)
