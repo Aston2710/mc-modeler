@@ -44,7 +44,7 @@ import { ImageLightbox } from '@/components/images/ImageLightbox'
 import { useImageStore } from '@/store/imageStore'
 import { diagramRepository } from '@/persistence'
 import {
-  resolveDocumentHeader, DEFAULT_STORED_DOCUMENT_HEADER,
+  resolveDocumentHeader, enableDocumentHeader, DEFAULT_STORED_DOCUMENT_HEADER,
   type DocumentHeaderTemplate, type StoredDocumentHeader,
 } from '@/utils/documentHeader'
 import { prepareLogo } from '@/utils/logoImage'
@@ -655,7 +655,14 @@ export default function App() {
       // Y sin pedirla tampoco: `includeHeader` es la decisión de ESTA
       // exportación, así que sin marcarla no se pasa plantilla y no se reserva
       // ni un milímetro de hueco.
-      documentHeader: req.includeHeader ? (docTemplate ?? undefined) : undefined,
+      //
+      // `enableDocumentHeader` NO ES ADORNO: la plantilla guardada trae siempre
+      // `enabled: false` —nadie lo enciende desde que la casilla dejó de
+      // escribirlo en el proyecto—, y sin esto el PDF salía sin cabecera aunque
+      // la hoja del diálogo la enseñara. EXP-023.
+      documentHeader: req.includeHeader && docTemplate
+        ? enableDocumentHeader(docTemplate, true)
+        : undefined,
       // Los datos vienen del diálogo, ya con sus valores por defecto resueltos:
       // el PDF tiene que ser la hoja que se estaba mirando, no otra lectura.
       documentMeta: req.documentMeta,

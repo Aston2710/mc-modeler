@@ -240,6 +240,32 @@ export function parseStoredDocumentHeader(raw: unknown): StoredDocumentHeader {
   }
 }
 
+/**
+ * Enciende o apaga el dibujado de una plantilla, **sin tocar la guardada**.
+ *
+ * LA PLANTILLA DICE *QUÉ* LLEVA LA CABECERA; QUIÉN DIBUJA DICE *SI* SE DIBUJA.
+ * Desde que la casilla de exportar dejó de escribir `enabled` en la plantilla
+ * del proyecto, **nadie lo pone en `true`**: nace apagado en
+ * `DEFAULT_DOCUMENT_HEADER`, `parseStoredDocumentHeader` lo normaliza a `false`
+ * y el panel de la plantilla solo emite `logo` y `fields`. Un `enabled` que
+ * viene de la plantilla es, por construcción, siempre `false`.
+ *
+ * Eso vetaba las dos salidas —`documentHeaderHeight` devolvía 0 y
+ * `drawDocumentHeader` salía en la primera línea—, así que la cabecera se veía
+ * en la previsualización del diálogo (que ya hacía esto en local) y **no salía
+ * ni en el PDF ni en el lienzo**. Ver EXP-023.
+ *
+ * Por eso cada consumidor pasa por aquí antes de medir o dibujar. Si algún día
+ * `enabled` desaparece de `StoredDocumentHeader` —es dato muerto en
+ * `projects.doc_template`—, esta función es el único sitio que hay que tocar.
+ */
+export function enableDocumentHeader(
+  tpl: DocumentHeaderTemplate,
+  draw: boolean
+): DocumentHeaderTemplate {
+  return { ...tpl, enabled: draw }
+}
+
 /** Anchos absolutos de las tres celdas para un ancho disponible dado. */
 export function columnWidths(tpl: DocumentHeaderTemplate, availableWidth: number): [number, number, number] {
   const total = tpl.columns[0] + tpl.columns[1] + tpl.columns[2]
