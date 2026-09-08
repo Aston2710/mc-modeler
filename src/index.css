@@ -2749,7 +2749,11 @@ input, select, textarea { font-family: inherit; font-size: 13px; color: inherit;
 /* Un hueco sin rellenar se ve como hueco. No se inventa contenido. */
 .doc-frame__cell--title.is-empty::after,
 .doc-frame__value.is-empty { opacity: 0.35; }
-.doc-frame__cell--title.is-empty::after { content: 'â€”'; font-weight: 400; }
+/* La raya va como ESCAPE CSS, no como carácter: este fichero tiene tramos con
+   doble codificación (UTF-8 leído como CP1252) y aquí se veía «â€”» en el hueco
+   del título. `\2014` es ASCII puro, así que ninguna herramienta que reescriba
+   el fichero lo puede volver a romper. EXP-024. */
+.doc-frame__cell--title.is-empty::after { content: '\2014'; font-weight: 400; }
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    EL TALLER DE DOCUMENTO â€” exportar (PLAN-034 fase 6)

@@ -4,6 +4,7 @@ Ordenado por ID descendente. `mitigado` no es `resuelto`.
 
 | ID | Incidente | Estado | Severidad | Componentes | Detectado |
 |---|---|---|---|---|---|
+| [EXP-024](024-la-raya-del-hueco-salia-como-mojibake.md) | La raya del hueco del título salía como `â€”`: **`src/index.css` tiene 2 845 secuencias con doble codificación** (UTF-8 leído como CP1252) y esa era la única que el usuario llegaba a ver. Arreglada con escape CSS; **la conversión en masa NO es segura**, el fichero mezcla tramos buenos y malos | resuelto | baja | `index.css` | 2026-09-07 |
 | [EXP-023](023-la-cabecera-solo-existia-en-la-previsualizacion.md) | **La cabecera solo se dibujaba en la previsualización del diálogo** — ni en el PDF ni en el lienzo. `enabled` quedó de guardia en las tres capas de dibujado y **ninguna interfaz lo encendía** desde que la casilla de exportar dejó de escribirlo en el proyecto. En producción desde `7f6ffe3` | resuelto | alta | `App.tsx`, `BpmnCanvas.tsx`, `documentHeader.ts` | 2026-09-07 |
 | [EXP-022](022-una-pieza-mal-formada-cancela-el-guardado-entero.md) | **Una sola pieza mal formada en el árbol del modelo cancela el guardado del diagrama ENTERO** — tres horas de trabajo vivas solo en la memoria de una pestaña. La fila de Postgres nunca se corrompió. Capas A y C de PLAN-035 implementadas; **el disparador no está reproducido** | **mitigado** | **crítica** | `useBpmnModeler.ts`, `sanitizeModelTree.ts`, `NativeCopyPasteModule.ts`, `moddle-xml` | 2026-09-02 |
 | [EXP-021](021-la-cabecera-en-el-lienzo-se-solapa-con-el-diagrama.md) | La cabecera en el lienzo se dibuja **encima** del diagrama cuando el contenido empieza arriba — un `Math.max(0, …)` le impide subir del origen. El PDF nunca solapa: la vista enseña algo que la exportación no puede producir. **Causa identificada y arreglo diseñado entero, sin implementar** | **activo** | media | `DocumentFrameModule.ts`, `index.css` | 2026-08-28 |
@@ -30,7 +31,9 @@ Ordenado por ID descendente. `mitigado` no es `resuelto`.
 
 ## Incidentes activos
 
-Seis abiertos: EXP-011, EXP-012, EXP-017, EXP-018, EXP-021 y EXP-022. **EXP-019, EXP-020 y EXP-023 nacen resueltos**: se detectaron y se corrigieron el mismo día.
+Seis abiertos: EXP-011, EXP-012, EXP-017, EXP-018, EXP-021 y EXP-022. **EXP-019, EXP-020, EXP-023 y EXP-024 nacen resueltos**: se detectaron y se corrigieron el mismo día.
+
+**EXP-024 lo destapó EXP-023**, y es la secuencia habitual: arreglar que algo se dibuje deja ver cómo se dibuja. Su parte no cerrada no es el síntoma —eso está blindado con un escape ASCII— sino el fichero: `index.css` mezcla tramos bien y mal codificados, así que **la limpieza en masa está descartada por medición, no por pereza**.
 
 **EXP-023 es el más barato de la lista y el que más tiempo estuvo roto sin que nadie lo notara**: tres líneas de cableado, en producción desde el 2026-09-01. Se sostuvo porque la previsualización del diálogo —el único camino que se construía su propio `enabled`— sí dibujaba la cabecera, así que quien la configuraba la veía funcionar antes de descubrir que el PDF salía sin ella. Su lección es de arquitectura, no de cabeceras: **cuando una decisión se mueve de capa, hay que ir a buscar a todos los que seguían leyéndola donde estaba.**
 
