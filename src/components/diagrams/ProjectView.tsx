@@ -1,19 +1,30 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, Plus, FileText, LayoutGrid, List, X } from 'lucide-react'
+import { Search, Plus, FileText, FolderOpen, LayoutGrid, List, X } from 'lucide-react'
 import { useDiagramStore } from '@/store/diagramStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { formatRelativeTime } from '@/utils/dateFormatter'
+import { scopeForProjectView } from './projectScope'
 import ThumbnailImg from './ThumbnailImg'
 import type { Diagram } from '@/domain/types'
 
 interface ProjectViewProps {
   onOpen: (id: string) => void
   onNew: () => void
+  /** Crear dentro del proyecto del alcance: nacer fuera de él sería el mismo desajuste. */
+  onNewInProject: (projectId: string) => void
   onClose: () => void
+  /** Diagrama de la pestaña activa. Con su proyecto, define el alcance (PLAN-037). */
+  activeDiagramId: string | null
+  scopeProjectId: string | null
+  /** Nombre del proyecto del alcance; `null` si el diagrama abierto es suelto. */
+  projectName: string | null
 }
 
-export function ProjectView({ onOpen, onNew, onClose }: ProjectViewProps) {
+export function ProjectView({
+  onOpen, onNew, onNewInProject, onClose,
+  activeDiagramId, scopeProjectId, projectName,
+}: ProjectViewProps) {
   const { t } = useTranslation()
   const diagrams = useDiagramStore((s) => s.diagrams)
   const language = usePreferencesStore((s) => s.language)
@@ -21,11 +32,22 @@ export function ProjectView({ onOpen, onNew, onClose }: ProjectViewProps) {
   const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
+  // El alcance se calcula aparte del texto buscado: solo cambia al cambiar de
+  // pestaña, no en cada tecla del buscador.
+  const scoped = useMemo(
+    () => scopeForProjectView(
+      diagrams,
+      activeDiagramId ? { id: activeDiagramId, projectId: scopeProjectId } : null
+    ),
+    [diagrams, activeDiagramId, scopeProjectId]
+  )
+
   const filtered = useMemo(() => {
-    return diagrams
-      .filter((d) => !search || d.name.toLowerCase().includes(search.toLowerCase()))
+    const q = search.trim().toLowerCase()
+    return scoped
+      .filter((d) => !q || d.name.toLowerCase().includes(q))
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-  }, [diagrams, search])
+  }, [scoped, search])
 
   return (
     <div className="project-view-overlay" onClick={onClose}>
@@ -34,7 +56,16 @@ export function ProjectView({ onOpen, onNew, onClose }: ProjectViewProps) {
         {/* Header */}
         <div className="pv-header">
           <div className="pv-title">
-            <span>{t('diagrams.title')}</span>
+            {/* El alcance se nombra: un contador de "1" sin contexto se lee como bug.
+                Con proyecto pero sin su nombre a mano (una fila compartida que aún
+                no llegó) se dice "del proyecto" a secas: nunca "Diagrama libre",
+                que sería falso. */}
+            {scopeProjectId ? <FolderOpen size={14} /> : <FileText size={14} />}
+            <span>
+              {scopeProjectId
+                ? projectName ?? t('diagrams.projectView.scopeProject')
+                : t('diagrams.projectView.scopeFree')}
+            </span>
             <span className="pv-count">{filtered.length}</span>
           </div>
 
@@ -44,7 +75,9 @@ export function ProjectView({ onOpen, onNew, onClose }: ProjectViewProps) {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder={t('toolbar.myDiagrams') + '...'}
+                placeholder={t(scopeProjectId
+                  ? 'diagrams.projectView.searchInProject'
+                  : 'diagrams.projectView.searchInFamily')}
                 autoFocus
               />
               {search && (
@@ -88,13 +121,17 @@ export function ProjectView({ onOpen, onNew, onClose }: ProjectViewProps) {
           {filtered.length === 0 && (
             <div className="pv-empty">
               <FileText size={32} />
-              <p>{search ? 'Sin resultados' : 'No hay diagramas aún'}</p>
+              <p>{search ? t('diagrams.projectView.noResults') : t('diagrams.projectView.empty')}</p>
             </div>
           )}
         </div>
 
         {/* FAB — new diagram */}
-        <button className="pv-fab" onClick={onNew} title={t('toolbar.newDiagram')}>
+        <button
+          className="pv-fab"
+          onClick={() => (scopeProjectId ? onNewInProject(scopeProjectId) : onNew())}
+          title={t('toolbar.newDiagram')}
+        >
           <Plus size={18} />
         </button>
       </div>

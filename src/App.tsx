@@ -63,7 +63,7 @@ export default function App() {
     activeTabId, tabs, loadAll,
     createDiagram, openDiagram, importDiagram,
     saveDiagram, activeDiagram,
-    loadProjects, createProject,
+    loadProjects, createProject, projects,
   } = useDiagramStore()
   const {
     propertiesPanelOpen, palettePanelOpen,
@@ -975,7 +975,13 @@ export default function App() {
         <ProjectView
           onOpen={handleOpenDiagram}
           onNew={() => { setProjectViewOpen(false); handleNew() }}
+          onNewInProject={(id) => { setProjectViewOpen(false); handleNewInProject(id) }}
           onClose={() => setProjectViewOpen(false)}
+          activeDiagramId={activeDiagram()?.id ?? null}
+          scopeProjectId={activeProjectId}
+          projectName={
+            activeProjectId ? projects.find((p) => p.id === activeProjectId)?.name ?? null : null
+          }
         />
       )}
       
