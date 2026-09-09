@@ -79,6 +79,7 @@ Orden vigente **por tandas** desde el 2026-08-21 (la unidad es un ciclo de labor
 
 | ID | Plan | Estado |
 |---|---|---|
+| [PLAN-037](037-navegador-de-diagramas-del-editor-por-proyecto.md) | **El navegador de diagramas del editor muestra el proyecto, no la cuenta entera** — y hace scroll | **en-progreso** — dos defectos de cliente, sin BD: el modal del botón de carpeta nunca filtró por proyecto, y en cuadrícula **comprimía las filas a 14,9 px en vez de desbordar** (el arreglo ya existía en el home, `index.css:1705`). **Implementado y verificado en modo local con 47 diagramas sembrados, sin commitear** (427 pruebas, lint y `tsc` limpios). Falta el visto bueno visual, verificar `.ig-grid` con la biblioteca llena, y la aprobación de cierre |
 | [PLAN-005](005-cambio-de-pestanas-con-instancia-viva.md) | Cambio de pestañas con instancia bpmn-js viva | **en-progreso** — ya en producción con el flag ON; auditado 2026-08-14. Le quedan dos puntos (`canvasSession`/`readOnlyState` por instancia, y sacar `persistCanvasTab` del cambio de pestaña) |
 
 ## PLAN-013 bloquea los dos master plans de corrección e infraestructura

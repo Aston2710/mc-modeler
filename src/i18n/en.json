@@ -309,6 +309,14 @@
   },
   "diagrams": {
     "title": "Diagrams",
+    "projectView": {
+      "scopeProject": "Project diagrams",
+      "scopeFree": "Standalone diagram",
+      "searchInProject": "Search in this project…",
+      "searchInFamily": "Search in this diagram…",
+      "noResults": "No results",
+      "empty": "No diagrams yet"
+    },
     "subtitle_one": "{{count}} BPMN diagram",
     "subtitle_other": "{{count}} BPMN diagrams",
     "searchAll": "Search all diagrams and folders…",
