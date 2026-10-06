@@ -63,6 +63,12 @@ function getBpmnIconType(bpmnType: string): string {
   return map[bpmnType] ?? 'task'
 }
 
+/** Color de la Fase para el selector: el gris por defecto se muestra como "Sin color". */
+function phaseColorValue(el: Element): string {
+  const color = getPhaseColor(el)
+  return !color || color.toLowerCase() === DEFAULT_PHASE_COLOR.toLowerCase() ? '' : color
+}
+
 export function PropertiesPanel({
   getSelectedElements,
   onUpdateProperty,
@@ -162,11 +168,14 @@ export function PropertiesPanel({
                   <label className="field-label">
                     {t('properties.fields.phaseColor', 'Color de la fase')}
                   </label>
-                  <input
-                    type="color"
-                    className="f-input f-color"
-                    value={getPhaseColor(el) || DEFAULT_PHASE_COLOR}
-                    onChange={(e) => update('phaseColor', e.target.value)}
+                  {/* Mismo selector de muestras que el Group. Una Fase siempre
+                      lleva relleno: "Sin color" vuelve al gris por defecto. */}
+                  <ColorPalettePicker
+                    value={phaseColorValue(el)}
+                    onChange={(hex) => update('phaseColor', hex || DEFAULT_PHASE_COLOR)}
+                    noneColor={DEFAULT_PHASE_COLOR}
+                    disabled={readOnly}
+                    aria-label={t('properties.fields.phaseColor', 'Color de la fase')}
                   />
                 </div>
               )}
