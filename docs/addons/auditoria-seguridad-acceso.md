@@ -32,6 +32,7 @@ Ninguna toca colaboradores, notificaciones, comentarios, perfiles ni Realtime. Q
 | SEG-03 | La autoría de los comentarios la decide el cliente | Media | No documentado |
 | SEG-04 | `profiles.email` es editable por su dueño | Media | No documentado |
 | SEG-10 | `profiles` es legible por `anon` | Media | Documentado con razonamiento incorrecto |
+| SEG-11 | Se puede crear un diagrama en un proyecto ajeno | Media | No documentado (añadido 2026-10-08) |
 | SEG-05 | Un editor podría mover o borrar diagramas por API | Media-baja | No documentado |
 | SEG-08 | Apps Script: dependencia operativa y de credenciales | Media-baja | No documentado |
 | SEG-07 | Invitaciones por enlace sin caducidad ni validación de correo | Baja-media | No documentado |
@@ -116,6 +117,22 @@ Ninguna toca colaboradores, notificaciones, comentarios, perfiles ni Realtime. Q
 **Riesgos.** Una sola cuenta de Google es punto único de fallo. Las cuotas de Gmail no constan en ningún documento. Quien edite el script o acceda a la cuenta de Google tiene la clave `service_role`. Un correo perdido no deja traza visible para el usuario.
 
 **Relación con lo documentado.** D-02.4 de `auditoria-decisiones.md` ya propone retirar Apps Script del camino de correo con una Edge Function. Este hallazgo añade el argumento de seguridad.
+
+### SEG-11 · Crear un diagrama dentro de un proyecto ajeno ⚠️ confirmado en el laboratorio
+
+> **Prueba, 2026-10-08:** en el laboratorio, como `authenticated` con el JWT de `dev2@local.test`, que no tiene ningún rol en el proyecto de `dev@local.test`, el `INSERT` en `diagrams` con `project_id` de ese proyecto **se acepta** (`supabase/pruebas/mcp_conector.sql`, caso 4a). Con token del conector se rechaza con 403 (caso 4b). **Producción no se probó:** el baseline la reproduce, pero queda por confirmar que no tenga un cambio posterior. No hay incidente (EXP) porque no consta explotación.
+
+*Añadido el 2026-10-08, a partir de la investigación del conector MCP (`investigacion-mcp.md` §1.4), con aprobación del usuario.*
+
+**Evidencia.** `diagrams_insert` es `for insert to public with check (owner_id = auth.uid())` y **no comprueba `project_id`**. A la vez, `diagrams_select` muestra a cualquier miembro de un proyecto los diagramas cuyo `project_id` sea ese proyecto.
+
+**Escenario.** Un usuario autenticado que conozca el id de un proyecto podría crear un diagrama en él aunque no sea miembro, o aunque solo sea `viewer`. El diagrama aparecería en la lista de todos los miembros, con el atacante como dueño. Sirve para colar contenido, por ejemplo un enlace engañoso en una etiqueta, en el espacio de otro equipo.
+
+**Mitigantes.** Los ids de proyecto son UUID. La app no ofrece esa acción en la interfaz.
+
+**Cómo verificar.** En el laboratorio, con `dev2@local.test` (sin rol en el proyecto sembrado de `dev@local.test`), hacer un `INSERT` por PostgREST en `diagrams` con ese `project_id`. Repetir con rol `viewer`. Resultado esperado si el sistema es seguro: rechazo en ambos.
+
+**Relación con lo planificado.** El prototipo del conector (`supabase/prototipos/20261008_mcp_conector.sql`, MASTER-PLAN-038) lo cierra **solo para tokens del conector**. El arreglo general —añadir `project_id is null or private.can_edit_project(project_id)` al `with check` de `diagrams_insert`— queda fuera de ese plan y pendiente de verificar.
 
 ---
 

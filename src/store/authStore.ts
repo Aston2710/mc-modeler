@@ -8,8 +8,13 @@ interface AuthState {
   /** true una vez que se resolvió el estado inicial de sesión (o si no hay Supabase) */
   initialized: boolean
   init: () => void
-  signInWithEmail: (email: string) => Promise<{ error: string | null }>
-  signInWithGoogle: () => Promise<{ error: string | null }>
+  /**
+   * `redirectTo` opcional: a dónde vuelve el enlace. Por defecto, la raíz. Solo
+   * lo usa la pantalla de consentimiento OAuth (MASTER-PLAN-038), que necesita
+   * volver a `/oauth/consent?authorization_id=…` tras iniciar sesión.
+   */
+  signInWithEmail: (email: string, redirectTo?: string) => Promise<{ error: string | null }>
+  signInWithGoogle: (redirectTo?: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
 
@@ -38,20 +43,20 @@ export const useAuthStore = create<AuthState>()((set) => ({
     authSubscription = data.subscription
   },
 
-  signInWithEmail: async (email) => {
+  signInWithEmail: async (email, redirectTo) => {
     if (!supabase) return { error: 'Supabase no configurado' }
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: redirectTo ?? window.location.origin },
     })
     return { error: error?.message ?? null }
   },
 
-  signInWithGoogle: async () => {
+  signInWithGoogle: async (redirectTo) => {
     if (!supabase) return { error: 'Supabase no configurado' }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: redirectTo ?? window.location.origin },
     })
     return { error: error?.message ?? null }
   },

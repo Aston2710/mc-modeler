@@ -16,6 +16,26 @@
     "genericError": "No se pudo iniciar sesión. Inténtalo de nuevo.",
     "invalidEmail": "Introduce un correo válido."
   },
+  "oauthConsent": {
+    "title": "Conectar un asistente a Flujo",
+    "asUser": "Sesión iniciada como {{email}}",
+    "request": "{{client}} quiere trabajar con tus diagramas de Flujo en tu nombre.",
+    "unknownClient": "Una aplicación",
+    "canTitle": "Podrá",
+    "canRead": "Ver los proyectos y diagramas a los que tienes acceso.",
+    "canCreate": "Crear diagramas nuevos en los proyectos donde puedes editar.",
+    "canEdit": "Modificar el contenido de los diagramas que puedes editar.",
+    "cannotTitle": "No podrá",
+    "cannot": "Borrar ni mover diagramas o proyectos, cambiar colaboradores ni invitaciones, ni tocar comentarios, imágenes o notificaciones.",
+    "returnTo": "Al decidir volverás a {{host}}.",
+    "approve": "Permitir",
+    "deny": "Rechazar",
+    "loading": "Cargando la solicitud…",
+    "redirecting": "Volviendo al asistente…",
+    "invalid": "La solicitud de acceso no es válida o ha caducado. Vuelve a conectar desde el asistente.",
+    "failed": "No se pudo completar. Vuelve a conectar desde el asistente.",
+    "unavailable": "Esta instalación de Flujo funciona en modo local y no admite conectores."
+  },
   "share": {
     "title": "Compartir diagrama",
     "subtitle": "Invita a personas a ver o editar este diagrama",
@@ -562,6 +582,7 @@
   "conflict": {
     "title": "El diagrama cambió en el servidor",
     "message": "Otro usuario guardó \"{{name}}\" mientras editabas una versión desactualizada. Se conservó la versión del servidor.",
+    "externalMessage": "\"{{name}}\" se modificó fuera de esta sesión (por ejemplo, desde un asistente conectado). Tus cambios no se han guardado todavía: elige qué hacer con ellos.",
     "reload": "Cargar versión del servidor",
     "saveCopy": "Guardar mi copia como duplicado",
     "copyName": "{{name}} (mi copia)"

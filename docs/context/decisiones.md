@@ -1,12 +1,44 @@
 ---
 documento: decisiones
 vigencia: vigente
-actualizado: 2026-08-13
+actualizado: 2026-10-08
 ---
 
 # Decisiones
 
 Append-only. Entradas más recientes arriba. **Las alternativas descartadas con su motivo son la razón de existir de este documento**: sin ellas alguien reabre el debate en tres meses partiendo de cero.
+
+---
+
+## DEC-013 — Un conector MCP escribe diagramas con el JWT del usuario, limitado en la base y sin pisar sesiones abiertas
+
+- **Fecha:** 2026-10-08
+- **Estado:** vigente — aprobada por el usuario junto con MASTER-PLAN-038 el 2026-10-08
+- **Contexto:** se quiere que una IA (Claude; ChatGPT si es compatible) cree y modifique diagramas directamente en el espacio de trabajo del usuario mediante un servidor MCP remoto. Con planes gratuitos de Vercel y Supabase, y para uso interno. La investigación ([`addons/investigacion-mcp.md`](../addons/investigacion-mcp.md)) encontró dos cosas que condicionan todo: (1) **el cliente pisa en silencio a cualquier escritor externo**, porque ante el primer conflicto de CAS reintenta y gana, y ningún cliente escucha cambios de la fila `diagrams`; (2) **los scopes de Supabase OAuth no limitan el acceso a datos**, así que un token del conector vale lo mismo que la sesión del usuario contra PostgREST.
+- **Decisión:**
+  1. **Identidad:** el MCP actúa siempre con el JWT del usuario emitido por el servidor OAuth 2.1 de Supabase. **Nunca `service_role`.** Rechaza los tokens sin claim `client_id`, que son sesiones normales de la app.
+  2. **Mínimo privilegio en la base:** triggers y políticas restrictivas reconocen el token del conector por `client_id`. Con él solo se crea y se modifica el **contenido** de diagramas. Todo lo demás —borrar, papelera, mover, colaboradores, invitaciones, comentarios, imágenes— se rechaza con 403. Esto incluye las funciones `SECURITY DEFINER`, porque un trigger se dispara aunque la política no se evalúe.
+  3. **Escritura:** CAS sobre `updated_at`, igual que el cliente. La auditoría la escribe un trigger, así que no se puede saltar llamando a PostgREST directamente. Los límites de ritmo y tamaño se imponen en la base.
+  4. **Concurrencia:** el MCP no modifica un diagrama con alguien presente en su canal. Lo comprueba suscribiéndose sin `track()`, como hace `useDiagramsPresence`. El cliente, si choca estando solo, trata el cambio como externo y pregunta en vez de reintentar. Si el diagrama está ocupado, la salida es una copia.
+  5. **Etapas:** lectura, validación y creación primero. `modificar_diagrama` solo cuando el punto 4 esté entero en producción.
+  6. **Alojamiento:** proyecto Vercel aparte (`mcp/`), con dependencias propias.
+- **Alternativas descartadas:**
+  - *`service_role` en el servidor* — salta RLS: un fallo del MCP sería un fallo de autorización sobre los 21 usuarios. Lo prohíbe la regla del encargo.
+  - *Tokens personales (PAT) en una tabla propia* — para actuar como el usuario, el MCP tendría que **fabricar** un JWT, y eso exige el secreto de firma, que equivale a `service_role`. Además Claude no admite tokens pegados por el usuario.
+  - *Límites solo en el servidor MCP* — un token filtrado los saltaría llamando a PostgREST directamente.
+  - *Solo la compuerta de presencia* — no ve las pestañas de fondo con instancia viva (PLAN-005, en producción). Dejaría el riesgo `mitigado`, no `resuelto`.
+  - *Avisar y recargar en caliente a los clientes abiertos* — reimportar con el `Y.Doc` vivo es la zona de EXP-003, EXP-005 y EXP-007.
+  - *El MCP como par de Yjs* — obliga a ejecutar bpmn-js en el servidor y devuelve a Yjs un papel de escritura, contra DEC-002.
+  - *`bpmn-auto-layout`* — medido el 2026-10-08: la versión publicada (1.3.0) solo dispone el primer participante, colapsa los subprocesos y no dibuja pools, carriles ni flujos de mensaje.
+  - *Servidor MCP dentro del proyecto de la SPA* — `mcp-handler` 2.x exige zod 4 y la app usa zod 3. Migrar la app por una razón del servidor no compensa.
+- **Consecuencias:**
+  - Aparecen escritores de `current_xml` que no son navegadores.
+  - El cliente gana una regla nueva: "cambio externo con la sesión vacía, se pregunta".
+  - Cuando exista el servidor autoritativo (MASTER-PLAN-019), el MCP será su cliente y la compuerta de presencia sobrará.
+  - La audiencia del token es `authenticated` y no la URL del MCP: es una desviación consciente de RFC 8707, compensada por el punto 1 y la guardia de la base.
+  - Hobby obliga a que el uso siga siendo no comercial.
+  - El diagrama creado por la IA no tiene thumbnail hasta que alguien lo edite en la app.
+- **Relacionados:** MASTER-PLAN-038, EXP-011, EXP-016, EXP-018, EXP-022, DEC-001, DEC-002, DEC-007, DEC-009, DEC-011, `addons/investigacion-mcp.md`, `addons/auditoria-seguridad-acceso.md`
 
 ---
 

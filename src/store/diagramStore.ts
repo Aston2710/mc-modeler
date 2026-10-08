@@ -8,6 +8,8 @@ import { normalizeBpmnXml } from '@/utils/normalizeBpmnXml'
 import { externalizeImages, rehomeImages, deleteDiagramImages } from '@/utils/imageStorage'
 import { perfStart } from '@/utils/perf'
 import { dispose as disposeModelerInstance } from '@/bpmn/modelerCache'
+import { useAuthStore } from './authStore'
+import { usePresenceStore } from './presenceStore'
 
 /**
  * Validación mínima antes de persistir: no guardar XML vacío o que no parezca
@@ -140,6 +142,28 @@ interface DiagramState {
 // cliente; el atajo de idempotencia resuelve las carreras entre clientes.
 let saveChain: Promise<unknown> = Promise.resolve()
 
+// Diagramas con un conflicto EXTERNO avisado y sin resolver (DEC-013 §4). Se
+// vacía al recargar la versión del servidor (refreshXml). Mientras tanto no se
+// escribe: es lo que impide que un autoguardado pise lo que escribió el
+// conector MCP mientras el diagrama estaba abierto.
+const conflictosExternos = new Set<string>()
+
+/**
+ * ¿Está el usuario solo en el canal del diagrama activo? Los participantes
+ * incluyen al propio usuario (por userId; dos pestañas suyas cuentan como uno).
+ * Sin datos de presencia todavía, se considera solo: ante la duda se pregunta
+ * en vez de reintentar, que es la dirección segura.
+ */
+function estaSoloEnLaSesion(): boolean {
+  const yo = useAuthStore.getState().user?.id
+  return Object.keys(usePresenceStore.getState().participants).every((uid) => uid === yo)
+}
+
+/** Solo para pruebas: olvida los conflictos externos avisados. */
+export function __reiniciarConflictosExternos(): void {
+  conflictosExternos.clear()
+}
+
 export const useDiagramStore = create<DiagramState>()(
   immer((set, get) => ({
     diagrams: [],
@@ -226,6 +250,9 @@ export const useDiagramStore = create<DiagramState>()(
 
     refreshXml: async (id) => {
       const full = await diagramRepository.getById(id)
+      // Recargar la versión del servidor es la resolución de un conflicto
+      // externo: a partir de aquí se vuelve a guardar con normalidad.
+      conflictosExternos.delete(id)
       if (!full) return ''
       set((s) => {
         const d = s.diagrams.find((d) => d.id === id)
@@ -341,6 +368,10 @@ export const useDiagramStore = create<DiagramState>()(
       }
       const updated: Diagram = { ...diagram, xml, elementCount, updatedAt: now }
 
+      // Conflicto externo sin resolver: no se escribe hasta que el usuario
+      // recargue o guarde copia. Su trabajo sigue en el canvas y la pestaña.
+      if (conflictosExternos.has(id)) return
+
       // Adopta el estado ya persistido por otro escritor (idempotencia, ADR §3.4):
       // en tiempo real todos guardan el MISMO estado acordado — si el servidor ya
       // tiene exactamente este XML, no hay nada que escribir ni que avisar.
@@ -369,6 +400,21 @@ export const useDiagramStore = create<DiagramState>()(
         const fresh = await diagramRepository.getById(id)
         if (!fresh) return // borrado por otro → nada que guardar
         if (fresh.xml === xml) { adoptPersisted(fresh.updatedAt); return }
+        // Escritor EXTERNO a la sesión (conector MCP, otra herramienta): nadie
+        // más está en el canal, así que el cambio no vino de un colaborador en
+        // vivo. Reintentar lo pisaría en silencio (escenarios E1/E2/E5 de
+        // docs/addons/investigacion-mcp.md, DEC-013 §4). Se pregunta, y NO se
+        // adopta la versión ajena: adoptarla haría que el próximo autoguardado
+        // pisara igual. La pestaña queda con cambios sin guardar hasta decidir.
+        if (estaSoloEnLaSesion()) {
+          if (!conflictosExternos.has(id)) {
+            conflictosExternos.add(id)
+            if (typeof document !== 'undefined') {
+              document.dispatchEvent(new CustomEvent('flujo:save-conflict', { detail: { id, externo: true } }))
+            }
+          }
+          return
+        }
         try {
           persistedUpdatedAt = await diagramRepository.save(updated, fresh.updatedAt)
         } catch (e2) {

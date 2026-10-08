@@ -16,6 +16,26 @@
     "genericError": "Could not sign in. Please try again.",
     "invalidEmail": "Enter a valid email."
   },
+  "oauthConsent": {
+    "title": "Connect an assistant to Flujo",
+    "asUser": "Signed in as {{email}}",
+    "request": "{{client}} wants to work with your Flujo diagrams on your behalf.",
+    "unknownClient": "An application",
+    "canTitle": "It will be able to",
+    "canRead": "See the projects and diagrams you have access to.",
+    "canCreate": "Create new diagrams in projects where you can edit.",
+    "canEdit": "Change the content of diagrams you can edit.",
+    "cannotTitle": "It will not be able to",
+    "cannot": "Delete or move diagrams or projects, change collaborators or invitations, or touch comments, images or notifications.",
+    "returnTo": "After deciding you will return to {{host}}.",
+    "approve": "Allow",
+    "deny": "Deny",
+    "loading": "Loading the request…",
+    "redirecting": "Returning to the assistant…",
+    "invalid": "The access request is invalid or has expired. Connect again from the assistant.",
+    "failed": "It could not be completed. Connect again from the assistant.",
+    "unavailable": "This Flujo installation runs in local mode and does not support connectors."
+  },
   "share": {
     "title": "Share diagram",
     "subtitle": "Invite people to view or edit this diagram",
@@ -562,6 +582,7 @@
   "conflict": {
     "title": "Diagram changed on the server",
     "message": "Another user saved \"{{name}}\" while you were editing an outdated version. The server version was kept.",
+    "externalMessage": "\"{{name}}\" was changed outside this session (for example, from a connected assistant). Your changes are not saved yet: choose what to do with them.",
     "reload": "Load server version",
     "saveCopy": "Save my copy as duplicate",
     "copyName": "{{name}} (my copy)"
