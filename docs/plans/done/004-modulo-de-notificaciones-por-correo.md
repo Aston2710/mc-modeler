@@ -205,7 +205,7 @@ estaban cuando alguien canjeaba un enlace. Compartir escribiendo un email
 insertaba al colaborador en silencio (con cuenta) o copiaba un enlace al
 portapapeles del owner (sin cuenta).
 
-Migración `supabase/migrations/20261008000000_correo_al_invitar_por_email.sql`:
+Migración `supabase/migrations/20261008163549_correo_al_invitar_por_email.sql`:
 
 | kind nuevo | Se dispara cuando | Destinatario |
 |---|---|---|
@@ -231,6 +231,9 @@ Frontend: `ShareModal` pasa el email al crear el enlace; `NotificationBell`
 está también en la barra de la portada (`DiagramList`); clicar una
 notificación de un diagrama recién compartido recarga lista y roles antes de
 abrirlo (`openNotificationTarget` ahora es async).
+
+Desplegado 2026-10-08: Apps Script versión 3 sobre la misma implementación
+(la URL del webhook no cambió), migración aplicada como `20261008163549`.
 
 Probado en laboratorio con SQL bajo `role authenticated` + JWT simulado (alta
 directa, proyecto, canje sin doble aviso, owner sin aviso, email inválido,
