@@ -5,6 +5,10 @@ import { supabase } from '@/lib/supabase'
 export type NotificationKind =
   | 'invite_redeemed_diagram'
   | 'invite_redeemed_project'
+  | 'collaborator_added_diagram'
+  | 'collaborator_added_project'
+  | 'invite_email_diagram'
+  | 'invite_email_project'
   | 'comment_mention'
 
 export interface AppNotification {

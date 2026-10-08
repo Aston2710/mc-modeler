@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
 import { Search, Upload, Plus, FileText, Sun, Moon, FolderPlus, Folder, Share2, Trash2, LogOut, ArrowUpDown, ArrowUp, ArrowDown, Clock, CalendarDays, ArrowDownAZ, Shapes, ImageIcon, LayoutGrid, List, Clock3, ArrowLeftRight, MoreHorizontal, ChevronRight, ExternalLink, RotateCcw } from 'lucide-react'
+import { NotificationBell } from '@/components/layout/NotificationBell'
 import { ImageGallery } from '@/components/images/ImageGallery'
 import { Brand } from '@/components/layout/Brand'
 import ThumbnailImg from './ThumbnailImg'
@@ -185,6 +186,7 @@ export function DiagramList({ onOpen, onNew, onImport, onNewProject, onShareProj
         <button className="icon-btn" onClick={toggleTheme}>
           {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
         </button>
+        {isSupabaseConfigured && <NotificationBell />}
         {isSupabaseConfigured && onSignOut && (
           <button className="icon-btn" onClick={onSignOut} title="Cerrar sesión">
             <LogOut size={16} />

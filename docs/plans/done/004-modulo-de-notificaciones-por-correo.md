@@ -195,3 +195,48 @@ Cierra el gap donde "Ver comentario" abría solo el diagrama.
 **Gaps restantes (conscientes):** invite de proyecto sigue sin ruta a proyecto
 específico (abre diagrama sí, proyecto → sin nav); unsubscribe one-click sin
 login (solo link a la app).
+
+---
+
+## 4. Ampliación 2026-10-08 — correo al invitado y campanita en la portada
+
+Hasta aquí el invitado **no recibía nada**: el correo iba solo a los que ya
+estaban cuando alguien canjeaba un enlace. Compartir escribiendo un email
+insertaba al colaborador en silencio (con cuenta) o copiaba un enlace al
+portapapeles del owner (sin cuenta).
+
+Migración `supabase/migrations/20261008000000_correo_al_invitar_por_email.sql`:
+
+| kind nuevo | Se dispara cuando | Destinatario |
+|---|---|---|
+| `collaborator_added_diagram` / `_project` | INSERT en `*_collaborators` hecho por otro usuario | el añadido (correo + campanita) |
+| `invite_email_diagram` / `_project` | INSERT en `*_invites` con `email` | esa dirección; el correo lleva el enlace con token |
+
+- El trigger de alta excluye la fila `owner` y el canje de enlace
+  (`new.user_id = auth.uid()`): ese caso ya lo cubre `invite_redeemed_*`.
+  Un cambio de rol (upsert con conflicto) no es INSERT y no avisa.
+- **Cuota anti-abuso:** 20 invitaciones por correo por actor cada 24 h, contadas
+  por `payload->>'actorId'` (lo escribe el trigger; `created_by` lo pone el
+  cliente y no es fiable). La cuenta emisora es Gmail consumer, ~100
+  destinatarios/día para toda la app.
+- Correo validado con regex en el trigger; el mensaje del error llega al toast.
+- El CHECK `notification_outbox_kind_check` se amplía con los 4 kinds — lo cazó
+  el laboratorio, no estaba en el SQL leído de las funciones.
+- `deliver_notification` y `prefAllows_` tratan los kinds nuevos como
+  "invitaciones" (`invite_events`).
+- **Orden de despliegue:** `Code.gs` primero. Con la migración y el script
+  viejo, un kind desconocido se marca enviado con error y el correo se pierde.
+
+Frontend: `ShareModal` pasa el email al crear el enlace; `NotificationBell`
+está también en la barra de la portada (`DiagramList`); clicar una
+notificación de un diagrama recién compartido recarga lista y roles antes de
+abrirlo (`openNotificationTarget` ahora es async).
+
+Probado en laboratorio con SQL bajo `role authenticated` + JWT simulado (alta
+directa, proyecto, canje sin doble aviso, owner sin aviso, email inválido,
+RLS de la campanita, cuota) y con Edge headless sobre la app en modo lab.
+
+**Hallazgo lateral, sin tocar:** `diagram_collaborators` y
+`project_collaborators` no tienen política `UPDATE`, así que re-invitar a un
+colaborador existente con otro rol (upsert) falla con error de RLS. Es previo a
+este cambio.

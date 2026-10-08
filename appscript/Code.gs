@@ -75,10 +75,17 @@ function retryUnsent() {
   }
 }
 
+// Todo lo que cuenta como "invitación" para notification_prefs.invite_events.
+var INVITE_KINDS_ = [
+  'invite_redeemed_diagram', 'invite_redeemed_project',
+  'collaborator_added_diagram', 'collaborator_added_project',
+  'invite_email_diagram', 'invite_email_project',
+]
+
 function prefAllows_(prefs, kind) {
   if (!prefs) return true // sin fila = todo activado (default)
   if (!prefs.email_enabled) return false
-  if ((kind === 'invite_redeemed_diagram' || kind === 'invite_redeemed_project') && !prefs.invite_events) return false
+  if (INVITE_KINDS_.indexOf(kind) !== -1 && !prefs.invite_events) return false
   if (kind === 'comment_mention' && !prefs.mention_events) return false
   return true
 }
@@ -117,12 +124,7 @@ function buildDigest_(rows) {
   for (var i = 0; i < rows.length; i++) {
     var m = buildEmail_(rows[i].kind, rows[i].payload || {})
     if (!m) continue
-    var p = rows[i].payload || {}
-    var url = base
-    if (p.diagramId) {
-      url = base + '/?d=' + encodeURIComponent(p.diagramId)
-      if (p.threadId) url += '&thread=' + encodeURIComponent(p.threadId)
-    }
+    var url = urlFor_(rows[i].kind, rows[i].payload || {})
     lines.push('• ' + m.subject)
     htmlItems.push(
       '<li style="margin:7px 0"><a href="' + url +
@@ -165,8 +167,66 @@ function sendRow_(row) {
 
 // ── Plantillas (ES) ──────────────────────────────────────────────────────────
 
+/** Destino del botón del correo: el recurso exacto cuando se conoce. */
+function urlFor_(kind, p) {
+  var base = PROPS.getProperty('BASE_URL') || ''
+  if (kind === 'invite_email_diagram') return base + '/?invite=' + encodeURIComponent(p.token || '')
+  if (kind === 'invite_email_project') return base + '/?projectInvite=' + encodeURIComponent(p.token || '')
+  if (p.diagramId) {
+    var url = base + '/?d=' + encodeURIComponent(p.diagramId)
+    if (p.threadId) url += '&thread=' + encodeURIComponent(p.threadId)
+    return url
+  }
+  return base
+}
+
 function buildEmail_(kind, p) {
   var base = PROPS.getProperty('BASE_URL') || ''
+  if (kind === 'collaborator_added_diagram' || kind === 'collaborator_added_project') {
+    var isProj = kind === 'collaborator_added_project'
+    var cName = isProj ? p.projectName : p.diagramName
+    var what = isProj ? 'el proyecto' : 'el diagrama'
+    var cUrl = urlFor_(kind, p)
+    return {
+      subject: p.actorName + ' compartió contigo «' + cName + '»',
+      text:
+        p.actorName + ' (' + (p.actorEmail || '') + ') compartió contigo ' + what + ' «' + cName +
+        '» con rol de ' + roleEs_(p.role) + '.\n\n' +
+        (isProj ? 'Lo encuentras en la sección Proyectos: ' : 'Abrir diagrama: ') + cUrl,
+      html: layout_(
+        esc_(p.actorName) + ' compartió contigo «' + esc_(cName) + '»',
+        '<p><strong>' + esc_(p.actorName) + '</strong> (' + esc_(p.actorEmail || '') +
+          ') compartió contigo ' + what + ' <strong>«' + esc_(cName) + '»</strong> con rol de <strong>' +
+          roleEs_(p.role) + '</strong>.</p>' +
+          (isProj ? '<p style="color:#6b7280;font-size:13px">Lo encuentras en la sección Proyectos de la aplicación.</p>' : ''),
+        cUrl, isProj ? 'Abrir MC Modeler' : 'Abrir diagrama'
+      ),
+    }
+  }
+  if (kind === 'invite_email_diagram' || kind === 'invite_email_project') {
+    var iWhat = kind === 'invite_email_project' ? 'al proyecto' : 'al diagrama'
+    var iUrl = urlFor_(kind, p)
+    var expires = p.expiresAt
+      ? 'El enlace vence el ' + Utilities.formatDate(new Date(p.expiresAt), 'America/Caracas', 'dd/MM/yyyy') + '.'
+      : ''
+    return {
+      subject: p.actorName + ' te invitó a «' + p.name + '» en MC Modeler',
+      text:
+        p.actorName + ' (' + (p.actorEmail || '') + ') te invitó ' + iWhat + ' «' + p.name +
+        '» en MC Modeler con rol de ' + roleEs_(p.role) + '.\n\n' +
+        'Para unirte, abre este enlace e inicia sesión con este correo:\n' + iUrl +
+        (expires ? '\n\n' + expires : ''),
+      html: layout_(
+        esc_(p.actorName) + ' te invitó a «' + esc_(p.name) + '»',
+        '<p><strong>' + esc_(p.actorName) + '</strong> (' + esc_(p.actorEmail || '') +
+          ') te invitó ' + iWhat + ' <strong>«' + esc_(p.name) + '»</strong> en MC Modeler con rol de <strong>' +
+          roleEs_(p.role) + '</strong>.</p>' +
+          '<p>Abre el enlace e inicia sesión con este correo para unirte.</p>' +
+          (expires ? '<p style="color:#6b7280;font-size:13px">' + expires + '</p>' : ''),
+        iUrl, 'Aceptar invitación'
+      ),
+    }
+  }
   if (kind === 'invite_redeemed_diagram') {
     var dUrl = base + '/?d=' + encodeURIComponent(p.diagramId || '')
     return {
