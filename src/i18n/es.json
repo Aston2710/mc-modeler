@@ -24,7 +24,7 @@
     "roleViewer": "Solo ver",
     "invite": "Invitar",
     "added": "Colaborador añadido.",
-    "notRegistered": "Ese usuario aún no tiene cuenta. Comparte un enlace de invitación.",
+    "inviteSent": "Invitación enviada a {{email}}",
     "copyLink": "Copiar enlace de invitación",
     "linkCopied": "Enlace copiado al portapapeles.",
     "collaborators": "Colaboradores",

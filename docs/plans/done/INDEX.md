@@ -11,7 +11,7 @@ Orden por ID descendente. El `NNN` y el slug se conservan al cerrar para no romp
 | [PLAN-008](008-refactor-ux-ui-cromo-de-la-aplicacion.md) | Refactor UX/UI del cromo de la aplicación | Implementado. El modelado BPMN no se tocó, según la regla #1 del plan | 2026-08-09 |
 | [PLAN-007](007-propuesta-ux-ui.md) | Propuesta de rediseño UX/UI | Aprobada y ejecutada vía PLAN-008 | 2026-08-09 |
 | [PLAN-006](006-limpieza-de-duplicados-y-cierre-del-pivote.md) | Limpieza de duplicados y cierre del pivote ADR | Etapa 6 completa: `yjs_documents`/`yjs_updates` eliminadas en producción (`0018`). Quedaron 3 duplicados diferidos | 2026-07-19 |
-| [PLAN-004](004-modulo-de-notificaciones-por-correo.md) | Módulo de notificaciones por correo | Implementado: outbox + `pg_net` + Apps Script. **Pendiente el deploy del script** | 2026-07-08 |
+| [PLAN-004](004-modulo-de-notificaciones-por-correo.md) | Módulo de notificaciones por correo | Implementado: outbox + `pg_net` + Apps Script (desplegado). Ampliado 2026-10-08: correo al invitado + campanita en portada | 2026-07-08 |
 | [PLAN-003](003-labels-externos-redimensionables.md) | Labels externos redimensionables con snap-to-content | Implementado y probado. Tipografía global/por-elemento pospuesta por decisión del usuario | 2026-07-07 |
 | [PLAN-002](002-canvas-y-correccion-de-corrupcion.md) | Reestructuración del canvas y corrección de la corrupción | Implementado. Ver EXP-008 | 2026-07-23 |
 | [PLAN-001](001-pivote-adr-xml-como-fuente-de-verdad.md) | Pivote ADR: XML canónico como única fuente de verdad | Etapas 0–6 implementadas. Pendientes: migración de imágenes base64 y UI de conflicto | 2026-07-19 |
