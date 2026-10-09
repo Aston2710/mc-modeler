@@ -167,3 +167,4 @@ backfill-thumbs-*.json
 spike-vector/
 verificacion-pdf/
 legibilidad-diagramas.csv
+.vercel

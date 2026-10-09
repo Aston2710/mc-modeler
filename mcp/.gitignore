@@ -2,3 +2,5 @@ node_modules/
 dist/
 .vercel/
 pruebas/capturas/
+.vercel
+.env*
