@@ -32,6 +32,14 @@ Además, **`validation.ts` (D7)**: ahora comprueba los procesos dentro de pools.
 - ✅ Revisión visual en la app de los cuatro casos. Defecto de compuertas encontrado y corregido, con su prueba de regresión.
 - ☐ Ida y vuelta con 1–2 diagramas **reales** de producción con `bizagi:` (15 en producción), cargados en el laboratorio. Requiere el visto bueno para manejar datos reales.
 
+## Estado de ejecución — 2026-10-09
+
+- ✅ **Tamaño de tareas por nombre** (`tamanoActividad.ts`): con icono, la tarea crece hasta que la primera línea no choca con él. Lo usan `layout.ts` y `agregar_nodo`. Regresión del caso real visto con Claude ("dentificarse").
+- ✅ **`agregar_pool` y `agregar_carril`** en `editar.ts` (MASTER-PLAN-038, D11), con pruebas de que lo existente no se mueve (pool) o baja exactamente 120 px (carril) y de que `bizagi:` sale intacto.
+- ✅ `renombrar` sobre pools y carriles, fijado con una prueba.
+- ✅ `src/domain/contarElementosXml.ts` (para la SPA, no para el conector) cuenta lo mismo que `contarElementos`; una prueba lo comprueba sobre XML generado y editado.
+- ☐ Sigue pendiente la ida y vuelta con un diagrama **real** de Bizagi: el usado en el ensayo no tenía extensiones `bizagi:`.
+
 ## Fuera de alcance
 
 Subprocesos enlazados (diagramas hijo), anotaciones, grupos y fases como entrada del modelo: se conservan al editar, pero no se crean.

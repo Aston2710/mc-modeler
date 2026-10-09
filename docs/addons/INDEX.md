@@ -15,6 +15,7 @@ Material que se **cita**, no que gobierna. Una decisión derivada de un addon vi
 | [comentarios_collab.md](comentarios_collab.md) | investigación | diseño de comentarios en herramientas de colaboración | 2026-06-29 | PLAN-001 (§2a comentarios a tablas) |
 | [comentariosGoogle.md](comentariosGoogle.md) | investigación | comportamiento de comentarios en Google Docs | 2026-06-29 | PLAN-001 (§2a) |
 | [informe-mcp-fase-2.md](informe-mcp-fase-2.md) | informe | implementación y pruebas asistidas por Claude, solicitadas por santiagojmg28 (Fase 2 del MCP, solo laboratorio) | 2026-10-08 | MASTER-PLAN-038, PLAN-039 a PLAN-042 |
+| [informe-mcp-fase-3.md](informe-mcp-fase-3.md) | informe | pruebas e implementación asistidas por Claude, solicitadas por santiagojmg28 (Fase 3 del MCP, entorno alojado de ensayo, sin tocar producción) | 2026-10-09 | MASTER-PLAN-038 (D10, D11), PLAN-039 a PLAN-042, `mcp/README.md` |
 | [investigacion-colaboradores.md](investigacion-colaboradores.md) | investigación | modelos de colaboración y permisos de terceros | 2026-06-26 | DEC-001, DEC-002 |
 | [investigacion-mcp.md](investigacion-mcp.md) | investigación | investigación asistida por Claude, solicitada por santiagojmg28 (Fase 0 del MCP, solo lectura) | 2026-10-08 | por-determinar (entrada de la Fase 1: DEC-013 y master plan) |
 | [revision-arquitectura-colaboracion.md](revision-arquitectura-colaboracion.md) | investigación | revisión de ingeniería de software (venía de `fix_doc/software_ing/`) | 2026-07-07 | DEC-004 |

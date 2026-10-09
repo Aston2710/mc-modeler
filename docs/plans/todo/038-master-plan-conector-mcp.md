@@ -17,7 +17,7 @@ relacionados: [DEC-001, DEC-002, DEC-005, DEC-007, DEC-009, DEC-012, DEC-013, EX
 
 La investigación que lo sostiene está en [`addons/investigacion-mcp.md`](../../addons/investigacion-mcp.md). La decisión de arquitectura es [DEC-013](../../context/decisiones.md), vigente desde la aprobación de este plan (2026-10-08).
 
-Los cuatro sub-planes se redactaron al arrancar cada fase, el 2026-10-08. Este documento fija el alcance, las decisiones y el orden. El informe de la implementación en el laboratorio está en [`addons/informe-mcp-fase-2.md`](../../addons/informe-mcp-fase-2.md).
+Los cuatro sub-planes se redactaron al arrancar cada fase, el 2026-10-08. Este documento fija el alcance, las decisiones y el orden. El informe de la implementación en el laboratorio está en [`addons/informe-mcp-fase-2.md`](../../addons/informe-mcp-fase-2.md); el del ensayo en un entorno alojado, en [`addons/informe-mcp-fase-3.md`](../../addons/informe-mcp-fase-3.md). **La guía para llevarlo a producción está en [`mcp/README.md`](../../../mcp/README.md#puesta-en-producción).**
 
 ## Restricciones no negociables
 
@@ -44,15 +44,17 @@ Los cuatro sub-planes se redactaron al arrancar cada fase, el 2026-10-08. Este d
 | D7 | Corregir `validation.ts` para que compruebe los procesos dentro de pools | aprobado por el usuario |
 | D8 | Layout **propio** sobre el modelo semántico, con las flechas trazadas por el `BizagiDirectionalRouter` del repo. **Sin `bpmn-auto-layout`** | medido el 2026-10-08: la versión publicada no dispone pools, carriles, subprocesos expandidos ni flujos de mensaje (investigación §5) |
 | D9 | **Claude es el cliente de referencia.** ChatGPT se intenta por estándar, sin compromiso | sus planes con escritura no están verificados (investigación §6.3) |
+| D10 | **La portada genera las miniaturas que faltan** con un Modeler oculto y el mismo `MODELER_CONFIG` que el editor; el servidor sigue sin dibujar | aprobado por el usuario el 2026-10-09, al verlo en el ensayo. Renderizar en el servidor exigiría un DOM en la función de Vercel |
+| D11 | `modificar_diagrama` puede **añadir pools y carriles** (`agregar_pool`, `agregar_carril`), nunca quitarlos | aprobado por el usuario el 2026-10-09: sin ello, Claude creaba otro diagrama para añadir un pool |
 
 ## Tablero
 
 | | Plan | Qué | Toca BD | Toca cliente | Estado |
 |:-:|---|---|:-:|:-:|---|
-| ☐ | [PLAN-039](039-base-de-datos-del-conector.md) | **Base de datos del conector**: guardia, auditoría, límites, y servidor OAuth activado en el laboratorio | **sí** | no | en-progreso — probado en el laboratorio (32/32); **producción pendiente de aprobación** |
-| ☐ | [PLAN-040](040-nucleo-de-dominio-bpmn-model.md) | **Núcleo de dominio** en `src/domain/bpmn-model/`: modelo semántico, generación de XML, layout, edición, simplificación para `obtener_diagrama`, validación (con la corrección de D7) | no | solo `validation.ts` | en-progreso — implementado y probado; falta la ida y vuelta con diagramas reales |
-| ☐ | [PLAN-041](041-servidor-mcp-etapa-1.md) | **Servidor MCP, etapa 1**: `listar_proyectos`, `listar_diagramas`, `obtener_diagrama`, `validar_diagrama`, `crear_diagrama`; OAuth, límites, idempotencia, y la página de consentimiento en la SPA | no | página `/oauth/consent` | en-progreso — 24/24 de integración y e2e; falta el despliegue de vista previa |
-| ☐ | [PLAN-042](042-escritor-externo-y-modificar-diagrama.md) | **Etapa 2**: el cliente distingue un escritor externo (opción C), se añade la compuerta de presencia, y se habilita `modificar_diagrama` | no | `diagramStore.saveDiagram` | en-progreso — probado en la app real; falta desplegar el cliente antes de encender la etapa 2 |
+| ☐ | [PLAN-039](039-base-de-datos-del-conector.md) | **Base de datos del conector**: guardia, auditoría, límites, y servidor OAuth activado en el laboratorio | **sí** | no | en-progreso — 32/32 en el laboratorio; aplicada y comprobada en un entorno alojado de ensayo; **producción pendiente de aprobación** |
+| ☐ | [PLAN-040](040-nucleo-de-dominio-bpmn-model.md) | **Núcleo de dominio** en `src/domain/bpmn-model/`: modelo semántico, generación de XML, layout, edición, simplificación para `obtener_diagrama`, validación (con la corrección de D7) | no | solo `validation.ts` | en-progreso — implementado y probado, más tamaño de tareas y pools/carriles (D11); falta la ida y vuelta con un diagrama real de Bizagi |
+| ☐ | [PLAN-041](041-servidor-mcp-etapa-1.md) | **Servidor MCP, etapa 1**: `listar_proyectos`, `listar_diagramas`, `obtener_diagrama`, `validar_diagrama`, `crear_diagrama`; OAuth, límites, idempotencia, y la página de consentimiento en la SPA | no | página `/oauth/consent`; miniaturas en la portada (D10) | en-progreso — desplegado en Vercel en el ensayo y probado con el Inspector y con Claude; falta producción |
+| ☐ | [PLAN-042](042-escritor-externo-y-modificar-diagrama.md) | **Etapa 2**: el cliente distingue un escritor externo (opción C), se añade la compuerta de presencia, y se habilita `modificar_diagrama` | no | `diagramStore.saveDiagram` | en-progreso — probado con Claude en el ensayo (opción C incluida); falta desplegar el cliente antes de encender la etapa 2 |
 
 **Progreso: 0/4.**
 
@@ -74,7 +76,8 @@ PLAN-040 ──┘
 
 - **Tools destructivas**: borrar diagramas o proyectos, papelera, mover de proyecto. Ni en el MCP ni con el token directamente contra PostgREST (D5).
 - **Comentarios, colaboradores, invitaciones, imágenes**. Fuera por decisión del usuario.
-- **Thumbnail del diagrama creado.** Renderizar exige un navegador. La portada muestra el marcador de posición hasta que alguien edite el diagrama en la app y el autoguardado lo genere. Es una limitación conocida, no un defecto.
+- **Dibujar la miniatura en el servidor.** Renderizar exige un navegador. Desde el 2026-10-09 la genera la portada del propio usuario al abrir Flujo (D10), así que el servidor sigue sin hacerlo.
+- **Quitar pools o carriles**, ni redimensionar formas existentes. Añadirlos sí (D11).
 - **Subprocesos enlazados** (`flujo:linkedDiagram`, diagramas hijo). Los expandidos dentro del diagrama sí entran.
 - **El MCP como par de Yjs** y **reimportar en caliente** (opciones E y B de la investigación): son la zona de EXP-003, EXP-005 y EXP-007.
 - **Esperar a MASTER-PLAN-019.** Cuando exista el servidor autoritativo, el MCP pasará a ser cliente de él y la compuerta de presencia se retirará. No bloquea este plan.
@@ -118,6 +121,7 @@ Además de los criterios de cada sub-plan, la lista de verificación del encargo
 | 2026-10-08 | Fase 0 (investigación) y Fase 1 (este plan, DEC-013 propuesta, prototipo SQL). Instalados Node 22.23.2 y Docker Desktop 4.94.0; laboratorio levantado. Línea base: 427 pruebas en 39 ficheros, lint limpio, build correcto. |
 | 2026-10-08 | **Fase 2 implementada y probada en el laboratorio**, sin commit ni despliegue:<br>· SPA: 479 pruebas (+52), lint y build limpios, bundle +3,2 kB solo de textos y código propio.<br>· Base: 32/32 casos.<br>· Integración: 24/24 con tokens OAuth reales.<br>· e2e: 11/11 en la app real (apertura, exportación en 4 formatos y guardado, dos navegadores, opción C, colaboración en vivo, modo local, consentimiento).<br>· `bpmn-auto-layout` descartado por medición (D8).<br>· Defecto de layout de compuertas encontrado y corregido.<br>Informe: [`addons/informe-mcp-fase-2.md`](../../addons/informe-mcp-fase-2.md). **Ningún plan se cierra: pendiente de aprobación y de las acciones de producción del informe §5.** |
 | 2026-10-08 | **Plan aprobado por el usuario**; DEC-013 pasa a vigente. JWKS público de producción: firma **ES256** (asimétrica), no hace falta cambiar claves. El servidor OAuth aún no está activo en producción (metadatos en 404). La lectura de extensiones `bizagi:`/`camunda:` en producción queda pendiente de acceso; el MCP las preserva por diseño y lo cubre una prueba. |
+| 2026-10-09 | **Fase 3: ensayo en un entorno alojado** (Supabase y Vercel aparte, sin tocar producción). El conector funciona de punta a punta: despliegue en Vercel, OAuth con registro dinámico, Inspector y Claude (16 casos manuales). Mejoras: tamaño de tareas por nombre, renombrar pools y carriles, `agregar_pool` y `agregar_carril` (D11), miniaturas en la portada (D10) y `element_count` en la app. Fusionado `main` sin conflictos. 505 pruebas, lint y build limpios. Hallazgo a vigilar: cada reconexión de Claude registra un cliente OAuth. Informe: [`addons/informe-mcp-fase-3.md`](../../addons/informe-mcp-fase-3.md); guía de producción en `mcp/README.md`. **Ningún plan se cierra.** |
 
 ## Resultado
 

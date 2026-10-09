@@ -45,3 +45,10 @@ Con pares en el canal, todo sigue como antes. Sin datos de presencia, se conside
   - **opción C:** un cambio externo con el usuario solo no se pisa tras dos ciclos de autoguardado, y aparece el aviso.
 - ☐ Desplegar la SPA a producción (aprobación) y **después** activar `MCP_HABILITAR_MODIFICAR=1`.
 - ☐ Riesgo residual, mitigado y sin resolver: pestaña de fondo desactualizada que vuelve con otra persona ya en el canal. Propuesta: revalidar `updated_at` al reactivar una pestaña cacheada. Sin hacer.
+
+## Estado de ejecución — 2026-10-09 (entorno alojado de ensayo, `MCP_HABILITAR_MODIFICAR=1`)
+
+- ✅ Inspector: `renombrar` + `agregar_nodo` aplicados con CAS; repetir con la versión vieja da conflicto y no escribe.
+- ✅ Claude con el diagrama **abierto** en la app: el primer intento se rechaza; con `si_esta_abierto="copiar"` guarda una copia y el original queda intacto.
+- ✅ Claude renombra un carril y un pool, y añade un pool conectado por mensajes **en el mismo diagrama** (`agregar_pool`, MASTER-PLAN-038 D11), sin mover lo existente. Revisado a ojo.
+- ☐ Desplegar la SPA a producción y **después** encender la etapa 2: sin cambios respecto al 2026-10-08.

@@ -34,3 +34,13 @@ Fase 2 de [MASTER-PLAN-038](038-master-plan-conector-mcp.md). Paquete aislado `m
 - ☐ Despliegue de **vista previa** en Vercel (lanzador Node y enrutado `_r`, sin probar en Vercel).
 - ☐ Configurar Auth en producción (PLAN-039), desplegar la SPA y crear el proyecto de Vercel. Todo requiere aprobación.
 - ☐ Conectar Claude de verdad y probar con el Inspector.
+
+## Estado de ejecución — 2026-10-09 (entorno alojado de ensayo)
+
+- ✅ **Desplegado en Vercel** con `npm run build` + `vercel deploy --prebuilt`: el lanzador Node y el enrutado `_r` funcionan. `/.well-known/oauth-protected-resource` → 200; `POST /mcp` sin token → 401 con `resource_metadata`.
+- ✅ **Inspector**: registro dinámico, consentimiento en la SPA desplegada, y las tools de lectura y `crear_diagrama`.
+- ✅ **Claude** como conector personalizado (DCR, "Iniciar sesión ahora"): crea diagramas desde lenguaje natural y los valida.
+- ✅ La portada genera las miniaturas de lo creado por el conector (MASTER-PLAN-038, D10); `crear_diagrama` ya no dice que haga falta editarlo.
+- ⚠️ Cada reconexión de Claude registra un cliente OAuth nuevo (7 en una hora de pruebas). A vigilar en producción.
+- ⚠️ Claude guarda la lista de tools de cuando se conectó: tras desplegar una versión nueva, hay que reconectar.
+- ☐ Producción: pasos en `mcp/README.md` → Puesta en producción.

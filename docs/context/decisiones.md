@@ -38,6 +38,7 @@ Append-only. Entradas más recientes arriba. **Las alternativas descartadas con 
   - La audiencia del token es `authenticated` y no la URL del MCP: es una desviación consciente de RFC 8707, compensada por el punto 1 y la guardia de la base.
   - Hobby obliga a que el uso siga siendo no comercial.
   - El diagrama creado por la IA no tiene thumbnail hasta que alguien lo edite en la app.
+    - *Nota 2026-10-09:* superada. La portada genera las miniaturas que faltan al abrir Flujo (MASTER-PLAN-038, D10). El servidor sigue sin dibujar.
 - **Relacionados:** MASTER-PLAN-038, EXP-011, EXP-016, EXP-018, EXP-022, DEC-001, DEC-002, DEC-007, DEC-009, DEC-011, `addons/investigacion-mcp.md`, `addons/auditoria-seguridad-acceso.md`
 
 ---

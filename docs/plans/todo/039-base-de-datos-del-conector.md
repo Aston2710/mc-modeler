@@ -36,6 +36,15 @@ Los triggers se disparan también dentro de las funciones `SECURITY DEFINER` (`r
 - ☐ **Aplicar en producción** (aprobación).
 - ☐ **Activar el servidor OAuth en producción** (panel; aprobación). Producción ya firma con ES256.
 
+## Estado de ejecución — 2026-10-09 (entorno alojado de ensayo)
+
+- ✅ Aplicada en un proyecto Supabase aparte, sobre el baseline de producción. 15 triggers `conector_*` presentes.
+- ✅ `private.es_conector()` con claims simulados, en transacción con `rollback`: `false` sin `client_id`, `true` con él. Las sesiones de la app no se ven afectadas.
+- ✅ Con tokens OAuth reales (Inspector y Claude), las escrituras quedan en `private.mcp_auditoria` con las versiones encadenadas, y el contador de `private.mcp_ventanas` cuenta las llamadas.
+- ✅ Convive con la migración `20261008163549_correo_al_invitar_por_email.sql`: `notification_outbox` está en la lista de solo lectura del conector y el conector no puede invitar, así que los triggers nuevos nunca se disparan desde él.
+- ✅ El registro dinámico de clientes es un interruptor **aparte** del servidor OAuth en el panel, y viene apagado.
+- ☐ `supabase/pruebas/mcp_conector.sql` no se ejecutó en el ensayo: es un script de `psql` que necesita los datos de `seed.sql`. Sigue siendo la prueba de referencia, en el laboratorio.
+
 ## Criterios de cierre
 
 Migración aplicada en producción con la huella del esquema comprobada (DEC-012), y los casos 1–8 repetidos contra producción **solo en las partes de lectura de catálogo** (`has_table_privilege`, triggers presentes). Ninguna escritura de prueba en producción.
