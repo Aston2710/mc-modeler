@@ -13,6 +13,7 @@ import {
   type DefinicionEvento,
   type TipoNodo,
 } from './modelo'
+import { tamanoActividad } from './tamanoActividad'
 import { trazarConexiones, type ConexionExistente, type FormaParaTrazar } from './trazado'
 
 /**
@@ -50,6 +51,22 @@ export type Operacion =
   | { op: 'renombrar'; id: string; nombre: string }
   | { op: 'conectar'; desde: string; hasta: string; nombre?: string; id?: string }
   | { op: 'eliminar'; id: string }
+  | {
+      op: 'agregar_pool'
+      id: string
+      nombre: string
+      /** Carriles del pool nuevo, de arriba abajo. */
+      carriles?: { id: string; nombre: string }[]
+    }
+  | {
+      op: 'agregar_carril'
+      id: string
+      nombre: string
+      /** Pool donde va. */
+      pool: string
+      /** Carril existente debajo del cual se inserta. Sin él, va al final del pool. */
+      despues_de?: string
+    }
 
 export class ErrorEdicion extends Error {
   constructor(message: string, public readonly operacion?: number) {
@@ -70,15 +87,19 @@ interface Caja { x: number; y: number; width: number; height: number }
 
 const MAX_OPERACIONES = 50
 const HUECO = 50
+// Las mismas medidas que `layout.ts` usa al crear un diagrama.
+const ETIQUETA_POOL = 30
+const SEPARACION_POOLS = 60
+const ALTO_CARRIL = 120
+const ALTO_POOL_SIN_CARRILES = ELEMENT_SIZES.participantExpanded.height
 
 const solapan = (a: Caja, b: Caja) =>
   a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
 
-function tamanoDe(tipo: TipoNodo) {
+function tamanoDe(tipo: TipoNodo, nombre?: string) {
   if (esEvento(tipo)) return { ...ELEMENT_SIZES.event }
   if (esCompuerta(tipo)) return { ...ELEMENT_SIZES.gateway }
-  if (tipo === 'subproceso') return { ...ELEMENT_SIZES.subProcessCollapsed }
-  return { ...ELEMENT_SIZES.task }
+  return tamanoActividad(tipo, nombre)
 }
 
 /** Índice del árbol: elementos, contenedores, carriles y DI. */
@@ -178,6 +199,8 @@ export async function editarXml(xml: string, operaciones: Operacion[]): Promise<
         case 'renombrar': cambios.push(renombrar(ix, op)); break
         case 'conectar': cambios.push(conectar(moddle, ix, op)); break
         case 'eliminar': cambios.push(eliminar(ix, op)); break
+        case 'agregar_pool': cambios.push(agregarPool(moddle, ix, op)); break
+        case 'agregar_carril': cambios.push(agregarCarril(moddle, ix, op)); break
         default: throw new ErrorEdicion(`operación desconocida "${(op as { op?: string })?.op}"`)
       }
     } catch (e) {
@@ -294,7 +317,7 @@ function agregarNodo(moddle: Bo, ix: Indice, op: Extract<Operacion, { op: 'agreg
   ix.contenedor.set(bo.id, contenedor)
 
   // ── Posición ──
-  const t = tamanoDe(op.tipo)
+  const t = tamanoDe(op.tipo, op.nombre)
   let caja: Caja
   if (op.tipo === 'evento_borde') {
     const h = ix.bounds(op.adjunto_a!)!
@@ -431,6 +454,191 @@ function cruzaOtroEje(b: Caja, nueva: Caja, eje: 'x' | 'y'): boolean {
   return eje === 'y'
     ? b.x <= nueva.x && b.x + b.width >= nueva.x
     : b.y <= nueva.y && b.y + b.height >= nueva.y + nueva.height
+}
+
+// ── agregar_pool / agregar_carril ───────────────────────────────────────────
+
+function validarIdNuevo(ix: Indice, id: unknown, vistos?: Set<string>): string {
+  if (typeof id !== 'string' || !PATRON_ID.test(id)) throw new ErrorEdicion(`id "${id}" no válido`)
+  if (ix.idUsado(id) || vistos?.has(id)) throw new ErrorEdicion(`el id "${id}" ya existe en el diagrama`)
+  vistos?.add(id)
+  return id
+}
+
+function validarNombre(nombre: unknown) {
+  if (typeof nombre !== 'string') throw new ErrorEdicion('"nombre" debe ser texto')
+  if (nombre.length > LIMITES.MAX_LARGO_NOMBRE) throw new ErrorEdicion(`el nombre supera ${LIMITES.MAX_LARGO_NOMBRE} caracteres`)
+}
+
+function forma(moddle: Bo, ix: Indice, bo: Bo, caja: Caja, extra: Record<string, unknown> = {}) {
+  const shape = moddle.create('bpmndi:BPMNShape', {
+    id: libre(ix, `${bo.id}_di`),
+    bpmnElement: bo,
+    bounds: moddle.create('dc:Bounds', caja),
+    ...extra,
+  })
+  ix.plano.planeElement.push(shape)
+  ix.di.set(bo.id, shape)
+}
+
+function esVertical(ix: Indice, id: string): boolean {
+  return ix.di.get(id)?.isHorizontal === false
+}
+
+/** Borde inferior de todo lo dibujado: formas, flechas y etiquetas. */
+function fondoDelDibujo(ix: Indice): number | undefined {
+  let fondo = -Infinity
+  for (const d of ix.di.values()) {
+    if (d.bounds) fondo = Math.max(fondo, d.bounds.y + d.bounds.height)
+    for (const p of d.waypoint ?? []) fondo = Math.max(fondo, p.y)
+    const lb = d.label?.bounds
+    if (lb) fondo = Math.max(fondo, lb.y + lb.height)
+  }
+  return Number.isFinite(fondo) ? fondo : undefined
+}
+
+/**
+ * Baja `delta` todo lo que empieza en `corte` o más abajo. Una etiqueta viaja
+ * con su forma aunque cuelgue por debajo del corte (la de un evento al pie del
+ * carril). Los puntos de flecha justo en el corte se quedan: están sobre el
+ * borde que no se mueve.
+ */
+function bajar(ix: Indice, corte: number, delta: number) {
+  for (const d of ix.di.values()) {
+    if (d.$type === 'bpmndi:BPMNShape' && d.bounds) {
+      if (d.bounds.y < corte) continue
+      d.bounds.y += delta
+      if (d.label?.bounds) d.label.bounds.y += delta
+    } else if (d.$type === 'bpmndi:BPMNEdge') {
+      for (const p of d.waypoint ?? []) if (p.y > corte) p.y += delta
+      if (d.label?.bounds && d.label.bounds.y >= corte) d.label.bounds.y += delta
+    }
+  }
+}
+
+/**
+ * Pool nuevo, con su proceso y carriles opcionales, debajo de todo lo dibujado:
+ * alineado a la izquierda con el primer pool y tan ancho como el más ancho.
+ * Lo que ya había no se mueve.
+ */
+function agregarPool(moddle: Bo, ix: Indice, op: Extract<Operacion, { op: 'agregar_pool' }>): string {
+  const vistos = new Set<string>()
+  validarIdNuevo(ix, op.id, vistos)
+  validarNombre(op.nombre)
+  const collab = ix.collaboration
+  if (!collab || ix.plano.bpmnElement !== collab) {
+    throw new ErrorEdicion('el diagrama no tiene pools: el conector solo añade un pool a un diagrama que ya tiene alguno')
+  }
+  const pools: Bo[] = collab.participants ?? []
+  if (pools.length >= LIMITES.MAX_POOLS) throw new ErrorEdicion(`como máximo ${LIMITES.MAX_POOLS} pools por diagrama`)
+  if (pools.some((p) => esVertical(ix, p.id))) throw new ErrorEdicion('el diagrama tiene pools verticales: el conector solo añade pools horizontales')
+  const carriles = op.carriles ?? []
+  if (!Array.isArray(carriles)) throw new ErrorEdicion('"carriles" debe ser una lista')
+  if (carriles.length > LIMITES.MAX_CARRILES_POR_POOL) throw new ErrorEdicion(`como máximo ${LIMITES.MAX_CARRILES_POR_POOL} carriles por pool`)
+  for (const c of carriles) {
+    validarIdNuevo(ix, c?.id, vistos)
+    validarNombre(c.nombre)
+  }
+
+  const cajas = pools.map((p) => ix.bounds(p.id)).filter((c): c is Caja => !!c)
+  const x = cajas.length ? Math.min(...cajas.map((c) => c.x)) : 100
+  const width = cajas.length ? Math.max(...cajas.map((c) => c.width)) : ELEMENT_SIZES.participantExpanded.width
+  const fondo = fondoDelDibujo(ix)
+  const y = fondo === undefined ? 50 : Math.round(fondo + SEPARACION_POOLS)
+  const height = carriles.length ? carriles.length * ALTO_CARRIL : ALTO_POOL_SIN_CARRILES
+
+  const proceso = moddle.create('bpmn:Process', { id: libre(ix, `Process_${op.id}`), isExecutable: false })
+  proceso.$parent = ix.defs
+  ix.defs.rootElements.push(proceso)
+  ix.elementos.set(proceso.id, proceso)
+
+  const pool = moddle.create('bpmn:Participant', { id: op.id, processRef: proceso })
+  if (op.nombre) pool.name = op.nombre
+  pool.$parent = collab
+  collab.participants = [...pools, pool]
+  ix.elementos.set(pool.id, pool)
+  ix.procesoDePool.set(pool.id, proceso)
+  ix.poolDeProceso.set(proceso.id, pool)
+  forma(moddle, ix, pool, { x, y, width, height }, { isHorizontal: true })
+
+  if (carriles.length) {
+    const laneSet = moddle.create('bpmn:LaneSet', { id: libre(ix, `LaneSet_${op.id}`), lanes: [] })
+    laneSet.$parent = proceso
+    proceso.laneSets = [laneSet]
+    carriles.forEach((c, i) => {
+      const lane = moddle.create('bpmn:Lane', { id: c.id, flowNodeRef: [] })
+      if (c.nombre) lane.name = c.nombre
+      lane.$parent = laneSet
+      laneSet.lanes.push(lane)
+      ix.elementos.set(lane.id, lane)
+      forma(moddle, ix, lane, { x: x + ETIQUETA_POOL, y: y + i * ALTO_CARRIL, width: width - ETIQUETA_POOL, height: ALTO_CARRIL }, { isHorizontal: true })
+    })
+  }
+  return `agregado pool "${op.id}"${carriles.length ? ` con ${carriles.length} carril(es)` : ''}`
+}
+
+/**
+ * Carril nuevo en un pool existente, debajo de `despues_de` o al final. Lo que
+ * queda por debajo baja para hacerle sitio y el pool crece.
+ *
+ * Si el pool no tenía carriles se hace lo mismo que la app al dividirlo: el
+ * contenido actual pasa a un primer carril sin nombre que ocupa el pool entero,
+ * y el nuevo va debajo.
+ */
+function agregarCarril(moddle: Bo, ix: Indice, op: Extract<Operacion, { op: 'agregar_carril' }>): string {
+  validarIdNuevo(ix, op.id)
+  validarNombre(op.nombre)
+  const pool = typeof op.pool === 'string' ? ix.elementos.get(op.pool) : undefined
+  if (pool?.$type !== 'bpmn:Participant' || !pool.processRef) throw new ErrorEdicion(`"pool": "${op.pool}" no es un pool con proceso`)
+  const cajaPool = ix.bounds(pool.id)
+  if (!cajaPool) throw new ErrorEdicion(`el pool "${pool.id}" no está dibujado`)
+  if (esVertical(ix, pool.id)) throw new ErrorEdicion('el pool es vertical: el conector solo añade carriles a pools horizontales')
+  const proceso = pool.processRef
+
+  let laneSet = proceso.laneSets?.[0]
+  let nota = ''
+  if (!laneSet?.lanes?.length) {
+    const nodos = (proceso.flowElements ?? []).filter(esNodoDeFlujo)
+    const primero = moddle.create('bpmn:Lane', { id: libre(ix, `${pool.id}_carril_1`), flowNodeRef: nodos })
+    if (!laneSet) {
+      laneSet = moddle.create('bpmn:LaneSet', { id: libre(ix, `LaneSet_${pool.id}`), lanes: [] })
+      laneSet.$parent = proceso
+      proceso.laneSets = [laneSet]
+    }
+    primero.$parent = laneSet
+    laneSet.lanes = [primero]
+    ix.elementos.set(primero.id, primero)
+    for (const n of nodos) ix.carrilDe.set(n.id, primero)
+    forma(moddle, ix, primero, {
+      x: cajaPool.x + ETIQUETA_POOL, y: cajaPool.y, width: cajaPool.width - ETIQUETA_POOL, height: cajaPool.height,
+    }, { isHorizontal: true })
+    nota = ` (lo que ya tenía el pool pasó al carril sin nombre "${primero.id}")`
+  }
+  if (laneSet.lanes.length >= LIMITES.MAX_CARRILES_POR_POOL) {
+    throw new ErrorEdicion(`como máximo ${LIMITES.MAX_CARRILES_POR_POOL} carriles por pool`)
+  }
+
+  let ref: Bo = laneSet.lanes[laneSet.lanes.length - 1]
+  if (op.despues_de !== undefined) {
+    ref = ix.elementos.get(op.despues_de)
+    if (ref?.$type !== 'bpmn:Lane' || !laneSet.lanes.includes(ref)) {
+      throw new ErrorEdicion(`"despues_de": "${op.despues_de}" no es un carril de primer nivel de ese pool`)
+    }
+  }
+  const r = ix.bounds(ref.id)
+  if (!r) throw new ErrorEdicion(`el carril "${ref.id}" no está dibujado`)
+  const corte = r.y + r.height
+
+  bajar(ix, corte, ALTO_CARRIL)
+  ix.di.get(pool.id).bounds.height += ALTO_CARRIL
+
+  const lane = moddle.create('bpmn:Lane', { id: op.id, flowNodeRef: [] })
+  if (op.nombre) lane.name = op.nombre
+  lane.$parent = laneSet
+  laneSet.lanes.splice(laneSet.lanes.indexOf(ref) + 1, 0, lane)
+  ix.elementos.set(lane.id, lane)
+  forma(moddle, ix, lane, { x: r.x, y: corte, width: r.width, height: ALTO_CARRIL }, { isHorizontal: true })
+  return `agregado carril "${op.id}" en el pool "${pool.id}"${nota}`
 }
 
 // ── renombrar ───────────────────────────────────────────────────────────────

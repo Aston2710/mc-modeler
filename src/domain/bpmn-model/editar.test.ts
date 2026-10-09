@@ -83,6 +83,21 @@ async function abreLimpio(xml: string) {
 }
 
 describe('editarXml — ida y vuelta sobre un diagrama real', () => {
+  // La descripción de modificar_diagrama lo promete; Claude creía que no se
+  // podía (prueba en la copia de pruebas, 2026-10-09).
+  it('renombrar vale para pools y carriles, y "" deja un carril sin nombre', async () => {
+    const { xml } = await editarXml(XML_REAL, [
+      { op: 'renombrar', id: 'Pool_1', nombre: 'Compras nacionales' },
+      { op: 'renombrar', id: 'Lane_A', nombre: 'Persona solicitante' },
+      { op: 'renombrar', id: 'Lane_B', nombre: '' },
+    ])
+    await abreLimpio(xml)
+    expect(xml).toMatch(/<bpmn:participant id="Pool_1" name="Compras nacionales"/)
+    expect(xml).toMatch(/<bpmn:lane id="Lane_A" name="Persona solicitante"/)
+    expect(xml).toMatch(/<bpmn:lane id="Lane_B">/)
+    for (const id of ['Pool_1', 'Lane_A', 'Lane_B']) expect(bounds(xml, id), id).toEqual(bounds(XML_REAL, id))
+  })
+
   it('sin operaciones de contenido, lo no tocado queda igual: ids, coordenadas, bizagi, ruta manual', async () => {
     const { xml } = await editarXml(XML_REAL, [{ op: 'renombrar', id: 'Task_2', nombre: 'Aprobar compra' }])
     await abreLimpio(xml)
@@ -248,5 +263,94 @@ describe('validarXml', () => {
   it('un proceso completo no da avisos', async () => {
     const r = await validarXml((await construirXml(MODELO_SIMPLE)).xml)
     expect(r.resultados).toEqual([])
+  })
+})
+
+describe('editarXml — agregar_pool y agregar_carril', () => {
+  const ORIGINALES = ['Pool_1', 'Lane_A', 'Lane_B', 'Start_1', 'Task_1', 'Task_2', 'End_1', 'Note_1']
+
+  // El caso que pidió el usuario en la copia de pruebas (2026-10-09): un pool
+  // nuevo conectado con el existente, en el mismo diagrama y en una llamada.
+  it('añade un pool debajo, lo llena y lo conecta por mensaje, sin mover nada de lo que había', async () => {
+    const { xml, cambios } = await editarXml(XML_REAL, [
+      { op: 'agregar_pool', id: 'Portero', nombre: 'Portero' },
+      { op: 'agregar_nodo', id: 'recibir', tipo: 'tarea_recepcion', nombre: 'Recibir pedido', pool: 'Portero' },
+      { op: 'agregar_nodo', id: 'autorizar', tipo: 'tarea_envio', nombre: 'Autorizar', despues_de: 'recibir' },
+      { op: 'conectar', desde: 'recibir', hasta: 'autorizar' },
+      { op: 'conectar', desde: 'Task_1', hasta: 'recibir', nombre: 'Pedido' },
+      { op: 'conectar', desde: 'autorizar', hasta: 'Task_2', nombre: 'Autorización' },
+    ])
+    await abreLimpio(xml)
+    expect(cambios).toHaveLength(6)
+    for (const id of ORIGINALES) expect(bounds(xml, id), id).toEqual(bounds(XML_REAL, id))
+    expect(xml).toMatch(/<bizagi:BizagiProperty name="bgColor" value="#ECEFFF"\s*\/>/)
+
+    const [px, py, pw, ph] = bounds(xml, 'Portero')!
+    const [ox, oy, ow, oh] = bounds(XML_REAL, 'Pool_1')!
+    expect(px).toBe(ox)
+    expect(pw).toBe(ow)
+    expect(py).toBeGreaterThanOrEqual(oy + oh + 60)
+    for (const id of ['recibir', 'autorizar']) {
+      const [x, y, w, h] = bounds(xml, id)!
+      expect(x >= px && y >= py && x + w <= px + pw && y + h <= py + ph, id).toBe(true)
+    }
+
+    const s = await simplificar(xml)
+    expect(s.pools.map((p) => p.nombre)).toEqual(['Compras', 'Portero'])
+    expect(s.mensajes.map((m) => [m.desde, m.hasta])).toEqual([['Task_1', 'recibir'], ['autorizar', 'Task_2']])
+  })
+
+  it('un pool nuevo con carriles exige carril al agregarle nodos', async () => {
+    const { xml } = await editarXml(XML_REAL, [
+      { op: 'agregar_pool', id: 'Banco', nombre: 'Banco', carriles: [{ id: 'Caja', nombre: 'Caja' }, { id: 'Riesgo', nombre: 'Riesgo' }] },
+      { op: 'agregar_nodo', id: 'evaluar', tipo: 'tarea', nombre: 'Evaluar', pool: 'Banco', carril: 'Riesgo' },
+    ])
+    await abreLimpio(xml)
+    const [, cy, , ch] = bounds(xml, 'Caja')!
+    const [, ry] = bounds(xml, 'Riesgo')!
+    expect(ry).toBe(cy + ch)
+    const [, ey] = bounds(xml, 'evaluar')!
+    expect(ey).toBeGreaterThanOrEqual(ry)
+    await expect(editarXml(XML_REAL, [
+      { op: 'agregar_pool', id: 'Banco', nombre: 'Banco', carriles: [{ id: 'Caja', nombre: 'Caja' }] },
+      { op: 'agregar_nodo', id: 'x', tipo: 'tarea', pool: 'Banco' },
+    ])).rejects.toThrow(/carril/)
+  })
+
+  it('agregar_carril en medio baja lo de debajo y agranda el pool', async () => {
+    const { xml } = await editarXml(XML_REAL, [{ op: 'agregar_carril', id: 'Lane_C', nombre: 'Seguridad', pool: 'Pool_1', despues_de: 'Lane_A' }])
+    await abreLimpio(xml)
+    const [, ay, , ah] = bounds(xml, 'Lane_A')!
+    const [cx, cy, cw, ch] = bounds(xml, 'Lane_C')!
+    expect([cx, cy, cw, ch]).toEqual([130, ay + ah, 670, 120])
+    // Arriba del corte, igual; abajo, 120 más abajo; el pool, 120 más alto.
+    for (const id of ['Lane_A', 'Start_1', 'Task_1', 'Note_1']) expect(bounds(xml, id), id).toEqual(bounds(XML_REAL, id))
+    for (const id of ['Lane_B', 'Task_2', 'End_1']) {
+      const antes = bounds(XML_REAL, id)!
+      expect(bounds(xml, id), id).toEqual([antes[0], antes[1] + 120, antes[2], antes[3]])
+    }
+    expect(bounds(xml, 'Pool_1')![3]).toBe(bounds(XML_REAL, 'Pool_1')![3] + 120)
+    expect((await simplificar(xml)).pools[0].carriles.map((c) => c.id)).toEqual(['Lane_A', 'Lane_C', 'Lane_B'])
+  })
+
+  it('agregar_carril en un pool sin carriles mueve el contenido a un primer carril', async () => {
+    const { xml: base } = await construirXml(MODELO_SIMPLE)
+    const pool = (await simplificar(base)).pools[0]
+    expect(pool.carriles).toEqual([])
+    const { xml, cambios } = await editarXml(base, [{ op: 'agregar_carril', id: 'Nuevo', nombre: 'Auditoría', pool: pool.id }])
+    await abreLimpio(xml)
+    expect(cambios[0]).toMatch(/sin nombre/)
+    const s = await simplificar(xml)
+    expect(s.pools[0].carriles.map((c) => c.nombre)).toEqual(['', 'Auditoría'])
+    expect(s.pools[0].nodos.every((n) => n.carril === s.pools[0].carriles[0].id)).toBe(true)
+  })
+
+  it.each([
+    ['id de pool repetido', { op: 'agregar_pool', id: 'Task_1', nombre: 'X' }, /ya existe/],
+    ['carriles con id repetido', { op: 'agregar_pool', id: 'P2', nombre: 'X', carriles: [{ id: 'c', nombre: 'a' }, { id: 'c', nombre: 'b' }] }, /ya existe/],
+    ['carril en pool inexistente', { op: 'agregar_carril', id: 'L9', nombre: 'X', pool: 'NoHay' }, /no es un pool/],
+    ['despues_de que no es carril', { op: 'agregar_carril', id: 'L9', nombre: 'X', pool: 'Pool_1', despues_de: 'Task_1' }, /no es un carril/],
+  ])('rechaza: %s', async (_n, op, error) => {
+    await expect(editarXml(XML_REAL, [op as Any])).rejects.toThrow(error)
   })
 })

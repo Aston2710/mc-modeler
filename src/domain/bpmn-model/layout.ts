@@ -1,5 +1,6 @@
 import { ELEMENT_SIZES } from '../../bpmn/ElementSizes'
 import { esCompuerta, esEvento, type FlujoSemantico, type ModeloSemantico, type NodoSemantico } from './modelo'
+import { tamanoActividad } from './tamanoActividad'
 
 /**
  * Layout de un modelo semántico: decide DÓNDE va cada forma. Las flechas no se
@@ -17,8 +18,9 @@ import { esCompuerta, esEvento, type FlujoSemantico, type ModeloSemantico, type 
  *     neutralizados (un "volver a revisar" no empuja el proceso hacia atrás);
  *  2. filas por carril: cada nodo intenta la fila de su predecesor y baja a la
  *     siguiente libre, así las ramas de una compuerta se abren hacia abajo;
- *  3. tamaños: los de la paleta de la app (`ELEMENT_SIZES`) y, para un
- *     subproceso, el de su contenido dispuesto con el mismo algoritmo;
+ *  3. tamaños: los de la paleta de la app (`ELEMENT_SIZES`), agrandados si el
+ *     nombre de una tarea no cabe sin chocar con su icono (`tamanoActividad`),
+ *     y, para un subproceso, el de su contenido dispuesto con el mismo algoritmo;
  *  4. eventos de borde montados sobre el borde inferior de su actividad.
  */
 
@@ -60,7 +62,7 @@ const CABECERA_SUBPROCESO = 20
 function tamanoBase(nodo: NodoSemantico): { width: number; height: number } {
   if (esEvento(nodo.tipo)) return { ...ELEMENT_SIZES.event }
   if (esCompuerta(nodo.tipo)) return { ...ELEMENT_SIZES.gateway }
-  return { ...ELEMENT_SIZES.task }
+  return tamanoActividad(nodo.tipo, nodo.nombre)
 }
 
 interface Nivel {

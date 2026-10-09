@@ -28,7 +28,7 @@ const nombre = z.string().max(200)
 const camposNodo = {
   id,
   tipo: z.enum(TIPOS_NODO).describe('Tipo BPMN del nodo'),
-  nombre: nombre.optional().describe('Texto visible. En tareas, verbo + objeto: "Revisar solicitud"'),
+  nombre: nombre.optional().describe('Texto visible. En tareas, verbo + objeto en 2 a 4 palabras: "Revisar solicitud"'),
   carril: z.string().max(64).optional().describe('Id del carril. Obligatorio si el pool tiene carriles'),
   evento: z.enum(DEFINICIONES_EVENTO).optional().describe('Solo eventos: tipo de disparador. Sin él, evento simple'),
   adjunto_a: z.string().max(64).optional().describe('Solo evento_borde: id de la tarea o subproceso donde va montado'),
@@ -83,7 +83,8 @@ export const esquemaOperacion = z.discriminatedUnion('op', [
     dentro_de: z.string().max(64).optional().describe('Id de un subproceso expandido donde va'),
     despues_de: z.string().max(64).optional().describe('Id de un nodo existente: el nuevo se coloca a su derecha, en su carril'),
   }),
-  z.object({ op: z.literal('renombrar'), id: z.string().max(64), nombre }),
+  z.object({ op: z.literal('renombrar'), id: z.string().max(64), nombre })
+    .describe('Cambia el nombre de un nodo, flujo, pool o carril. Con nombre "" lo deja sin nombre'),
   z.object({
     op: z.literal('conectar'),
     desde: z.string().max(64),
@@ -93,4 +94,18 @@ export const esquemaOperacion = z.discriminatedUnion('op', [
   }).describe('Mismo pool y nivel → flujo de secuencia; pools distintos → flujo de mensaje'),
   z.object({ op: z.literal('eliminar'), id: z.string().max(64) })
     .describe('Elimina un nodo o un flujo, con sus flujos y eventos de borde dependientes. No elimina pools ni carriles'),
+  z.object({
+    op: z.literal('agregar_pool'),
+    id,
+    nombre: nombre.describe('Nombre del pool: otra organización, área o proceso'),
+    carriles: z.array(z.object({ id, nombre })).max(20).optional()
+      .describe('Carriles del pool nuevo, de arriba abajo. Si hay, cada nodo que se agregue en él indica su carril'),
+  }).describe('Añade un pool vacío debajo de los existentes. Después, agregar_nodo con "pool" lo llena y conectar entre pools crea mensajes'),
+  z.object({
+    op: z.literal('agregar_carril'),
+    id,
+    nombre,
+    pool: z.string().max(64).describe('Id del pool donde va'),
+    despues_de: z.string().max(64).optional().describe('Id de un carril de ese pool: el nuevo va justo debajo. Sin él, al final'),
+  }).describe('Añade un carril vacío a un pool. Si el pool no tenía carriles, lo que ya contiene pasa a un primer carril sin nombre'),
 ])

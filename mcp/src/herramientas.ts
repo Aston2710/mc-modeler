@@ -180,7 +180,7 @@ export function registrarHerramientas(server: McpServer, config: Config): void {
       ya_existia: yaExistia,
       elementos,
       avisos: resultados,
-      nota: 'La miniatura de la portada aparece cuando alguien edita el diagrama en Flujo.',
+      nota: 'La miniatura de la portada se genera sola la próxima vez que abras Flujo.',
     })
   }))
 
@@ -190,7 +190,10 @@ export function registrarHerramientas(server: McpServer, config: Config): void {
   server.registerTool('modificar_diagrama', {
     title: 'Modificar diagrama',
     description:
-      'Aplica operaciones a un diagrama existente: agregar_nodo, conectar, renombrar, eliminar (un nodo o un flujo; nunca pools, carriles ni el diagrama). ' +
+      'Aplica operaciones a un diagrama existente: agregar_nodo, agregar_pool, agregar_carril, conectar, renombrar y eliminar. ' +
+      'Se aplican en orden, así que en una misma llamada puedes agregar un pool, llenarlo con agregar_nodo y conectarlo con otro pool. ' +
+      'renombrar sirve para cualquier elemento con nombre, incluidos pools y carriles (sus ids vienen en obtener_diagrama). ' +
+      'eliminar solo quita un nodo o un flujo: nunca pools, carriles ni el diagrama. ' +
       'Todas se aplican o ninguna. El resto del diagrama no se toca. ' +
       'Requiere version_esperada (la de obtener_diagrama): si alguien guardó después, falla con "conflicto" y no escribe nada. ' +
       'Si alguien tiene el diagrama abierto en Flujo, no se modifica en sitio para no pisar su trabajo: ' +
