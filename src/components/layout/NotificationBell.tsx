@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { Bell, UserPlus, FolderPlus, AtSign, CheckCheck, Settings } from 'lucide-react'
+import { Bell, UserPlus, FolderPlus, AtSign, CheckCheck, Settings, Share2, Mail } from 'lucide-react'
 import {
   useNotificationStore,
   type AppNotification,
@@ -9,6 +9,7 @@ import {
   type NotificationPrefs,
 } from '@/store/notificationStore'
 import { openNotificationTarget } from '@/lib/notificationNav'
+import { useUIStore } from '@/store/uiStore'
 
 function relativeTime(ts: number): string {
   const diff = Date.now() - ts
@@ -21,7 +22,13 @@ function relativeTime(ts: number): string {
 function iconFor(kind: NotificationKind) {
   if (kind === 'invite_redeemed_diagram') return <UserPlus size={15} />
   if (kind === 'invite_redeemed_project') return <FolderPlus size={15} />
+  if (kind === 'collaborator_added_diagram' || kind === 'collaborator_added_project') return <Share2 size={15} />
+  if (kind === 'invite_email_diagram' || kind === 'invite_email_project') return <Mail size={15} />
   return <AtSign size={15} />
+}
+
+function roleLabel(role: unknown): string {
+  return role === 'editor' ? 'Puedes editar' : role === 'viewer' ? 'Solo lectura' : ''
 }
 
 function textFor(n: AppNotification): { title: string; body: string } {
@@ -31,6 +38,15 @@ function textFor(n: AppNotification): { title: string; body: string } {
   }
   if (n.kind === 'invite_redeemed_project') {
     return { title: `${p.actorName} se unió al proyecto «${p.projectName}»`, body: p.actorEmail ?? '' }
+  }
+  if (n.kind === 'collaborator_added_diagram') {
+    return { title: `${p.actorName} compartió contigo «${p.diagramName}»`, body: roleLabel(p.role) }
+  }
+  if (n.kind === 'collaborator_added_project') {
+    return { title: `${p.actorName} compartió contigo el proyecto «${p.projectName}»`, body: roleLabel(p.role) }
+  }
+  if (n.kind === 'invite_email_diagram' || n.kind === 'invite_email_project') {
+    return { title: `${p.actorName} te invitó a «${p.name}»`, body: roleLabel(p.role) }
   }
   return {
     title: `${p.actorName} te mencionó en «${p.diagramName}»`,
@@ -73,12 +89,19 @@ export function NotificationBell() {
     return () => document.removeEventListener('mousedown', onDown)
   }, [open, close])
 
-  const handleClick = (n: AppNotification) => {
+  const handleClick = async (n: AppNotification) => {
     markRead(n.id)
     const diagramId = n.payload?.diagramId as string | undefined
+    const token = n.payload?.token as string | undefined
     if (diagramId) {
-      const ok = openNotificationTarget(diagramId, n.payload?.threadId as string | undefined)
+      const ok = await openNotificationTarget(diagramId, n.payload?.threadId as string | undefined)
       if (ok) close(false)
+      else useUIStore.getState().addToast({ type: 'error', title: t('notifications.noAccess') })
+    } else if (token) {
+      // Invitación por correo que llegó a alguien que ya tenía cuenta: el
+      // enlace del correo es el camino; aquí se recorre igual.
+      const param = n.kind === 'invite_email_project' ? 'projectInvite' : 'invite'
+      window.location.assign(`/?${param}=${encodeURIComponent(token)}`)
     } else {
       // Notificación de proyecto: sin diagrama concreto que abrir en v1.
       close(false)
@@ -155,7 +178,7 @@ export function NotificationBell() {
                   <button
                     key={n.id}
                     className={`notif-item${n.readAt ? '' : ' unread'}`}
-                    onClick={() => handleClick(n)}
+                    onClick={() => void handleClick(n)}
                   >
                     <span className="notif-item-icon">{iconFor(n.kind)}</span>
                     <span className="notif-item-main">

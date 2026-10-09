@@ -87,11 +87,16 @@ function expiresAtFrom(days: number | null): string | null {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
 }
 
-/** Crea un enlace de invitación con token. `expiresInDays` null = sin expiración. */
+/**
+ * Crea un enlace de invitación con token. `expiresInDays` null = sin expiración.
+ * Con `email`, la BD encola además un correo con el enlace para esa dirección
+ * (trigger `diagram_invites_notify_email`).
+ */
 export async function createInviteLink(
   diagramId: string,
   role: Exclude<CollaboratorRole, 'owner'>,
-  expiresInDays: number | null = null
+  expiresInDays: number | null = null,
+  email: string | null = null
 ): Promise<string> {
   const client = sb()
   const { data: u } = await client.auth.getUser()
@@ -100,6 +105,7 @@ export async function createInviteLink(
     diagram_id: diagramId,
     role,
     token,
+    email: email?.trim() || null,
     created_by: u.user?.id,
     expires_at: expiresAtFrom(expiresInDays),
   })
@@ -196,10 +202,12 @@ export async function addProjectCollaboratorByEmail(
   return true
 }
 
+/** Igual que `createInviteLink`, sobre un proyecto entero. */
 export async function createProjectInviteLink(
   projectId: string,
   role: Exclude<CollaboratorRole, 'owner'>,
-  expiresInDays: number | null = null
+  expiresInDays: number | null = null,
+  email: string | null = null
 ): Promise<string> {
   const client = sb()
   const { data: u } = await client.auth.getUser()
@@ -208,6 +216,7 @@ export async function createProjectInviteLink(
     project_id: projectId,
     role,
     token,
+    email: email?.trim() || null,
     created_by: u.user?.id,
     expires_at: expiresAtFrom(expiresInDays),
   })

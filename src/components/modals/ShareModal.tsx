@@ -75,19 +75,18 @@ export function ShareModal({ kind = 'diagram', diagramId, diagramName, onClose }
     if (!value) return
     setBusy(true)
     try {
+      // Invitar = enviar el correo. Con cuenta se le añade y la BD le avisa
+      // (trigger *_notify_added); sin cuenta se crea el enlace con su email y
+      // la BD se lo manda (trigger *_notify_email). Copiar el enlace es otro botón.
       const added = await api.add(diagramId, value, role)
-      if (added) {
-        addToast({ type: 'success', title: t('share.added') })
-        setEmail('')
-        await refresh()
-      } else {
-        // No tiene cuenta → generar enlace de invitación
-        const link = await api.link(diagramId, role, expiresInDays)
-        await navigator.clipboard.writeText(link)
-        addToast({ type: 'info', title: t('share.notRegistered'), message: t('share.linkCopied') })
-      }
-    } catch {
-      addToast({ type: 'error', title: t('share.inviteError') })
+      if (added) await refresh()
+      else await api.link(diagramId, role, expiresInDays, value)
+      setEmail('')
+      addToast({ type: 'success', title: t('share.inviteSent', { email: value }) })
+    } catch (err) {
+      // Los errores del trigger (correo no válido, cuota diaria) llegan con mensaje propio.
+      const message = (err as { message?: string } | null)?.message
+      addToast({ type: 'error', title: t('share.inviteError'), message })
     } finally {
       setBusy(false)
     }
