@@ -7,6 +7,8 @@ import { generateDiagramId } from '@/utils/idGenerator'
 import { normalizeBpmnXml } from '@/utils/normalizeBpmnXml'
 import { externalizeImages, rehomeImages, deleteDiagramImages } from '@/utils/imageStorage'
 import { perfStart } from '@/utils/perf'
+import { programarMiniaturasFaltantes } from '@/utils/thumbnailBackfill'
+import { contarElementosXml } from '@/domain/contarElementosXml'
 import { dispose as disposeModelerInstance } from '@/bpmn/modelerCache'
 import { useAuthStore } from './authStore'
 import { usePresenceStore } from './presenceStore'
@@ -198,13 +200,24 @@ export const useDiagramStore = create<DiagramState>()(
         void diagramRepository
           .getThumbnailUrls(missing)
           .then((urls) => {
-            if (urls.size === 0) return
-            set((s) => {
-              for (const [id, url] of urls) {
-                const x = s.diagrams.find((z) => z.id === id)
-                if (x && !x.thumbnail) x.thumbnail = url
-              }
-            })
+            if (urls.size > 0) {
+              set((s) => {
+                for (const [id, url] of urls) {
+                  const x = s.diagrams.find((z) => z.id === id)
+                  if (x && !x.thumbnail) x.thumbnail = url
+                }
+              })
+            }
+            // Lo que sigue sin miniatura no la tiene en Storage: la escribió
+            // alguien de fuera de la app (el conector MCP). Se genera aquí.
+            const sinMiniatura = missing.filter((id) => !urls.has(id))
+            if (sinMiniatura.length > 0 && import.meta.env.MODE !== 'test') {
+              programarMiniaturasFaltantes(sinMiniatura, {
+                obtenerXml: (id) => get().ensureXml(id),
+                guardar: (id, dataUrl) => get().saveThumbnailOnly(id, dataUrl),
+                estaAbierto: (id) => get().tabs.some((t) => t.id === id),
+              })
+            }
           })
           .catch(() => { /* sin thumbnails: la portada se ve igual, sin imagen */ })
       }
@@ -274,7 +287,7 @@ export const useDiagramStore = create<DiagramState>()(
         thumbnail: null,
         folderId: null,
         projectId,
-        elementCount: 0,
+        elementCount: contarElementosXml(EMPTY_BPMN),
         schemaVersion: 1,
         createdAt: now,
         updatedAt: now,
@@ -302,7 +315,7 @@ export const useDiagramStore = create<DiagramState>()(
         thumbnail: null,
         folderId: null,
         projectId: parent?.projectId ?? null,
-        elementCount: 0,
+        elementCount: contarElementosXml(EMPTY_SUBPROCESS_BPMN),
         schemaVersion: 1,
         createdAt: now,
         updatedAt: now,
@@ -353,7 +366,10 @@ export const useDiagramStore = create<DiagramState>()(
       set((s) => { s.activeTabId = id })
     },
 
-    saveDiagram: (id, xml, elementCount = 0, thumbnail) => {
+    saveDiagram: (id, xml, elementCountDado, thumbnail) => {
+      // Nadie lo pasa al guardar desde el editor: se cuenta del XML. Antes
+      // caía a 0 y la portada nunca enseñaba el número de elementos.
+      const elementCount = elementCountDado ?? contarElementosXml(xml)
       // Todo el cuerpo corre DENTRO de la cadena (saveChain): los guardados del
       // mismo cliente se ejecutan en serie, y cada uno lee el updated_at fresco
       // que dejó el anterior (get() se evalúa al ejecutar run, no al encolar).
@@ -559,7 +575,7 @@ export const useDiagramStore = create<DiagramState>()(
         thumbnail: null,
         folderId: null,
         projectId,
-        elementCount: 0,
+        elementCount: contarElementosXml(canonicalXml),
         schemaVersion: 1,
         createdAt: now,
         updatedAt: now,
