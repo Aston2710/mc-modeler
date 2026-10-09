@@ -2,8 +2,8 @@
 titulo: Entorno local de base de datos (Supabase en Docker)
 tipo: context
 creado: 2026-08-13
-actualizado: 2026-08-13
-relacionados: [operacion-scripts.md, base-de-datos.md, arquitectura-persistencia.md]
+actualizado: 2026-10-08
+relacionados: [operacion-scripts.md, base-de-datos.md, arquitectura-persistencia.md, MASTER-PLAN-038]
 ---
 
 # Entorno local de base de datos
@@ -98,6 +98,16 @@ Sin `overrides`, el forge llama al camino real de `buildThumbnail`: el pase de v
 La service_role del laboratorio **no hay que pasarla**: el script se la pregunta a `supabase status -o env`. Es deliberado — evita pegar mal la clave y, peor, pegar la de produccion creyendo que apuntas al laboratorio.
 
 **El renderizador y la base de datos son independientes.** El script trae el XML de la base que le digas (`--db=lab` por defecto, `--db=prod` explicito) y usa el navegador solo para convertir. Es decir: se puede reconvertir produccion renderizando con la app del laboratorio, que es justamente como debe hacerse — el pase completo se prueba aqui antes de tocar nada real.
+
+## Servidor OAuth y conector MCP (MASTER-PLAN-038)
+
+`supabase/config.toml` activa `[auth.oauth_server]` con registro dinámico **solo en local**; en producción se activa desde el panel, con aprobación. La pantalla de consentimiento es la ruta `/oauth/consent` de la SPA sobre `site_url` (`http://localhost:5175`), así que para probar el flujo OAuth la app tiene que ir en el 5175 con las variables del laboratorio por shell (sección anterior), no en el 7654.
+
+En el laboratorio, los metadatos OAuth responden en `/auth/v1/.well-known/oauth-authorization-server` y en la variante OIDC. La ruta RFC 8414 con sufijo (`/.well-known/oauth-authorization-server/auth/v1`) da 404 en el Kong local. Los clientes MCP prueban las dos.
+
+El servidor MCP vive en `mcp/` (ver su `README.md`): `npm run local` lo sirve en `:7655`, y `npm test` ejecuta su integración contra este laboratorio con tokens OAuth reales. La verificación de la guardia de la base está en `supabase/pruebas/mcp_conector.sql`.
+
+**Trampa conocida:** cambiar de usuario con la barra del laboratorio hace `signOut()`, que por defecto es **global** y revoca las demás sesiones de ese usuario en otros navegadores. En pruebas con dos navegadores, abre primero el del segundo usuario.
 
 ## Lo que NO hay que hacer
 

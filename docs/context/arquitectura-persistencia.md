@@ -1,8 +1,8 @@
 ---
 documento: arquitectura-persistencia
 vigencia: vigente
-actualizado: 2026-07-19
-deriva_de: [EXP-003, EXP-004, EXP-005, PLAN-001]
+actualizado: 2026-10-08
+deriva_de: [EXP-003, EXP-004, EXP-005, PLAN-001, DEC-013]
 ---
 
 # ADR: Fuente de verdad de los diagramas, persistencia y colaboración
@@ -155,6 +155,16 @@ Ver `plan-implementacion-pivote-ADR.md` (plan + estado). Resumen:
 - **Serialización canónica** (pendiente 4): `normalizeBpmnXml` en import + `forceCanonicalBpmnPrefix` post-import en canvas → un solo dialecto; legacy migra solo al guardar. `looksLikeBpmn` + DOMParser.
 - **Imágenes → Storage** (pendiente 1): bucket privado `diagram-images` (RLS por diagrama), refs `storage://` en XML, inline al exportar, rehome al duplicar. Migración retroactiva: `scripts/migrate-images.mjs` (pendiente de correr con usuarios en pausa).
 - **UI de conflicto** (pendiente 5): doble conflicto CAS → toast persistente con "cargar versión del servidor" / "guardar mi copia como duplicado".
+
+### ✅ Implementado en el laboratorio, sin desplegar — Escritores externos (DEC-013, MASTER-PLAN-038, 2026-10-08)
+
+Hasta aquí todos los escritores de `current_xml` eran navegadores en la misma sesión. El conector MCP introduce un escritor **externo a la sesión**, y con él una regla nueva:
+
+- **Un conflicto de CAS estando solo en el canal es un cambio externo.** `diagramStore.saveDiagram` no reintenta (reintentar lo pisaría en silencio), no adopta la versión ajena (el siguiente autoguardado pisaría igual) y lanza `flujo:save-conflict` con `externo: true`. Hasta que el usuario recarga la versión del servidor, ese diagrama no se vuelve a escribir. Con pares en el canal se mantiene el reintento de §3.3.
+- **El escritor externo no escribe sobre una sesión abierta.** El conector mira la presencia del canal `diagram:<id>` sin `track()` y, si hay alguien, rechaza o guarda una copia.
+- **Escribe con CAS sobre `updated_at`**, igual que el cliente, y con el JWT del usuario (nunca `service_role`).
+
+**Riesgo residual (mitigado):** una pestaña de fondo desactualizada que vuelve cuando ya hay otra persona en el canal. Detalle en `docs/addons/informe-mcp-fase-2.md` §5.
 
 ### ⏳ Pendiente
 

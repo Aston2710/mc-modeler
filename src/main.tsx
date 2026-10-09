@@ -28,9 +28,22 @@ if (import.meta.env.MODE === 'lab') {
   void import('./lab/thumbForge').then((m) => m.installThumbForge())
 }
 
+// Pantalla de consentimiento del conector MCP (MASTER-PLAN-038): Supabase Auth
+// redirige aquí cuando un asistente pide acceso. Es una página aparte —no
+// monta el editor— y se carga bajo demanda: no pesa en el arranque normal.
+const OAuthConsent = window.location.pathname === '/oauth/consent'
+  ? lazy(() => import('./components/auth/OAuthConsent'))
+  : null
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    {OAuthConsent ? (
+      <Suspense fallback={null}>
+        <OAuthConsent />
+      </Suspense>
+    ) : (
+      <App />
+    )}
     {LabBar && (
       <Suspense fallback={null}>
         <LabBar />

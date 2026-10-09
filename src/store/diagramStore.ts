@@ -7,7 +7,11 @@ import { generateDiagramId } from '@/utils/idGenerator'
 import { normalizeBpmnXml } from '@/utils/normalizeBpmnXml'
 import { externalizeImages, rehomeImages, deleteDiagramImages } from '@/utils/imageStorage'
 import { perfStart } from '@/utils/perf'
+import { programarMiniaturasFaltantes } from '@/utils/thumbnailBackfill'
+import { contarElementosXml } from '@/domain/contarElementosXml'
 import { dispose as disposeModelerInstance } from '@/bpmn/modelerCache'
+import { useAuthStore } from './authStore'
+import { usePresenceStore } from './presenceStore'
 
 /**
  * Validación mínima antes de persistir: no guardar XML vacío o que no parezca
@@ -140,6 +144,28 @@ interface DiagramState {
 // cliente; el atajo de idempotencia resuelve las carreras entre clientes.
 let saveChain: Promise<unknown> = Promise.resolve()
 
+// Diagramas con un conflicto EXTERNO avisado y sin resolver (DEC-013 §4). Se
+// vacía al recargar la versión del servidor (refreshXml). Mientras tanto no se
+// escribe: es lo que impide que un autoguardado pise lo que escribió el
+// conector MCP mientras el diagrama estaba abierto.
+const conflictosExternos = new Set<string>()
+
+/**
+ * ¿Está el usuario solo en el canal del diagrama activo? Los participantes
+ * incluyen al propio usuario (por userId; dos pestañas suyas cuentan como uno).
+ * Sin datos de presencia todavía, se considera solo: ante la duda se pregunta
+ * en vez de reintentar, que es la dirección segura.
+ */
+function estaSoloEnLaSesion(): boolean {
+  const yo = useAuthStore.getState().user?.id
+  return Object.keys(usePresenceStore.getState().participants).every((uid) => uid === yo)
+}
+
+/** Solo para pruebas: olvida los conflictos externos avisados. */
+export function __reiniciarConflictosExternos(): void {
+  conflictosExternos.clear()
+}
+
 export const useDiagramStore = create<DiagramState>()(
   immer((set, get) => ({
     diagrams: [],
@@ -174,13 +200,24 @@ export const useDiagramStore = create<DiagramState>()(
         void diagramRepository
           .getThumbnailUrls(missing)
           .then((urls) => {
-            if (urls.size === 0) return
-            set((s) => {
-              for (const [id, url] of urls) {
-                const x = s.diagrams.find((z) => z.id === id)
-                if (x && !x.thumbnail) x.thumbnail = url
-              }
-            })
+            if (urls.size > 0) {
+              set((s) => {
+                for (const [id, url] of urls) {
+                  const x = s.diagrams.find((z) => z.id === id)
+                  if (x && !x.thumbnail) x.thumbnail = url
+                }
+              })
+            }
+            // Lo que sigue sin miniatura no la tiene en Storage: la escribió
+            // alguien de fuera de la app (el conector MCP). Se genera aquí.
+            const sinMiniatura = missing.filter((id) => !urls.has(id))
+            if (sinMiniatura.length > 0 && import.meta.env.MODE !== 'test') {
+              programarMiniaturasFaltantes(sinMiniatura, {
+                obtenerXml: (id) => get().ensureXml(id),
+                guardar: (id, dataUrl) => get().saveThumbnailOnly(id, dataUrl),
+                estaAbierto: (id) => get().tabs.some((t) => t.id === id),
+              })
+            }
           })
           .catch(() => { /* sin thumbnails: la portada se ve igual, sin imagen */ })
       }
@@ -226,6 +263,9 @@ export const useDiagramStore = create<DiagramState>()(
 
     refreshXml: async (id) => {
       const full = await diagramRepository.getById(id)
+      // Recargar la versión del servidor es la resolución de un conflicto
+      // externo: a partir de aquí se vuelve a guardar con normalidad.
+      conflictosExternos.delete(id)
       if (!full) return ''
       set((s) => {
         const d = s.diagrams.find((d) => d.id === id)
@@ -247,7 +287,7 @@ export const useDiagramStore = create<DiagramState>()(
         thumbnail: null,
         folderId: null,
         projectId,
-        elementCount: 0,
+        elementCount: contarElementosXml(EMPTY_BPMN),
         schemaVersion: 1,
         createdAt: now,
         updatedAt: now,
@@ -275,7 +315,7 @@ export const useDiagramStore = create<DiagramState>()(
         thumbnail: null,
         folderId: null,
         projectId: parent?.projectId ?? null,
-        elementCount: 0,
+        elementCount: contarElementosXml(EMPTY_SUBPROCESS_BPMN),
         schemaVersion: 1,
         createdAt: now,
         updatedAt: now,
@@ -326,7 +366,10 @@ export const useDiagramStore = create<DiagramState>()(
       set((s) => { s.activeTabId = id })
     },
 
-    saveDiagram: (id, xml, elementCount = 0, thumbnail) => {
+    saveDiagram: (id, xml, elementCountDado, thumbnail) => {
+      // Nadie lo pasa al guardar desde el editor: se cuenta del XML. Antes
+      // caía a 0 y la portada nunca enseñaba el número de elementos.
+      const elementCount = elementCountDado ?? contarElementosXml(xml)
       // Todo el cuerpo corre DENTRO de la cadena (saveChain): los guardados del
       // mismo cliente se ejecutan en serie, y cada uno lee el updated_at fresco
       // que dejó el anterior (get() se evalúa al ejecutar run, no al encolar).
@@ -340,6 +383,10 @@ export const useDiagramStore = create<DiagramState>()(
         return
       }
       const updated: Diagram = { ...diagram, xml, elementCount, updatedAt: now }
+
+      // Conflicto externo sin resolver: no se escribe hasta que el usuario
+      // recargue o guarde copia. Su trabajo sigue en el canvas y la pestaña.
+      if (conflictosExternos.has(id)) return
 
       // Adopta el estado ya persistido por otro escritor (idempotencia, ADR §3.4):
       // en tiempo real todos guardan el MISMO estado acordado — si el servidor ya
@@ -369,6 +416,21 @@ export const useDiagramStore = create<DiagramState>()(
         const fresh = await diagramRepository.getById(id)
         if (!fresh) return // borrado por otro → nada que guardar
         if (fresh.xml === xml) { adoptPersisted(fresh.updatedAt); return }
+        // Escritor EXTERNO a la sesión (conector MCP, otra herramienta): nadie
+        // más está en el canal, así que el cambio no vino de un colaborador en
+        // vivo. Reintentar lo pisaría en silencio (escenarios E1/E2/E5 de
+        // docs/addons/investigacion-mcp.md, DEC-013 §4). Se pregunta, y NO se
+        // adopta la versión ajena: adoptarla haría que el próximo autoguardado
+        // pisara igual. La pestaña queda con cambios sin guardar hasta decidir.
+        if (estaSoloEnLaSesion()) {
+          if (!conflictosExternos.has(id)) {
+            conflictosExternos.add(id)
+            if (typeof document !== 'undefined') {
+              document.dispatchEvent(new CustomEvent('flujo:save-conflict', { detail: { id, externo: true } }))
+            }
+          }
+          return
+        }
         try {
           persistedUpdatedAt = await diagramRepository.save(updated, fresh.updatedAt)
         } catch (e2) {
@@ -513,7 +575,7 @@ export const useDiagramStore = create<DiagramState>()(
         thumbnail: null,
         folderId: null,
         projectId,
-        elementCount: 0,
+        elementCount: contarElementosXml(canonicalXml),
         schemaVersion: 1,
         createdAt: now,
         updatedAt: now,

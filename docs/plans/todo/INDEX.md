@@ -75,6 +75,18 @@ Orden vigente **por tandas** desde el 2026-08-21 (la unidad es un ciclo de labor
 | **3** | [PLAN-013](013-cola-de-incidentes-auditable.md) | Cola de incidentes auditable | observabilidad | todo — **5 decisiones abiertas**; `utils/incidents.ts` ya tiene su superficie |
 | — | [PLAN-016](016-podar-la-publicacion-de-realtime.md) | Podar la publicación de Realtime (73 % del CPU) | rendimiento | todo — el cliente debe migrarse a Broadcast antes |
 
+## MASTER-PLAN-038 · Conector MCP
+
+| ID | Plan | Estado |
+|---|---|---|
+| [MASTER-PLAN-038](038-master-plan-conector-mcp.md) | **Conector MCP** — una IA crea y modifica diagramas en el espacio del usuario, con su JWT, sin `service_role` | todo — plan aprobado el 2026-10-08 (DEC-013 vigente). Fase 2 probada en el laboratorio; **Fase 3 (2026-10-09) probada de punta a punta en un entorno alojado de ensayo**, con Claude como cliente. Nada en producción. Informes: [fase 2](../../addons/informe-mcp-fase-2.md) · [fase 3](../../addons/informe-mcp-fase-3.md). Guía de producción: [`mcp/README.md`](../../../mcp/README.md#puesta-en-producción) |
+| [PLAN-042](042-escritor-externo-y-modificar-diagrama.md) | Etapa 2: el cliente distingue un escritor externo + `modificar_diagrama` | en-progreso — probado con Claude en el ensayo, también `agregar_pool`/`agregar_carril`; **la etapa 2 no se enciende en producción hasta desplegar este cambio de cliente** |
+| [PLAN-041](041-servidor-mcp-etapa-1.md) | Servidor MCP, etapa 1 (lectura, validación, creación) + consentimiento OAuth | en-progreso — desplegado en Vercel en el ensayo, con Inspector y Claude; falta producción |
+| [PLAN-040](040-nucleo-de-dominio-bpmn-model.md) | Núcleo de dominio: modelo semántico, XML, layout propio, validación | en-progreso — falta la ida y vuelta con un diagrama real con `bizagi:` |
+| [PLAN-039](039-base-de-datos-del-conector.md) | Base de datos del conector: guardia, auditoría, límites, OAuth en el laboratorio | en-progreso — 32/32 en el laboratorio y aplicada en el ensayo; **producción requiere aprobación** |
+
+No comparte archivos con PLAN-034, PLAN-035 ni PLAN-036. **PLAN-042 toca el manejo de conflictos de `diagramStore.saveDiagram`, y PLAN-036 reutiliza esa misma UI de conflicto.** Hay que coordinarlos.
+
 ## Sin agrupar
 
 | ID | Plan | Estado |

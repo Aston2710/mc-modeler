@@ -28,9 +28,7 @@
  * mismo `MODELER_CONFIG`, el mismo `topPoolCrop` y el mismo `buildThumbnail`, la
  * salida es la del camino real de guardado.
  */
-// @ts-ignore — bpmn-js es CommonJS con tipos incompletos
-import BpmnModeler from 'bpmn-js/lib/Modeler'
-import { MODELER_CONFIG } from '@/bpmn/config'
+import { liberarModelerOculto, obtenerModelerOculto } from '@/bpmn/headlessModeler'
 import {
   buildThumbnail, buildThumbnailSvg, svgToWebp, svgToDataUrl, topPoolCrop,
   thumbTargetBox, THUMB_BOX, THUMB_QUALITY, THUMB_SUPERSAMPLE,
@@ -92,29 +90,9 @@ interface ForgeApi {
   dispose(): void
 }
 
-// bpmn-js es CommonJS con tipos incompletos: el Modeler no tiene declaración
-// utilizable, igual que en `modelerCache.ts`.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let modeler: any = null
-let host: HTMLDivElement | null = null
-
-/**
- * Un unico Modeler para todo el pase. Crear y destruir uno por diagrama
- * multiplicaba por seis el tiempo del backfill sin cambiar el resultado: el
- * estado que importa lo reemplaza `importXML` entero en cada llamada.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ensureModeler(): any {
-  if (modeler) return modeler
-  host = document.createElement('div')
-  // Fuera de la vista pero CON tamano: un contenedor de 0×0 hace que bpmn-js
-  // calcule un viewbox degenerado y el SVG sale vacio.
-  host.style.cssText =
-    'position:fixed;left:-10000px;top:0;width:1600px;height:1200px;pointer-events:none;'
-  document.body.appendChild(host)
-  modeler = new BpmnModeler({ ...MODELER_CONFIG, container: host })
-  return modeler
-}
+// El Modeler oculto es el de `bpmn/headlessModeler.ts`, compartido con la
+// generación de miniaturas de la portada: uno solo para todo el pase.
+const ensureModeler = obtenerModelerOculto
 
 /**
  * La densidad que usa la app hoy, derivada de la caja objetivo en vez de
@@ -223,14 +201,7 @@ const api: ForgeApi = {
   },
 
   dispose() {
-    try {
-      modeler?.destroy()
-    } catch {
-      /* da igual: el proceso se va a cerrar */
-    }
-    host?.remove()
-    modeler = null
-    host = null
+    liberarModelerOculto()
   },
 }
 

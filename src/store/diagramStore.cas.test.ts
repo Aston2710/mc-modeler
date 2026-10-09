@@ -11,7 +11,21 @@ vi.mock('@/persistence', () => ({
   diagramRepository: { save, getById, saveThumbnail },
 }))
 
-import { useDiagramStore } from './diagramStore'
+import { useDiagramStore, __reiniciarConflictosExternos } from './diagramStore'
+import { usePresenceStore } from './presenceStore'
+import { useAuthStore } from './authStore'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const participante = (userId: string): any => ({ userId, name: userId, color: '#000', cursor: null })
+
+/** Sesión colaborativa con otra persona en el canal: el caso de diseño del reintento (ADR §3.3). */
+function conPar() {
+  usePresenceStore.setState({ participants: { yo: participante('yo'), otro: participante('otro') } })
+}
+/** Solo yo en el canal: un conflicto viene de un escritor externo (DEC-013 §4). */
+function solo() {
+  usePresenceStore.setState({ participants: { yo: participante('yo') } })
+}
 
 const VALID_XML =
   '<?xml version="1.0" encoding="UTF-8"?><bpmn:definitions id="Definitions_1"><bpmn:process id="P"/></bpmn:definitions>'
@@ -25,6 +39,12 @@ const seedDiagram = (): any => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  __reiniciarConflictosExternos()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  useAuthStore.setState({ user: { id: 'yo' } as any })
+  // Las pruebas de este bloque describen el reintento entre colaboradores en
+  // vivo, que es para lo que existe: hay alguien más en la sesión.
+  conPar()
   saveThumbnail.mockResolvedValue(undefined)
   useDiagramStore.setState({
     diagrams: [seedDiagram()],
@@ -154,5 +174,95 @@ describe('saveDiagram — control optimista (CAS)', () => {
     getById.mockResolvedValueOnce(null)
     await useDiagramStore.getState().saveDiagram('d1', VALID_XML)
     expect(save).toHaveBeenCalledTimes(1) // no reintenta si ya no existe
+  })
+})
+
+describe('saveDiagram — escritor externo con el usuario solo en la sesión (DEC-013 §4)', () => {
+  const capturar = () => {
+    const eventos: { type: string; detail: unknown }[] = []
+    class FakeCustomEvent {
+      constructor(public type: string, init?: { detail?: unknown }) { this.detail = init?.detail }
+      detail: unknown
+    }
+    vi.stubGlobal('CustomEvent', FakeCustomEvent)
+    vi.stubGlobal('document', { dispatchEvent: (e: FakeCustomEvent) => { eventos.push({ type: e.type, detail: e.detail }); return true } })
+    return eventos
+  }
+  beforeEach(() => solo())
+
+  it('NO reintenta: pregunta, no adopta la versión ajena y deja la pestaña con cambios sin guardar', async () => {
+    const eventos = capturar()
+    try {
+      save.mockRejectedValueOnce(new DiagramConflictError('d1'))
+      getById.mockResolvedValueOnce({ ...seedDiagram(), updatedAt: 'v9', xml: 'escrito-por-el-conector' })
+      await useDiagramStore.getState().saveDiagram('d1', VALID_XML)
+      expect(save).toHaveBeenCalledTimes(1) // sin reintento: el cambio externo no se pisa
+      expect(eventos).toEqual([{ type: 'flujo:save-conflict', detail: { id: 'd1', externo: true } }])
+      const st = useDiagramStore.getState()
+      expect(st.diagrams[0].updatedAt).toBe('v1') // sigue con su versión: el siguiente guardado no puede pisar
+      expect(st.tabs[0].dirty).toBe(true) // su trabajo sigue pendiente, no se da por guardado
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('mientras no se resuelva, los autoguardados siguientes no escriben ni vuelven a avisar', async () => {
+    const eventos = capturar()
+    try {
+      save.mockRejectedValueOnce(new DiagramConflictError('d1'))
+      getById.mockResolvedValueOnce({ ...seedDiagram(), updatedAt: 'v9', xml: 'externo' })
+      await useDiagramStore.getState().saveDiagram('d1', VALID_XML)
+      await useDiagramStore.getState().saveDiagram('d1', VALID_XML)
+      await useDiagramStore.getState().saveDiagram('d1', VALID_XML)
+      expect(save).toHaveBeenCalledTimes(1)
+      expect(eventos).toHaveLength(1)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('recargar la versión del servidor resuelve el conflicto y se vuelve a guardar', async () => {
+    const eventos = capturar()
+    try {
+      save.mockRejectedValueOnce(new DiagramConflictError('d1'))
+      getById.mockResolvedValueOnce({ ...seedDiagram(), updatedAt: 'v9', xml: 'externo' })
+      await useDiagramStore.getState().saveDiagram('d1', VALID_XML)
+      getById.mockResolvedValueOnce({ ...seedDiagram(), updatedAt: 'v9', xml: 'externo' })
+      await useDiagramStore.getState().refreshXml('d1')
+      expect(useDiagramStore.getState().diagrams[0].updatedAt).toBe('v9')
+      save.mockResolvedValueOnce('v10')
+      await useDiagramStore.getState().saveDiagram('d1', VALID_XML)
+      expect(save).toHaveBeenLastCalledWith(expect.any(Object), 'v9') // CAS sobre la versión recargada
+      expect(eventos).toHaveLength(1)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('si el servidor ya tiene este mismo contenido, adopta sin preguntar (igual que con pares)', async () => {
+    const eventos = capturar()
+    try {
+      save.mockRejectedValueOnce(new DiagramConflictError('d1'))
+      getById.mockResolvedValueOnce({ ...seedDiagram(), updatedAt: 'v9', xml: VALID_XML })
+      await useDiagramStore.getState().saveDiagram('d1', VALID_XML)
+      expect(eventos).toEqual([])
+      expect(useDiagramStore.getState().diagrams[0].updatedAt).toBe('v9')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('sin datos de presencia todavía se trata como solo: pregunta en vez de pisar', async () => {
+    usePresenceStore.setState({ participants: {} })
+    const eventos = capturar()
+    try {
+      save.mockRejectedValueOnce(new DiagramConflictError('d1'))
+      getById.mockResolvedValueOnce({ ...seedDiagram(), updatedAt: 'v9', xml: 'externo' })
+      await useDiagramStore.getState().saveDiagram('d1', VALID_XML)
+      expect(save).toHaveBeenCalledTimes(1)
+      expect(eventos).toHaveLength(1)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
