@@ -1,7 +1,7 @@
 # Informe: conector MCP de Flujo — Fase 3 (ensayo en un entorno alojado)
 
 **Fecha:** 2026-10-08 / 2026-10-09 · **Solicitado por:** santiagojmg28
-**Procedencia:** pruebas e implementación asistidas por Claude, sobre el plan aprobado ([MASTER-PLAN-038](../plans/todo/038-master-plan-conector-mcp.md), [DEC-013](../context/decisiones.md)). Continúa el [informe de la Fase 2](informe-mcp-fase-2.md).
+**Procedencia:** pruebas e implementación asistidas por Claude, sobre el plan aprobado ([MASTER-PLAN-049](../plans/todo/049-master-plan-conector-mcp.md), [DEC-014](../context/decisiones.md)). Continúa el [informe de la Fase 2](informe-mcp-fase-2.md).
 **Ámbito:** un **entorno de ensayo propio**: una copia del esquema en un proyecto Supabase aparte y dos proyectos de Vercel en una cuenta personal. **Nada se ha aplicado a producción:** ni migraciones, ni configuración de Auth, ni despliegues.
 
 > **Para el desarrollador principal.** Lo que hay que hacer para que esto funcione en producción está en [`mcp/README.md` → Puesta en producción](../../mcp/README.md#puesta-en-producción), paso a paso. Este informe explica qué cambió, cómo se probó y qué se encontró.
@@ -74,7 +74,7 @@ Como las operaciones se aplican en orden, una sola llamada puede crear el pool, 
 
 ### 3.4 Miniaturas que faltan, generadas por la portada
 
-**Problema.** La miniatura se hace al guardar desde el editor. El servidor MCP no tiene DOM y no puede dibujar, así que lo creado por Claude salía sin vista previa en la portada. La Fase 2 lo había dado por limitación conocida (DEC-013, consecuencias).
+**Problema.** La miniatura se hace al guardar desde el editor. El servidor MCP no tiene DOM y no puede dibujar, así que lo creado por Claude salía sin vista previa en la portada. La Fase 2 lo había dado por limitación conocida (DEC-014, consecuencias).
 
 **Arreglo.** Al cargar la portada, `diagramStore.loadAll` ya sabía qué diagramas no tienen miniatura en Storage. Ahora los pasa a una cola (`thumbnailBackfill.ts`) que:
 
@@ -196,7 +196,7 @@ La fusión **despliega la SPA**. El conector **no** queda activo hasta los pasos
 4. Proyecto de Vercel para `mcp/`, primero sin `MCP_HABILITAR_MODIFICAR`.
 5. `MCP_HABILITAR_MODIFICAR=1`, solo después del punto 3.
 6. Opcional: `UPDATE` único de `element_count` para las filas a 0.
-7. Cerrar PLAN-039 a PLAN-042 y MASTER-PLAN-038.
+7. Cerrar PLAN-050 a PLAN-053 y MASTER-PLAN-049.
 
 **Sin probar:**
 

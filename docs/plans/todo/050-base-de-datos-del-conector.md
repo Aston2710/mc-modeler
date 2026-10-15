@@ -1,16 +1,16 @@
 ---
-id: PLAN-039
+id: PLAN-050
 titulo: Base de datos del conector MCP — guardia por client_id, auditoría y límites
 estado: en-progreso
 creado: 2026-10-08
 cerrado:
 aprobado_por:
-relacionados: [MASTER-PLAN-038, DEC-013, DEC-007, DEC-012, EXP-015, EXP-016, SEG-11]
+relacionados: [MASTER-PLAN-049, DEC-014, DEC-007, DEC-012, EXP-015, EXP-016, SEG-11]
 ---
 
 # Base de datos del conector MCP
 
-Fase 0 de [MASTER-PLAN-038](038-master-plan-conector-mcp.md). Cambio de BD: **requiere aprobación explícita para producción.**
+Fase 0 de [MASTER-PLAN-049](049-master-plan-conector-mcp.md). Cambio de BD: **requiere aprobación explícita para producción.**
 
 ## Qué hace
 
@@ -18,7 +18,7 @@ Fase 0 de [MASTER-PLAN-038](038-master-plan-conector-mcp.md). Cambio de BD: **re
 
 Un token emitido por el servidor OAuth de Supabase lleva la claim `client_id`; las sesiones de la app no la llevan. Con ese token:
 
-- **`diagrams`:** INSERT y UPDATE solo de nombre y contenido. No se puede borrar, mandar a la papelera, mover de proyecto ni de carpeta, ni tocar la jerarquía o la miniatura. Tampoco crear en un proyecto sin permiso de edición (cierra SEG-11 para el conector). Límites: 1 MB de XML, 500 elementos y 20 escrituras por minuto.
+- **`diagrams`:** INSERT y UPDATE solo de nombre y contenido. No se puede borrar, mandar a la papelera, mover de proyecto ni de carpeta, ni tocar la jerarquía o la miniatura. Tampoco crear en un proyecto sin permiso de edición (cierra SEG-11 para el conector). Límites: 1 MB de XML y unas 20 escrituras por minuto (aproximado: el recuento no bloquea). El tope de 500 elementos no está en la base porque `element_count` lo manda el cliente (revisión del PR #1, R7 y R8); lo aplica el servidor MCP.
 - **Resto de tablas:** solo lectura, con un trigger en las 13 tablas. Única excepción: el alta automática del dueño al crear un diagrama.
 - **Storage:** sin subidas, cambios ni borrados (políticas restrictivas).
 - **Auditoría:** `private.mcp_auditoria`, escrita por trigger; solo escalares (DEC-007); invisible para `authenticated`.

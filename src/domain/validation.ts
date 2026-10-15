@@ -18,7 +18,7 @@ export function validateDiagram(
   // Process) o dentro de un pool (la raíz es la Collaboration y el proceso no
   // tiene forma propia: sus nodos son hijos del Participant). Mirar solo
   // `bpmn:Process` dejaba sin comprobar casi todos los diagramas, porque la
-  // plantilla de la app ya nace con un pool (MASTER-PLAN-038, D7). Un pool sin
+  // plantilla de la app ya nace con un pool (MASTER-PLAN-049, D7). Un pool sin
   // `processRef` es una caja negra: no tiene proceso que comprobar.
   const processes = elements.filter(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

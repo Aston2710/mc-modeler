@@ -10,10 +10,10 @@ Append-only. Entradas más recientes arriba. **Las alternativas descartadas con 
 
 ---
 
-## DEC-013 — Un conector MCP escribe diagramas con el JWT del usuario, limitado en la base y sin pisar sesiones abiertas
+## DEC-014 — Un conector MCP escribe diagramas con el JWT del usuario, limitado en la base y sin pisar sesiones abiertas
 
 - **Fecha:** 2026-10-08
-- **Estado:** vigente — aprobada por el usuario junto con MASTER-PLAN-038 el 2026-10-08
+- **Estado:** vigente — aprobada por el usuario junto con MASTER-PLAN-049 el 2026-10-08
 - **Contexto:** se quiere que una IA (Claude; ChatGPT si es compatible) cree y modifique diagramas directamente en el espacio de trabajo del usuario mediante un servidor MCP remoto. Con planes gratuitos de Vercel y Supabase, y para uso interno. La investigación ([`addons/investigacion-mcp.md`](../addons/investigacion-mcp.md)) encontró dos cosas que condicionan todo: (1) **el cliente pisa en silencio a cualquier escritor externo**, porque ante el primer conflicto de CAS reintenta y gana, y ningún cliente escucha cambios de la fila `diagrams`; (2) **los scopes de Supabase OAuth no limitan el acceso a datos**, así que un token del conector vale lo mismo que la sesión del usuario contra PostgREST.
 - **Decisión:**
   1. **Identidad:** el MCP actúa siempre con el JWT del usuario emitido por el servidor OAuth 2.1 de Supabase. **Nunca `service_role`.** Rechaza los tokens sin claim `client_id`, que son sesiones normales de la app.
@@ -38,8 +38,10 @@ Append-only. Entradas más recientes arriba. **Las alternativas descartadas con 
   - La audiencia del token es `authenticated` y no la URL del MCP: es una desviación consciente de RFC 8707, compensada por el punto 1 y la guardia de la base.
   - Hobby obliga a que el uso siga siendo no comercial.
   - El diagrama creado por la IA no tiene thumbnail hasta que alguien lo edite en la app.
-    - *Nota 2026-10-09:* superada. La portada genera las miniaturas que faltan al abrir Flujo (MASTER-PLAN-038, D10). El servidor sigue sin dibujar.
-- **Relacionados:** MASTER-PLAN-038, EXP-011, EXP-016, EXP-018, EXP-022, DEC-001, DEC-002, DEC-007, DEC-009, DEC-011, `addons/investigacion-mcp.md`, `addons/auditoria-seguridad-acceso.md`
+    - *Nota 2026-10-09:* superada. La portada genera las miniaturas que faltan al abrir Flujo (MASTER-PLAN-049, D10). El servidor sigue sin dibujar.
+    - *Nota 2026-10-15:* vuelve a valer mientras tanto. Por la revisión del PR #1, el backfill de la portada sale en un PR aparte (`portada-miniaturas`, I6) y va **apagado** hasta que `verifyBpmn` (MASTER-PLAN-044) esté en `main` (R3): dibujaría XML que nadie abrió, y un BPMN como el de EXP-025 colgaría la portada de todo el proyecto.
+    - *Nota 2026-10-15 (revisión del PR #1, R1 y R2):* en producción el servidor OAuth va **sin registro dinámico de clientes**, con un cliente pre-registrado para Claude. Con DCR abierto, cualquiera podía registrar un cliente «Claude» que devolviera el código a su dominio; la pantalla de consentimiento destaca el host de retorno y avisa si no es conocido, como segunda barrera. Pausar el servidor MCP no revoca tokens: ver «Apagar» en `mcp/README.md`.
+- **Relacionados:** MASTER-PLAN-049, EXP-011, EXP-016, EXP-018, EXP-022, DEC-001, DEC-002, DEC-007, DEC-009, DEC-011, `addons/investigacion-mcp.md`, `addons/auditoria-seguridad-acceso.md`
 
 ---
 

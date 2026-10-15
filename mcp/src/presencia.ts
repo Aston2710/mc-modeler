@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { LIMITES_HTTP } from './config'
 
 /**
- * Compuerta de presencia (DEC-013 §4, opción A de la investigación).
+ * Compuerta de presencia (DEC-014 §4, opción A de la investigación).
  *
  * Antes de modificar un diagrama, el servidor mira si alguien lo tiene abierto
  * en Flujo: se suscribe al MISMO canal `diagram:<id>` que usa el editor, pero

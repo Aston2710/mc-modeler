@@ -365,7 +365,7 @@ enabled = false
 # domain = "example.clerk.accounts.dev"
 
 # OAuth server configuration
-# MASTER-PLAN-038 (conector MCP): activado SOLO en el laboratorio. En producción
+# MASTER-PLAN-049 (conector MCP): activado SOLO en el laboratorio. En producción
 # se activa desde el panel (Authentication → OAuth Server) y requiere aprobación.
 # La pantalla de consentimiento es la ruta /oauth/consent de la SPA, sobre site_url.
 # El registro dinámico es el camino por defecto de Claude para conectores remotos.

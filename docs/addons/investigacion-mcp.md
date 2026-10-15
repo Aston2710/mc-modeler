@@ -5,7 +5,7 @@
 **Procedencia:** investigación asistida por Claude. Lectura del repo (`docs/`, `src/`, `supabase/migrations/`) y de documentación oficial externa, con las fuentes citadas en cada punto.
 **Método:** solo lectura. **No se ejecutó nada** contra Supabase, ni contra producción ni contra el laboratorio, y no se instaló nada. No se escribió código de producto.
 
-> **Estado:** 🔍 insumo para la Fase 1. Nada de aquí es una decisión: las decisiones irán a DEC-013 y al master plan cuando se aprueben.
+> **Estado:** 🔍 insumo para la Fase 1. Nada de aquí es una decisión: las decisiones irán a DEC-014 y al master plan cuando se aprueben.
 
 ---
 
@@ -195,7 +195,7 @@ Dos lecciones operativas:
 - **La documentación de `main` de un repositorio no describe la versión de npm.** Se midió la versión instalada, no la documentada.
 - **`bpmn-auto-layout` necesita `incoming`/`outgoing` declarados en el XML.** Sin ellos no genera ninguna arista y dispone los nodos en vertical. La primera ejecución dio 0 aristas por eso.
 
-**Decisión derivada (MASTER-PLAN-038, D8):** layout propio sobre el modelo semántico, con el `BizagiDirectionalRouter` del repo para las flechas, y **sin añadir `bpmn-auto-layout` como dependencia**.
+**Decisión derivada (MASTER-PLAN-049, D8):** layout propio sobre el modelo semántico, con el `BizagiDirectionalRouter` del repo para las flechas, y **sin añadir `bpmn-auto-layout` como dependencia**.
 
 ### 5.1-bis Antes de medir
 
@@ -285,7 +285,7 @@ Especificación vigente: **2026-07-28**, sección *Authorization*.
 2. **Audiencia (RFC 8707).** Como `aud=authenticated`, el MCP no puede validar la audiencia a la manera de la especificación. Alternativas, **por verificar en el laboratorio**:
    - validar que `client_id` pertenece a un cliente registrado para el conector;
    - o un *hook* que ponga `aud` en la URL del MCP, comprobando antes que PostgREST sigue aceptando el token.
-3. **Reenvío del token.** El MCP reenviaría el token a PostgREST del mismo proyecto Supabase que lo emitió. No es el caso que la especificación prohíbe (tokens de terceros), pero **hay que dejarlo razonado en DEC-013**.
+3. **Reenvío del token.** El MCP reenviaría el token a PostgREST del mismo proyecto Supabase que lo emitió. No es el caso que la especificación prohíbe (tokens de terceros), pero **hay que dejarlo razonado en DEC-014**.
 4. **Tokens personales (PAT) descartables.** Para que el MCP actúe como el usuario con un PAT, tendría que **fabricar** un JWT de usuario, y eso exige el secreto de firma o `service_role`: viola la regla dura. Además, Claude **no admite tokens pegados por el usuario**, solo OAuth con PKCE. Supabase OAuth es el único camino que respeta la regla.
 5. **La pantalla de consentimiento es una ruta nueva de la SPA.** Es un cambio de cliente pequeño, solo activo con Supabase configurado, y no afecta al modo IndexedDB.
 

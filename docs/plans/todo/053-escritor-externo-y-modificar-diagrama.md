@@ -1,16 +1,16 @@
 ---
-id: PLAN-042
+id: PLAN-053
 titulo: Etapa 2 — el cliente no pisa a un escritor externo, y modificar_diagrama
 estado: en-progreso
 creado: 2026-10-08
 cerrado:
 aprobado_por:
-relacionados: [MASTER-PLAN-038, DEC-013, DEC-009, EXP-011, PLAN-036]
+relacionados: [MASTER-PLAN-049, DEC-014, DEC-009, EXP-011, PLAN-036]
 ---
 
 # Etapa 2: escritor externo y `modificar_diagrama`
 
-Fase 3 de [MASTER-PLAN-038](038-master-plan-conector-mcp.md). **Es la puerta de `modificar_diagrama` en producción.**
+Fase 3 de [MASTER-PLAN-049](049-master-plan-conector-mcp.md). **Es la puerta de `modificar_diagrama` en producción.**
 
 ## Cliente: opción C (`src/store/diagramStore.ts`)
 
@@ -50,5 +50,5 @@ Con pares en el canal, todo sigue como antes. Sin datos de presencia, se conside
 
 - ✅ Inspector: `renombrar` + `agregar_nodo` aplicados con CAS; repetir con la versión vieja da conflicto y no escribe.
 - ✅ Claude con el diagrama **abierto** en la app: el primer intento se rechaza; con `si_esta_abierto="copiar"` guarda una copia y el original queda intacto.
-- ✅ Claude renombra un carril y un pool, y añade un pool conectado por mensajes **en el mismo diagrama** (`agregar_pool`, MASTER-PLAN-038 D11), sin mover lo existente. Revisado a ojo.
+- ✅ Claude renombra un carril y un pool, y añade un pool conectado por mensajes **en el mismo diagrama** (`agregar_pool`, MASTER-PLAN-049 D11), sin mover lo existente. Revisado a ojo.
 - ☐ Desplegar la SPA a producción y **después** encender la etapa 2: sin cambios respecto al 2026-10-08.

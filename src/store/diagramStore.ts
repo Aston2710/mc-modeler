@@ -142,7 +142,7 @@ interface DiagramState {
 // cliente; el atajo de idempotencia resuelve las carreras entre clientes.
 let saveChain: Promise<unknown> = Promise.resolve()
 
-// Diagramas con un conflicto EXTERNO avisado y sin resolver (DEC-013 §4). Se
+// Diagramas con un conflicto EXTERNO avisado y sin resolver (DEC-014 §4). Se
 // vacía al recargar la versión del servidor (refreshXml). Mientras tanto no se
 // escribe: es lo que impide que un autoguardado pise lo que escribió el
 // conector MCP mientras el diagrama estaba abierto.
@@ -403,7 +403,7 @@ export const useDiagramStore = create<DiagramState>()(
         // Escritor EXTERNO a la sesión (conector MCP, otra herramienta): nadie
         // más está en el canal, así que el cambio no vino de un colaborador en
         // vivo. Reintentar lo pisaría en silencio (escenarios E1/E2/E5 de
-        // docs/addons/investigacion-mcp.md, DEC-013 §4). Se pregunta, y NO se
+        // docs/addons/investigacion-mcp.md, DEC-014 §4). Se pregunta, y NO se
         // adopta la versión ajena: adoptarla haría que el próximo autoguardado
         // pisara igual. La pestaña queda con cambios sin guardar hasta decidir.
         if (estaSoloEnLaSesion()) {

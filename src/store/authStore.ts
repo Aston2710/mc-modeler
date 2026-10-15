@@ -10,7 +10,7 @@ interface AuthState {
   init: () => void
   /**
    * `redirectTo` opcional: a dónde vuelve el enlace. Por defecto, la raíz. Solo
-   * lo usa la pantalla de consentimiento OAuth (MASTER-PLAN-038), que necesita
+   * lo usa la pantalla de consentimiento OAuth (MASTER-PLAN-049), que necesita
    * volver a `/oauth/consent?authorization_id=…` tras iniciar sesión.
    */
   signInWithEmail: (email: string, redirectTo?: string) => Promise<{ error: string | null }>

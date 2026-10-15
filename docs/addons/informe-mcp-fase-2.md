@@ -1,7 +1,7 @@
 # Informe: conector MCP de Flujo — Fase 2 (implementación en el laboratorio)
 
 **Fecha:** 2026-10-08 · **Solicitado por:** santiagojmg28
-**Procedencia:** implementación y pruebas asistidas por Claude, sobre el plan aprobado ([MASTER-PLAN-038](../plans/todo/038-master-plan-conector-mcp.md), [DEC-013](../context/decisiones.md)). Investigación previa: [`investigacion-mcp.md`](investigacion-mcp.md).
+**Procedencia:** implementación y pruebas asistidas por Claude, sobre el plan aprobado ([MASTER-PLAN-049](../plans/todo/049-master-plan-conector-mcp.md), [DEC-014](../context/decisiones.md)). Investigación previa: [`investigacion-mcp.md`](investigacion-mcp.md).
 **Ámbito:** **solo laboratorio.** Sin commits, sin push y sin despliegue. **Nada se ha aplicado a producción:** ni la migración, ni la configuración de Auth, ni el servidor.
 
 ---
@@ -86,9 +86,9 @@
 
 | | Comprobación | Estado |
 |:-:|---|---|
-| ✅ | `docs/` consultado y EXP citados | investigación §8; DEC-013 |
-| ✅ | DEC-013 y master plan redactados; el cierre es del usuario | DEC-013 vigente por aprobación; MASTER-PLAN-038 **sin cerrar** |
-| ✅ | `docs/` actualizado | índices; `context/arquitectura-persistencia.md` §6; `context/desarrollo-local.md`; PLAN-039 a PLAN-042; auditoría de seguridad (SEG-11 confirmado) |
+| ✅ | `docs/` consultado y EXP citados | investigación §8; DEC-014 |
+| ✅ | DEC-014 y master plan redactados; el cierre es del usuario | DEC-014 vigente por aprobación; MASTER-PLAN-049 **sin cerrar** |
+| ✅ | `docs/` actualizado | índices; `context/arquitectura-persistencia.md` §6; `context/desarrollo-local.md`; PLAN-050 a PLAN-053; auditoría de seguridad (SEG-11 confirmado) |
 | ✅ | Hipótesis registradas con su fuente | investigación §7 y §5.1 (layout refutado por medición) |
 | ✅ | Sin commits, push ni despliegue | sí |
 
@@ -141,7 +141,7 @@ Las capturas están en `mcp/pruebas/capturas/`, en `.gitignore`, y se regeneran 
    - variables `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `APP_URL` y `MCP_PUBLIC_URL`;
    - **`MCP_HABILITAR_MODIFICAR` sin definir** en la etapa 1.
 5. **Etapa 2:** poner `MCP_HABILITAR_MODIFICAR=1` **solo después** del punto 3 en producción.
-6. **Cerrar** PLAN-039 a PLAN-042 y MASTER-PLAN-038.
+6. **Cerrar** PLAN-050 a PLAN-053 y MASTER-PLAN-049.
 
 ### Sin probar todavía
 
@@ -161,5 +161,5 @@ Las capturas están en `mcp/pruebas/capturas/`, en `.gitignore`, y se regeneran 
   Como A ya no está solo, el reintento entre pares puede pisar el cambio. Es improbable (exige las cuatro cosas), pero no imposible. **Arreglo propuesto, sin hacer:** revalidar `updated_at` al reactivar una pestaña cacheada.
 - **Ventana entre la compuerta de presencia y la escritura:** solo cuenta si quien abre tenía el diagrama cargado de antes (el caso anterior).
 - **Supabase OAuth está en beta.**
-- **`aud=authenticated`:** desviación consciente de RFC 8707, compensada como explica DEC-013.
+- **`aud=authenticated`:** desviación consciente de RFC 8707, compensada como explica DEC-014.
 - **Sin miniatura** hasta que alguien edite el diagrama en la app.

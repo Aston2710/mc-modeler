@@ -22,7 +22,7 @@ const participante = (userId: string): any => ({ userId, name: userId, color: '#
 function conPar() {
   usePresenceStore.setState({ participants: { yo: participante('yo'), otro: participante('otro') } })
 }
-/** Solo yo en el canal: un conflicto viene de un escritor externo (DEC-013 §4). */
+/** Solo yo en el canal: un conflicto viene de un escritor externo (DEC-014 §4). */
 function solo() {
   usePresenceStore.setState({ participants: { yo: participante('yo') } })
 }
@@ -177,7 +177,7 @@ describe('saveDiagram — control optimista (CAS)', () => {
   })
 })
 
-describe('saveDiagram — escritor externo con el usuario solo en la sesión (DEC-013 §4)', () => {
+describe('saveDiagram — escritor externo con el usuario solo en la sesión (DEC-014 §4)', () => {
   const capturar = () => {
     const eventos: { type: string; detail: unknown }[] = []
     class FakeCustomEvent {

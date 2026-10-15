@@ -15,7 +15,7 @@
     "esbuild": "^0.25.12",
     "typescript": "5.6"
   },
-  "description": "Servidor MCP remoto de Flujo (MASTER-PLAN-038). Paquete aislado: no comparte dependencias con la SPA.",
+  "description": "Servidor MCP remoto de Flujo (MASTER-PLAN-049). Paquete aislado: no comparte dependencias con la SPA.",
   "engines": {
     "node": ">=22"
   },
