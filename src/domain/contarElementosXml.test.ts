@@ -1,37 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { construirXml, crearModdle } from './bpmn-model/construirXml'
-import { contarElementos, editarXml } from './bpmn-model/editar'
-import { MODELO_POOLS_CARRILES, MODELO_SIMPLE, MODELO_SUBPROCESO } from './bpmn-model/fixtures'
 import { contarElementosXml } from './contarElementosXml'
 
-/** El contador del conector, sobre el árbol de moddle: la referencia. */
-async function referencia(xml: string): Promise<number> {
-  const { rootElement } = await crearModdle().fromXML(xml)
-  return contarElementos(rootElement)
-}
-
+// La equivalencia con `contarElementos` del conector (sobre el árbol de moddle)
+// se prueba en la rama del conector, que es donde vive ese contador.
 describe('contarElementosXml', () => {
-  it.each([
-    ['simple', MODELO_SIMPLE],
-    ['pools y carriles', MODELO_POOLS_CARRILES],
-    ['subproceso expandido', MODELO_SUBPROCESO],
-  ])('da lo mismo que el contador del conector: %s', async (_n, modelo) => {
-    const { xml, elementos } = await construirXml(modelo)
-    expect(contarElementosXml(xml)).toBe(elementos)
-    expect(contarElementosXml(xml)).toBe(await referencia(xml))
-  })
-
-  it('también después de editar: pool y carril nuevos, mensajes', async () => {
-    const { xml: base } = await construirXml(MODELO_POOLS_CARRILES)
-    const pool = MODELO_POOLS_CARRILES.pools[0]
-    const { xml, elementos } = await editarXml(base, [
-      { op: 'agregar_pool', id: 'Externo', nombre: 'Externo', carriles: [{ id: 'ext_a', nombre: 'A' }] },
-      { op: 'agregar_nodo', id: 'recibir_x', tipo: 'tarea_recepcion', nombre: 'Recibir', pool: 'Externo', carril: 'ext_a' },
-      { op: 'conectar', desde: pool.nodos[1].id, hasta: 'recibir_x' },
-    ])
-    expect(contarElementosXml(xml)).toBe(elementos)
-  })
-
   it('ignora anotaciones, DI, LaneSet, cierres y extensiones; no distingue mayúsculas', () => {
     const xml = `<bpmn:definitions>
       <bpmn:collaboration id="c"><bpmn:participant id="p" processRef="pr" /><bpmn:MessageFlow id="m" sourceRef="a" targetRef="p" /></bpmn:collaboration>

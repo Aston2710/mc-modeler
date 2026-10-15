@@ -7,7 +7,7 @@ import { generateDiagramId } from '@/utils/idGenerator'
 import { normalizeBpmnXml } from '@/utils/normalizeBpmnXml'
 import { externalizeImages, rehomeImages, deleteDiagramImages } from '@/utils/imageStorage'
 import { perfStart } from '@/utils/perf'
-import { programarMiniaturasFaltantes } from '@/utils/thumbnailBackfill'
+import { BACKFILL_ACTIVO, programarMiniaturasFaltantes } from '@/utils/thumbnailBackfill'
 import { contarElementosXml } from '@/domain/contarElementosXml'
 import { dispose as disposeModelerInstance } from '@/bpmn/modelerCache'
 
@@ -185,9 +185,10 @@ export const useDiagramStore = create<DiagramState>()(
               })
             }
             // Lo que sigue sin miniatura no la tiene en Storage: la escribió
-            // alguien de fuera de la app (el conector MCP). Se genera aquí.
+            // alguien de fuera de la app (el conector MCP). Se genera aquí,
+            // cuando el backfill esté encendido (ver BACKFILL_ACTIVO).
             const sinMiniatura = missing.filter((id) => !urls.has(id))
-            if (sinMiniatura.length > 0 && import.meta.env.MODE !== 'test') {
+            if (BACKFILL_ACTIVO && sinMiniatura.length > 0 && import.meta.env.MODE !== 'test') {
               programarMiniaturasFaltantes(sinMiniatura, {
                 obtenerXml: (id) => get().ensureXml(id),
                 guardar: (id, dataUrl) => get().saveThumbnailOnly(id, dataUrl),
@@ -342,7 +343,10 @@ export const useDiagramStore = create<DiagramState>()(
     saveDiagram: (id, xml, elementCountDado, thumbnail) => {
       // Nadie lo pasa al guardar desde el editor: se cuenta del XML. Antes
       // caía a 0 y la portada nunca enseñaba el número de elementos.
+      // Coste medido con flujo:perf (revisión del PR #1, I5).
+      const endContar = perfStart('diagram:save:contarElementos', { diagramId: id, bytes: xml.length })
       const elementCount = elementCountDado ?? contarElementosXml(xml)
+      endContar({ elementos: elementCount })
       // Todo el cuerpo corre DENTRO de la cadena (saveChain): los guardados del
       // mismo cliente se ejecutan en serie, y cada uno lee el updated_at fresco
       // que dejó el anterior (get() se evalúa al ejecutar run, no al encolar).

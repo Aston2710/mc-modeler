@@ -2,7 +2,7 @@
  * Miniaturas que faltan, generadas en segundo plano desde la portada.
  *
  * POR QUÉ. La miniatura se hace al guardar desde el editor (`buildThumbnail`).
- * Un diagrama escrito por fuera de la app —el conector MCP (MASTER-PLAN-038),
+ * Un diagrama escrito por fuera de la app —el conector MCP (MASTER-PLAN-049),
  * que corre en un servidor sin DOM y no puede renderizar— llega sin ella, y la
  * portada le ponía el icono genérico hasta que alguien lo abriera y guardara.
  * Visto en la copia de pruebas el 2026-10-09: todos los diagramas creados por
@@ -20,7 +20,16 @@
  * "Última modificación" y su versión CAS cambia. Es exactamente lo que ya
  * pasa al guardarlo por primera vez desde el editor. Por eso se saltan los
  * diagramas abiertos en una pestaña: ahí la miniatura la hará el autosave.
+ *
+ * APAGADO hasta MASTER-PLAN-044. El backfill dibuja XML que nadie ha abierto,
+ * escrito por cualquier colaborador con permiso de edición —la API lo admite—.
+ * Un BPMN que cuelga bpmn-js (EXP-025: una forma sin `width`/`height`) colgaría
+ * así la portada de TODOS los colaboradores del proyecto sin que ninguno abra
+ * el diagrama. Se enciende cuando `verifyBpmn` (PLAN-045) esté en `main` y el
+ * XML pase por él antes de `renderizar`; no antes. Revisión del PR #1, R3.
  */
+
+export const BACKFILL_ACTIVO = false
 
 const MAX_POR_SESION = 20
 const ESPERA_INICIAL_MS = 1500
