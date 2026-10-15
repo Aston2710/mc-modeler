@@ -251,7 +251,48 @@ function pickFacesMultiConn(src: Shape, tgt: Shape, connection: Connection): [Fa
     if (!isGateway(src)) sFace = 'bottom'
     if (!isGateway(tgt)) tFace = 'top'
   }
+  if (!isGateway(src)) sFace = avoidOpposingFace(src, tgt, sFace, connection, 'incoming')
+  if (!isGateway(tgt)) tFace = avoidOpposingFace(tgt, src, tFace, connection, 'outgoing')
   return [sFace, tFace]
+}
+
+// Una flecha que ENTRA y otra que SALE por el centro de la misma cara se
+// solapan siempre: mismo dock, sentidos opuestos sobre el mismo tramo. Las
+// reglas de arriba eligen la cara solo por geometría y no lo veían (visto el
+// 2026-10-15: tarea con entrada por arriba y salida hacia un evento de arriba a
+// la derecha → las dos por 'top'). Si la cara la usa ya una flecha en sentido
+// contrario, se toma la libre más cercana a `other`. No cuenta las conexiones
+// con el mismo `other`: esas son paralelas (o backline) y ya se separan ±10px.
+function opposingFaces(
+  shape: Shape, other: Shape, connection: Connection, opposing: 'incoming' | 'outgoing'
+): Set<Face> {
+  const taken = new Set<Face>()
+  if (isGateway(shape)) return taken
+  for (const c of ((shape[opposing] || []) as Connection[])) {
+    if (c === connection) continue
+    const otherEnd = opposing === 'incoming' ? c.source : c.target
+    if (otherEnd?.id === other.id) continue
+    const wps: Point[] | undefined = c.waypoints
+    if (!wps || wps.length < 1) continue
+    taken.add(nearestFace(shape, opposing === 'incoming' ? wps[wps.length - 1] : wps[0]))
+  }
+  return taken
+}
+
+function avoidOpposingFace(
+  shape: Shape, other: Shape, face: Face, connection: Connection, opposing: 'incoming' | 'outgoing'
+): Face {
+  const taken = opposingFaces(shape, other, connection, opposing)
+  if (!taken.has(face)) return face
+  const target = { x: cx(other), y: cy(other) }
+  const free = (['right', 'left', 'bottom', 'top'] as Face[])
+    .filter((f) => !taken.has(f))
+    .sort((a, b) => {
+      const pa = faceCardinal(shape, a)
+      const pb = faceCardinal(shape, b)
+      return Math.hypot(pa.x - target.x, pa.y - target.y) - Math.hypot(pb.x - target.x, pb.y - target.y)
+    })
+  return free[0] ?? face
 }
 
 function pickFace(shape: Shape, other: Shape, hint?: Point, shapeMoveMode?: boolean): Face {
@@ -540,8 +581,23 @@ BizagiLayouter.prototype.layoutConnection = function (connection: Connection, hi
     if (assoc || isClean(primary)) return primary
     // caras geométricas como primer intento del fallback
     const FACES: Face[] = ['top', 'bottom', 'left', 'right']
-    const candidates: [Face, Face][] = [[sGeo, tGeo]]
-    for (const a of FACES) for (const b of FACES) candidates.push([a, b])
+    const all: [Face, Face][] = [[sGeo, tGeo]]
+    for (const a of FACES) for (const b of FACES) all.push([a, b])
+    // Si hay flechas en sentido contrario ancladas en src o tgt (ver
+    // avoidOpposingFace), primero el par limpio MÁS BARATO entre los que no
+    // anclan sobre ellas. Sin ese conflicto, el orden de siempre.
+    const sTaken = opposingFaces(src, tgt, connection, 'incoming')
+    const tTaken = opposingFaces(tgt, src, connection, 'outgoing')
+    if (sTaken.size > 0 || tTaken.size > 0) {
+      let best: Point[] | null = null
+      for (const [a, b] of all) {
+        if (sTaken.has(a) || tTaken.has(b)) continue
+        const r = computeRoute(a, b)
+        if (isClean(r) && (!best || routeCost(r) < routeCost(best))) best = r
+      }
+      if (best) return best
+    }
+    const candidates = all
     const tried = new Set<string>()
     for (const [a, b] of candidates) {
       const key = a + '|' + b

@@ -786,3 +786,88 @@ describe('mover un contenedor (pool) traslada sus flechas, no las rerutea', () =
     expect(isExactOrthogonal(flow.waypoints)).toBe(true)
   })
 })
+
+// Visto el 2026-10-15 en la ida y vuelta Bizagi del conector MCP (PLAN-051):
+// N recibe una flecha por ARRIBA y su salida va a un evento que está arriba a
+// la derecha. pickFacesMultiConn elegía también 'top' para salir: las dos
+// flechas compartían el punto medio de la cara y se solapaban en vertical.
+const DIAGRAMA_CARAS = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+    xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+    xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+    id="Defs_1" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Process_1" isExecutable="false">
+    <bpmn:task id="Task_A" />
+    <bpmn:task id="Task_N" />
+    <bpmn:endEvent id="End_E" />
+    <bpmn:sequenceFlow id="Flow_AN" sourceRef="Task_A" targetRef="Task_N" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diag_1">
+    <bpmndi:BPMNPlane id="Plane_1" bpmnElement="Process_1">
+      <bpmndi:BPMNShape id="Task_A_di" bpmnElement="Task_A">
+        <dc:Bounds x="640" y="385" width="90" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_N_di" bpmnElement="Task_N">
+        <dc:Bounds x="780" y="595" width="90" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_E_di" bpmnElement="End_E">
+        <dc:Bounds x="850" y="400" width="30" height="30" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_AN_di" bpmnElement="Flow_AN">
+        <di:waypoint x="685" y="445" />
+        <di:waypoint x="685" y="520" />
+        <di:waypoint x="825" y="520" />
+        <di:waypoint x="825" y="595" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>`
+
+/** ¿Comparten dos rutas un tramo (no solo un punto)? Solo segmentos ortogonales. */
+function compartenTramo(a: { x: number; y: number }[], b: { x: number; y: number }[]): boolean {
+  for (let i = 1; i < a.length; i++) {
+    for (let j = 1; j < b.length; j++) {
+      const [p, q, r, s] = [a[i - 1], a[i], b[j - 1], b[j]]
+      if (p.x === q.x && r.x === s.x && p.x === r.x) {
+        const lo = Math.max(Math.min(p.y, q.y), Math.min(r.y, s.y))
+        const hi = Math.min(Math.max(p.y, q.y), Math.max(r.y, s.y))
+        if (hi - lo > 1) return true
+      }
+      if (p.y === q.y && r.y === s.y && p.y === r.y) {
+        const lo = Math.max(Math.min(p.x, q.x), Math.min(r.x, s.x))
+        const hi = Math.min(Math.max(p.x, q.x), Math.max(r.x, s.x))
+        if (hi - lo > 1) return true
+      }
+    }
+  }
+  return false
+}
+
+describe('caras de entrada y salida de un mismo shape', () => {
+  it('la salida no usa la cara por la que ya entra otra flecha (no se solapan)', async () => {
+    const { modeling, registry } = await createModeler(DIAGRAMA_CARAS)
+    const entrada = registry.get('Flow_AN')
+    const salida = modeling.connect(registry.get('Task_N'), registry.get('End_E'))
+
+    const fin = entrada.waypoints[entrada.waypoints.length - 1]
+    const inicio = salida.waypoints[0]
+    expect(inicio.x === fin.x && inicio.y === fin.y, 'mismo punto de anclaje').toBe(false)
+    expect(compartenTramo(entrada.waypoints, salida.waypoints)).toBe(false)
+    expect(isExactOrthogonal(salida.waypoints)).toBe(true)
+    expect(routeInvades(salida.waypoints, registry.get('Task_N'))).toBe(false)
+  })
+
+  it('y al revés: la entrada no usa la cara por la que ya sale otra flecha', async () => {
+    const { modeling, registry } = await createModeler(DIAGRAMA_CARAS)
+    const n = registry.get('Task_N')
+    modeling.removeConnection(registry.get('Flow_AN'))
+    // N sale por arriba hacia E; luego llega una flecha desde A, que está arriba.
+    const salida = modeling.connect(n, registry.get('End_E'))
+    const caraSalida = salida.waypoints[0]
+    const entrada = modeling.connect(registry.get('Task_A'), n)
+    const fin = entrada.waypoints[entrada.waypoints.length - 1]
+    expect(fin.x === caraSalida.x && fin.y === caraSalida.y, 'mismo punto de anclaje').toBe(false)
+    expect(compartenTramo(entrada.waypoints, salida.waypoints)).toBe(false)
+  })
+})
