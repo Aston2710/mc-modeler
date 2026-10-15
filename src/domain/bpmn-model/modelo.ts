@@ -1,7 +1,7 @@
 /**
  * Modelo semántico de un diagrama BPMN: lo que una IA describe, sin
  * coordenadas. Es el contrato de entrada de `crear_diagrama` en el conector MCP
- * (MASTER-PLAN-038, PLAN-040) y lo que devuelve `obtener_diagrama`.
+ * (MASTER-PLAN-049, PLAN-051) y lo que devuelve `obtener_diagrama`.
  *
  * Los nombres van en español porque son la superficie que lee la IA: el
  * esquema de las tools se genera a partir de estos mismos tipos.
@@ -139,7 +139,8 @@ export const esActividad = (t: TipoNodo): boolean => t.startsWith('tarea') || t 
 
 /**
  * Límites del conector. `MAX_NODOS` coincide con `MAX_ELEMENTS`
- * (`domain/bpmnElements.ts`) y con la guardia de la base (500 elementos).
+ * (`domain/bpmnElements.ts`). La base no lo comprueba: `element_count` lo
+ * manda el cliente (revisión del PR #1, R7); allí solo cuenta el 1 MB de XML.
  */
 export const LIMITES = {
   MAX_NODOS: 500,

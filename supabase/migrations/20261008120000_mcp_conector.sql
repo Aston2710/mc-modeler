@@ -1,5 +1,5 @@
 -- ============================================================================
--- MASTER-PLAN-038 / PLAN-039. Copiada de supabase/prototipos/ el 2026-10-08 para
+-- MASTER-PLAN-049 / PLAN-050. Copiada de supabase/prototipos/ el 2026-10-08 para
 -- probarla en el laboratorio (`npm run db:reset`).
 --
 -- *** NO APLICADA EN PRODUCCIÓN. *** Aplicarla allí requiere aprobación
@@ -15,7 +15,11 @@
 --   1. Con token de conector, solo se puede CREAR y MODIFICAR el contenido de
 --      diagramas. Nada de borrar, mover de proyecto, papelera, colaboradores,
 --      invitaciones, comentarios, imágenes, perfiles ni notificaciones.
---   2. Límites duros: 1 MB de XML, 500 elementos, 20 escrituras por minuto.
+--   2. Límites: 1 MB de XML (duro) y unas 20 escrituras por minuto
+--      (aproximado: ver la guardia). El tope de 500 elementos NO está aquí:
+--      `element_count` lo manda el propio cliente y un token podría enviar 0
+--      (revisión del PR #1, R7). Lo aplica el servidor MCP a sus modelos;
+--      contra un token usado a mano, el límite real es el de bytes.
 --   3. Auditoría de cada escritura del conector, escrita por trigger: no la
 --      puede saltar quien llame a PostgREST directamente con el token.
 --   4. Contador de llamadas por usuario y minuto para el límite de las tools
@@ -53,7 +57,7 @@ as $$
 $$;
 
 comment on function private.es_conector() is
-  'MASTER-PLAN-038. true si el JWT de la petición lo emitió el servidor OAuth '
+  'MASTER-PLAN-049. true si el JWT de la petición lo emitió el servidor OAuth '
   '(lleva client_id). Las sesiones de la app no lo llevan.';
 
 -- ── 2. Auditoría ────────────────────────────────────────────────────────────
@@ -77,7 +81,7 @@ create index if not exists mcp_auditoria_user_creado
   on private.mcp_auditoria (user_id, creado desc);
 
 comment on table private.mcp_auditoria is
-  'MASTER-PLAN-038. Escrituras hechas con token del conector MCP. La escribe '
+  'MASTER-PLAN-049. Escrituras hechas con token del conector MCP. La escribe '
   'un trigger; nadie con rol authenticated puede leerla ni escribirla.';
 
 -- ── 3. Ventanas del límite de llamadas ──────────────────────────────────────
@@ -109,10 +113,9 @@ begin
   if octet_length(new.current_xml) > 1048576 then
     raise exception 'XML mayor de 1 MB' using errcode = 'PT413';
   end if;
-  if new.element_count > 500 then
-    raise exception 'más de 500 elementos' using errcode = 'PT413';
-  end if;
-
+  -- Aproximado (revisión del PR #1, R8): se cuenta sin bloqueo, así que con
+  -- escrituras concurrentes del mismo usuario pasan algunas de más antes de
+  -- que la auditoría las vea. Basta para frenar un bucle; no es una cuota.
   select count(*) into escrituras_ultimo_minuto
     from private.mcp_auditoria
    where user_id = auth.uid() and creado > now() - interval '1 minute';
@@ -269,7 +272,7 @@ revoke all on function public.mcp_registrar_llamada(integer) from public, anon;
 grant execute on function public.mcp_registrar_llamada(integer) to authenticated;
 
 -- ============================================================================
--- VERIFICACIÓN EN EL LABORATORIO (PLAN-039)
+-- VERIFICACIÓN EN EL LABORATORIO (PLAN-050)
 --  1. Sesión normal de la app: crear, editar, borrar y mover diagramas, comentar,
 --     invitar y subir imágenes. Todo como hoy.
 --  2. Token de conector (JWT con client_id): crear y editar el contenido de un

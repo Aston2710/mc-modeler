@@ -5,14 +5,17 @@
  *   SUPABASE_URL            https://<ref>.supabase.co — pública, va en el bundle de la SPA
  *   SUPABASE_ANON_KEY       la clave anónima — pública por diseño
  *   APP_URL                 https://mc-modeler.vercel.app — para enlazar al diagrama
- *   MCP_PUBLIC_URL          URL pública de este servidor, sin barra final (opcional:
- *                           si falta se deduce de las cabeceras de la petición)
- *   MCP_HABILITAR_MODIFICAR '1' habilita modificar_diagrama (etapa 2, PLAN-042).
+ *   MCP_PUBLIC_URL          URL pública de este servidor, sin barra final.
+ *                           OBLIGATORIA desplegado (Vercel o NODE_ENV=production):
+ *                           si faltara, la URL del recurso OAuth se deduciría de
+ *                           `x-forwarded-host`, que manda el cliente (revisión
+ *                           del PR #1, R6). Solo en local puede faltar.
+ *   MCP_HABILITAR_MODIFICAR '1' habilita modificar_diagrama (etapa 2, PLAN-053).
  *                           Apagada por defecto: no se enciende en producción hasta
  *                           que el cliente con la opción C esté desplegado.
  *
  * Deliberadamente NO hay `SUPABASE_SERVICE_ROLE_KEY`: el servidor actúa
- * siempre con el JWT del usuario (DEC-013). Si alguien la añade, el código no
+ * siempre con el JWT del usuario (DEC-014). Si alguien la añade, el código no
  * la lee.
  */
 
@@ -27,6 +30,11 @@ export interface Config {
 export function leerConfig(env: Record<string, string | undefined> = process.env): Config {
   const faltan = ['SUPABASE_URL', 'SUPABASE_ANON_KEY'].filter((k) => !env[k])
   if (faltan.length) throw new Error(`faltan variables de entorno: ${faltan.join(', ')}`)
+  const desplegado = !!env.VERCEL || env.NODE_ENV === 'production'
+  if (desplegado) {
+    if (!env.MCP_PUBLIC_URL) throw new Error('falta MCP_PUBLIC_URL: es obligatoria desplegado')
+    if (!env.MCP_PUBLIC_URL.startsWith('https://')) throw new Error('MCP_PUBLIC_URL tiene que ser https:// desplegado')
+  }
   return {
     supabaseUrl: env.SUPABASE_URL!.replace(/\/+$/, ''),
     supabaseAnonKey: env.SUPABASE_ANON_KEY!,

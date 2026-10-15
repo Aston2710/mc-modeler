@@ -1,4 +1,4 @@
--- Verificación de supabase/migrations/20261008120000_mcp_conector.sql (PLAN-039).
+-- Verificación de supabase/migrations/20261008120000_mcp_conector.sql (PLAN-050).
 -- SOLO LABORATORIO. Uso:
 --   Get-Content -Raw supabase/pruebas/mcp_conector.sql | docker exec -i supabase_db_mc-modeler psql -U postgres -d postgres
 -- Todo corre dentro de transacciones con rollback: no deja datos.
@@ -74,7 +74,12 @@ rollback;
 \echo '── 6. Límites'
 begin;
 select '6a XML de 1,1 MB:           ' || public._probar(:conA, $$update public.diagrams set current_xml=repeat('a', 1153434) where id='cccccccc-0000-0000-0000-000000000001'$$);
-select '6b 501 elementos:           ' || public._probar(:conA, $$update public.diagrams set element_count=501 where id='cccccccc-0000-0000-0000-000000000001'$$);
+-- 6b: la base ya NO limita element_count (lo manda el cliente; revisión del
+-- PR #1, R7). Esperado: OK. El límite real es el 1 MB de 6a.
+select '6b 501 elementos (sin tope): ' || public._probar(:conA, $$update public.diagrams set element_count=501 where id='cccccccc-0000-0000-0000-000000000001'$$);
+-- 6b escribe y cuenta para el límite de ritmo: se deshace antes de 6c.
+rollback;
+begin;
 select '6c escrituras 1..20:        ' || coalesce(string_agg(r, ','), 'las 20 OK') from (
   select public._probar(:conA, $$update public.diagrams set name='n' where id='cccccccc-0000-0000-0000-000000000001'$$) as r
   from generate_series(1,20)) s where r not like 'OK%';
