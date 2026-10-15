@@ -167,3 +167,6 @@ backfill-thumbs-*.json
 spike-vector/
 verificacion-pdf/
 legibilidad-diagramas.csv
+# Configuración local de Claude Code (permisos, servidores MCP de cada máquina): no se versiona.
+.claude/settings.local.json
+.mcp.json
