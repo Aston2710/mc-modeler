@@ -41,7 +41,11 @@ Ninguna toca colaboradores, notificaciones, comentarios, perfiles ni Realtime. Q
 
 ## A. Hallazgos que ningún documento recoge
 
-### SEG-01 · Auto-alta como colaborador 🔍
+### SEG-01 · Auto-alta como colaborador ⚠️ confirmado en el laboratorio
+
+> **Prueba, 2026-10-15** (revisión del PR #1): en el laboratorio, como `authenticated` con el JWT de sesión normal de `dev2@local.test`, sin ninguna relación con el diagrama «Diagrama del proyecto» de `dev@local.test`: antes no lo ve (0 filas); el `INSERT` en `diagram_collaborators` a su nombre con rol `editor` **se acepta**; después lo ve y **lo renombra**. Con rol `owner` el `INSERT` también se acepta (el `DELETE` del diagrama no, porque `diagrams_delete` mira `owner_id`). En `project_collaborators` igual: se da de alta como `editor` en el proyecto ajeno y pasa a ver el proyecto y sus 9 diagramas. Todo con rollback. Con token del conector, `conector_solo_lectura` lo rechaza. **Producción no se probó.** No hay incidente (EXP) porque no consta explotación.
+>
+> **Arreglo propuesto, 2026-10-15:** en el PR del conector (rama `MCP-Delevopment`), migración `20261015120000_seg_01_02_colaboradores_y_outbox.sql`: las políticas de INSERT dejan solo la condición de dueño (los caminos legítimos de alta propia son SECURITY DEFINER). Probado en el laboratorio con `supabase/pruebas/seg_01_02.sql`: los tres ataques dan 42501 y siguen funcionando compartir, crear con alta de dueño, canjear invitación y salir de un diagrama. **Sin aplicar en producción: requiere aprobación.**
 
 **Evidencia.** La política `collab_insert` de `diagram_collaborators` permite insertar si `private.is_diagram_owner(diagram_id)` **o** `user_id = (SELECT auth.uid())`. `project_collab_insert` tiene la misma forma.
 
@@ -53,7 +57,11 @@ Ninguna toca colaboradores, notificaciones, comentarios, perfiles ni Realtime. Q
 
 **Relación con lo documentado.** PLAN-011 P3-2 propone una política UPDATE sobre colaboradores, pero no menciona el INSERT.
 
-### SEG-02 · Relé de correo a través de `notification_outbox` 🔍
+### SEG-02 · Relé de correo a través de `notification_outbox` ⚠️ confirmado en el laboratorio (la parte de base de datos)
+
+> **Prueba, 2026-10-15** (revisión del PR #1): en el laboratorio, `has_column_privilege('authenticated', 'public.notification_outbox', c, 'UPDATE')` da `true` para **todas** las columnas, también `recipient_email`, `payload`, `sent_at`, `attempts` y `created_at`. Como `dev@local.test`, sobre una fila propia ya enviada, el `UPDATE` que cambia `recipient_email` a un correo ajeno, mete HTML en `payload` y pone `sent_at = null` y `attempts = 0` **se acepta**. El `INSERT` de filas nuevas sí se rechaza (RLS). Como `created_at` también es editable, la fila puede mantenerse dentro de la ventana de 2 días de `retryUnsent` indefinidamente. En `Code.gs`, el HTML se escapa (`esc_`) y los enlaces apuntan siempre a `BASE_URL`, así que el riesgo es **correo con texto libre del atacante a cualquier destinatario desde la cuenta de la app**, no HTML ni enlaces arbitrarios. El envío real por Apps Script no se probó. **Producción no se probó.** Con token del conector, `conector_solo_lectura` lo rechaza.
+>
+> **Arreglo propuesto, 2026-10-15:** mismo PR y migración que SEG-01: `revoke update` de tabla a `anon` y `authenticated`, y `grant update (read_at)` a `authenticated` (lo único que actualiza la app). Probado en el laboratorio: reescribir destinatario o `created_at` da 42501 y marcar como leída sigue funcionando. Apps Script usa `service_role` y no le afecta. **Sin aplicar en producción: requiere aprobación.**
 
 **Evidencia.**
 - La migración `0012` (y PLAN-004) afirma que un `grant update (read_at)` a nivel de columna limita a `authenticated` a tocar solo `read_at`, "evitando abuso del retry".
