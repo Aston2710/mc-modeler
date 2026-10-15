@@ -96,7 +96,7 @@ describe.skipIf(!arriba)('conector MCP contra el laboratorio', () => {
   })
 
   it('sin MCP_HABILITAR_MODIFICAR, modificar_diagrama no existe (etapa 1)', async () => {
-    // .env.lab la enciende; aquí se apaga explícitamente, como en producción hasta PLAN-042.
+    // .env.lab la enciende; aquí se apaga explícitamente, como en producción hasta PLAN-053.
     const etapa1 = crearApp(leerConfig({ ...ENV, MCP_HABILITAR_MODIFICAR: undefined, MCP_PUBLIC_URL: 'http://localhost:7655' }))
     const r = await llamarTool(etapa1, tokenA, 'modificar_diagrama', {
       diagrama_id: C1_EDITOR_B, version_esperada: '2026-01-01T00:00:00+00:00', operaciones: [{ op: 'renombrar', id: 'x', nombre: 'y' }],
@@ -292,7 +292,10 @@ describe.skipIf(!arriba)('conector MCP contra el laboratorio', () => {
   // ── Límite de ritmo (al final: consume la ventana del minuto de B) ───────
   it('límite de llamadas por minuto', async () => {
     let limitado = false
-    for (let i = 0; i < 65 && !limitado; i++) {
+    // Ventanas fijas por minuto: si la tanda cruza el cambio de minuto, el
+    // contador vuelve a 0. Con 125 intentos se llena al menos una ventana entera
+    // (falló así una vez, 2026-10-15).
+    for (let i = 0; i < 125 && !limitado; i++) {
       const r = await llamarTool(app, tokenB, 'listar_proyectos')
       limitado = !!r.isError && /límite/.test(r.texto ?? '')
     }

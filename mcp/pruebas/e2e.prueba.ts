@@ -221,6 +221,11 @@ describe.skipIf(!activo)('extremo a extremo con la app del laboratorio', async (
       await page.goto(consent)
       await page.getByText(/Claude \(prueba\) quiere trabajar con tus diagramas/).waitFor({ timeout: 20_000 })
       await page.getByText(/Borrar ni mover diagramas o proyectos/).waitFor()
+      // R1 y R5 de la revisión del PR #1: host de retorno destacado, sin aviso
+      // (localhost es conocido), y la línea de envío de datos.
+      await page.getByText('localhost:7799', { exact: true }).waitFor()
+      expect(await page.getByRole('alert').count()).toBe(0)
+      await page.getByText(/se enviará a ese servicio/).waitFor()
       await page.screenshot({ path: captura('consentimiento.png') })
       const [salida] = await Promise.all([
         page.waitForRequest((r) => r.url().startsWith(redirect), { timeout: 20_000 }),
@@ -236,6 +241,40 @@ describe.skipIf(!activo)('extremo a extremo con la app del laboratorio', async (
       // Y ese token funciona contra el MCP.
       const r = await llamarTool(app, tok.access_token!, 'listar_proyectos')
       expect(r.isError, r.texto).toBe(false)
+    } finally {
+      await ctx.close()
+    }
+  }, 90_000)
+
+  it('consentimiento: un cliente "Claude" que vuelve a un dominio ajeno sale con aviso en rojo (R1)', async () => {
+    const SITE = 'http://localhost:5175'
+    if (!(await fetch(SITE).then((r) => r.ok).catch(() => false))) {
+      throw new Error(`arranca la app en ${SITE} con VITE_SUPABASE_URL/ANON_KEY del laboratorio`)
+    }
+    const { createHash, randomBytes } = await import('node:crypto')
+    const { sesionApp, AUTH } = await import('./lab')
+    const redirect = 'https://atacante.example/claude/callback'
+    const reg = await fetch(`${AUTH}/oauth/clients/register`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ client_name: 'Claude', redirect_uris: [redirect], token_endpoint_auth_method: 'none', grant_types: ['authorization_code'], response_types: ['code'] }),
+    }).then((r) => r.json()) as { client_id: string }
+    const challenge = createHash('sha256').update(randomBytes(32).toString('base64url')).digest('base64url')
+    const q = new URLSearchParams({ response_type: 'code', client_id: reg.client_id, redirect_uri: redirect, code_challenge: challenge, code_challenge_method: 'S256', state: 'e2e' })
+    const consent = (await fetch(`${AUTH}/oauth/authorize?${q}`, { redirect: 'manual' })).headers.get('location')!
+
+    const { sb } = await sesionApp('dev@local.test')
+    const { data } = await sb.auth.getSession()
+    const ctx = await navegador.newContext()
+    await ctx.addInitScript((s) => localStorage.setItem('sb-127-auth-token', s), JSON.stringify(data.session))
+    const page = await ctx.newPage()
+    try {
+      await page.goto(consent)
+      await page.getByText(/Claude quiere trabajar con tus diagramas/).waitFor({ timeout: 20_000 })
+      await page.getByText('atacante.example', { exact: true }).waitFor()
+      await page.getByRole('alert').getByText(/no es un asistente conocido/).waitFor()
+      await page.screenshot({ path: captura('consentimiento-dominio-ajeno.png') })
+      // Se rechaza: nada que canjear.
+      await page.getByRole('button', { name: /^Rechazar$/ }).click()
     } finally {
       await ctx.close()
     }
@@ -313,6 +352,131 @@ describe.skipIf(!activo)('extremo a extremo con la app del laboratorio', async (
       expect(sqlLab(`select current_xml like '%CAMBIO EXTERNO%' from public.diagrams where id='${id}'`)).toBe('t')
     } finally {
       await a.ctx.close()
+    }
+  }, 120_000)
+
+  // ── Ida y vuelta con un diagrama exportado por Bizagi (revisión del PR #1, I4) ──
+  // `fixtures/bizagi-solicitud-vacaciones.bpmn` imita una exportación "BPMN 2.0"
+  // de Bizagi Modeler. Camino completo: importado como lo hace la app
+  // (normalizeBpmnXml + guardar), editado por el MCP con seis operaciones,
+  // abierto y guardado desde la app. Las extensiones `bizagi:` de todo lo que
+  // no se tocó tienen que salir idénticas en cada paso.
+  it('Bizagi: importado como la app, editado por el MCP y guardado desde la app, sin perder extensiones', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { randomUUID } = await import('node:crypto')
+    const { normalizeBpmnXml } = await import('../../src/utils/normalizeBpmnXml')
+    const { crearModdle } = await import('../../src/domain/bpmn-model/construirXml')
+    const { sesionApp } = await import('./lab')
+
+    const T = (n: number) => `Id_t000000${n}-0000-4000-8000-00000000000${n}`
+    const REVISAR = T(2)
+    const AUSENCIA = T(4)
+    const FIN_OK = 'Id_e0000003-0000-4000-8000-000000000003'
+    const F7 = 'Id_f0000007-0000-4000-8000-000000000007' // ausencia → fin; se elimina
+    const POOL = 'Id_p0000001-0000-4000-8000-000000000001'
+    const CARRIL_RRHH = 'Id_l0000003-0000-4000-8000-000000000003'
+
+    /** id → extensionElements aplanados (tipo, atributos, hijos), para comparar. */
+    async function extensiones(xml: string): Promise<Map<string, string>> {
+      const { rootElement, warnings } = await crearModdle().fromXML(xml)
+      expect(warnings, 'moddle entiende todo el XML').toEqual([])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      type Bo = any
+      const plano = (v: Bo): unknown => {
+        if (v === null || typeof v !== 'object') return v
+        const attrs: Record<string, unknown> = { ...(v.$attrs ?? {}) }
+        for (const k of Object.keys(v)) if (!k.startsWith('$')) attrs[k] = v[k]
+        delete attrs['xmlns:bizagi'] // el namespace redeclarado no es contenido
+        return { t: v.$type, a: attrs, c: (v.$children ?? []).map(plano), b: v.$body }
+      }
+      const mapa = new Map<string, string>()
+      const vistos = new Set<Bo>()
+      const recorrer = (el: Bo) => {
+        if (!el || typeof el !== 'object' || vistos.has(el)) return
+        vistos.add(el)
+        if (el.id && el.extensionElements) mapa.set(el.id, JSON.stringify(el.extensionElements.values.map(plano)))
+        for (const p of el.$descriptor?.properties ?? []) {
+          if (p.isReference || p.name === 'extensionElements') continue
+          const v = el[p.name]
+          if (Array.isArray(v)) v.forEach(recorrer)
+          else if (v && typeof v === 'object') recorrer(v)
+        }
+      }
+      recorrer(rootElement)
+      return mapa
+    }
+
+    // 1. Importar como ImportModal → diagramStore: normalizar y guardar con la sesión de la app.
+    const crudo = readFileSync(new URL('./fixtures/bizagi-solicitud-vacaciones.bpmn', import.meta.url), 'utf8')
+    const importado = await normalizeBpmnXml(crudo)
+    expect(importado).toContain('<bpmn:userTask')
+    const base = await extensiones(importado)
+    expect(base.size).toBe(27) // todos los elementos de Bizagi con extensión
+    const id = randomUUID()
+    const dev = await sesionApp('dev@local.test')
+    const { error } = await dev.sb.from('diagrams').insert({
+      id, owner_id: dev.userId, project_id: PROYECTO_A, name: `E2E Bizagi ${sufijo}`, current_xml: importado, element_count: 20,
+    })
+    expect(error).toBeNull()
+
+    // 2. El MCP lo lee y lo valida.
+    const leido = await llamarTool(app, tokenA, 'obtener_diagrama', { diagrama_id: id })
+    expect(leido.isError, leido.texto).toBe(false)
+    const { version, estructura } = leido.datos as { version: string; estructura: unknown }
+    const texto = JSON.stringify(estructura)
+    for (const nombre of ['Recursos Humanos', 'Sistema de nómina', 'Jefe inmediato', 'Registrar ausencia', '¿Aprobada?', '48 h']) {
+      expect(texto, nombre).toContain(nombre)
+    }
+    const val = await llamarTool(app, tokenA, 'validar_diagrama', { diagrama_id: id })
+    expect(val.isError, val.texto).toBe(false)
+
+    // 3. El MCP lo modifica: renombrar, eliminar, agregar nodo y carril, conectar.
+    const mod = await llamarTool(app, tokenA, 'modificar_diagrama', {
+      diagrama_id: id,
+      version_esperada: version,
+      si_esta_abierto: 'fallar',
+      operaciones: [
+        { op: 'renombrar', id: REVISAR, nombre: 'Revisar y aprobar solicitud' },
+        { op: 'eliminar', id: F7 },
+        { op: 'agregar_nodo', id: 'notificar_empleado', tipo: 'tarea_envio', nombre: 'Notificar al empleado', despues_de: AUSENCIA },
+        { op: 'conectar', desde: AUSENCIA, hasta: 'notificar_empleado' },
+        { op: 'conectar', desde: 'notificar_empleado', hasta: FIN_OK },
+        { op: 'agregar_carril', id: 'carril_nomina', nombre: 'Nómina', pool: POOL, despues_de: CARRIL_RRHH },
+      ],
+    })
+    expect(mod.isError, mod.texto).toBe(false)
+    const trasMcp = sqlLab(`select current_xml from public.diagrams where id='${id}'`)
+    const extMcp = await extensiones(trasMcp)
+    for (const [elemento, ext] of base) {
+      if (elemento === F7) expect(extMcp.has(F7), 'el flujo eliminado se va con su extensión').toBe(false)
+      else expect(extMcp.get(elemento), `bizagi de ${elemento} tras el MCP`).toBe(ext)
+    }
+    for (const fragmento of [
+      'exporter="Bizagi Modeler"', 'Revisar y aprobar solicitud', 'Notificar al empleado', 'Nómina',
+      'Máximo 15 días hábiles por solicitud', 'bpmn:timerEventDefinition', 'bpmn:dataOutputAssociation',
+      'id="Style_8pt"', 'id="Style_9pt"', 'labelStyle="Style_8pt"',
+    ]) expect(trasMcp, fragmento).toContain(fragmento)
+
+    // 4. La app lo abre, se edita a mano y se guarda.
+    const { ctx, page, errores } = await sesion('Dev Local')
+    try {
+      await abrir(page, id, 'notificar_empleado')
+      await page.screenshot({ path: captura('bizagi-tras-mcp.png') })
+      const antes = sqlLab(`select updated_at from public.diagrams where id='${id}'`)
+      await page.locator(`.djs-element[data-element-id="${T(1)}"]`).first().click()
+      await page.keyboard.press('ArrowRight')
+      await page.getByRole('button', { name: /^Guardar$/ }).click()
+      await page.waitForTimeout(3000)
+      expect(sqlLab(`select updated_at from public.diagrams where id='${id}'`)).not.toBe(antes)
+      expect(errores.filter((e) => !/getContext|favicon|ResizeObserver/.test(e))).toEqual([])
+    } finally {
+      await ctx.close()
+    }
+    const trasApp = sqlLab(`select current_xml from public.diagrams where id='${id}'`)
+    const extApp = await extensiones(trasApp)
+    for (const [elemento, ext] of extMcp) expect(extApp.get(elemento), `bizagi de ${elemento} tras la app`).toBe(ext)
+    for (const fragmento of ['exporter="Bizagi Modeler"', 'id="Style_8pt"', 'Notificar al empleado', 'Nómina']) {
+      expect(trasApp, fragmento).toContain(fragmento)
     }
   }, 120_000)
 })
