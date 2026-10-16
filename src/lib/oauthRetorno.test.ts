@@ -7,9 +7,16 @@ describe('evaluarRetorno', () => {
     expect(evaluarRetorno('https://claude.com/api/mcp/auth_callback').conocido).toBe(true)
   })
 
-  it('acepta localhost para el laboratorio y el Inspector', () => {
-    expect(evaluarRetorno('http://localhost:6274/oauth/callback')).toEqual({ host: 'localhost:6274', conocido: true })
-    expect(evaluarRetorno('http://127.0.0.1:6274/cb').conocido).toBe(true)
+  it('acepta localhost solo en laboratorio o desarrollo', () => {
+    expect(evaluarRetorno('http://localhost:6274/oauth/callback', true)).toEqual({ host: 'localhost:6274', conocido: true })
+    expect(evaluarRetorno('http://127.0.0.1:6274/cb', true).conocido).toBe(true)
+    expect(evaluarRetorno('http://[::1]:6274/cb', true).conocido).toBe(true)
+  })
+
+  it('en producción localhost no es un asistente conocido', () => {
+    for (const uri of ['http://localhost:6274/cb', 'http://127.0.0.1:6274/cb', 'http://[::1]:6274/cb']) {
+      expect(evaluarRetorno(uri, false).conocido, uri).toBe(false)
+    }
   })
 
   it('avisa con un dominio ajeno aunque se parezca', () => {

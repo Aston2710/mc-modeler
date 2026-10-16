@@ -3,7 +3,7 @@ titulo: Entorno local de base de datos (Supabase en Docker)
 tipo: context
 creado: 2026-08-13
 actualizado: 2026-10-08
-relacionados: [operacion-scripts.md, base-de-datos.md, arquitectura-persistencia.md, MASTER-PLAN-038]
+relacionados: [operacion-scripts.md, base-de-datos.md, arquitectura-persistencia.md, MASTER-PLAN-049]
 ---
 
 # Entorno local de base de datos
@@ -99,7 +99,7 @@ La service_role del laboratorio **no hay que pasarla**: el script se la pregunta
 
 **El renderizador y la base de datos son independientes.** El script trae el XML de la base que le digas (`--db=lab` por defecto, `--db=prod` explicito) y usa el navegador solo para convertir. Es decir: se puede reconvertir produccion renderizando con la app del laboratorio, que es justamente como debe hacerse — el pase completo se prueba aqui antes de tocar nada real.
 
-## Servidor OAuth y conector MCP (MASTER-PLAN-038)
+## Servidor OAuth y conector MCP (MASTER-PLAN-049)
 
 `supabase/config.toml` activa `[auth.oauth_server]` con registro dinámico **solo en local**; en producción se activa desde el panel, con aprobación. La pantalla de consentimiento es la ruta `/oauth/consent` de la SPA sobre `site_url` (`http://localhost:5175`), así que para probar el flujo OAuth la app tiene que ir en el 5175 con las variables del laboratorio por shell (sección anterior), no en el 7654.
 

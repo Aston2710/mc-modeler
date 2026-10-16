@@ -17,17 +17,24 @@ const HOSTS_CONOCIDOS = new Set([
   'claude.com',
 ])
 
-/** Solo en el laboratorio y con el Inspector de MCP. */
+/**
+ * Solo en el laboratorio y con el Inspector de MCP. En producción un retorno a
+ * localhost no es un asistente de confianza: el código lo recibiría un proceso
+ * de la máquina de quien aprueba (revisión del PR #1, punto 3).
+ */
 const HOSTS_LOCALES = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+/** `npm run lab` (MODE 'lab') o `npm run dev`; Vite lo sustituye por una constante al compilar. */
+const LOCAL_PERMITIDO = import.meta.env.MODE === 'lab' || import.meta.env.DEV
 
 export interface Retorno {
   /** Host tal cual, o la URI entera si no se puede analizar. */
   host: string
-  /** true solo si es un asistente conocido por HTTPS, o local. */
+  /** true solo si es un asistente conocido por HTTPS, o local en laboratorio o desarrollo. */
   conocido: boolean
 }
 
-export function evaluarRetorno(redirectUri: string): Retorno {
+export function evaluarRetorno(redirectUri: string, permitirLocal: boolean = LOCAL_PERMITIDO): Retorno {
   let url: URL
   try {
     url = new URL(redirectUri)
@@ -35,6 +42,6 @@ export function evaluarRetorno(redirectUri: string): Retorno {
     return { host: redirectUri, conocido: false }
   }
   const host = url.hostname.toLowerCase()
-  if (HOSTS_LOCALES.has(host)) return { host: url.host, conocido: true }
+  if (permitirLocal && HOSTS_LOCALES.has(host)) return { host: url.host, conocido: true }
   return { host: url.host, conocido: url.protocol === 'https:' && HOSTS_CONOCIDOS.has(host) }
 }
