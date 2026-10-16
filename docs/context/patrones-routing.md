@@ -169,6 +169,8 @@ Tests: `orthogonal.test.ts` (isExactOrthogonal/snapOrthogonal) + `routing.integr
 1. `avoidOpposingFace`: al final de `pickFacesMultiConn`, si la cara elegida para el source la usa ya una flecha **entrante** (o la del target una **saliente**), se toma la libre más cercana al otro extremo. Solo cuenta flechas **en sentido contrario y con otro shape**: las del mismo par son paralelas o backline y ya se separan ±10 px (§4). Los gateways no entran (vértices con su propia lógica).
 2. En el fallback de la Capa 2, **solo si existe ese conflicto**, se elige el par de caras limpio de menor `routeCost` entre los que no anclan sobre una flecha contraria. Sin conflicto, el orden de siempre: nada cambia para el resto de rutas.
 
+**Qué cara ocupa una flecha:** la del borde al que pertenece su anclaje (`faceOfAnchor`), no la del punto medio más cercano (`nearestFace`). Con `nearestFace`, una salida desplazada por el borde de abajo, cerca de la esquina, contaba como cara `left` y movía una entrada por la izquierda que no se solapaba con nada (visto en la prueba de laboratorio del PR #5, 2026-10-15).
+
 **Efecto en diagramas existentes:** al abrir, el normalizador re-traza las conexiones automáticas; las que hoy se solapan así cambiarán de cara. Las manuales no se tocan.
 
 **Pruebas:** `routing.integration.test.ts` → *caras de entrada y salida de un mismo shape*.

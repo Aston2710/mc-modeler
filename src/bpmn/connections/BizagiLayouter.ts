@@ -263,6 +263,23 @@ function pickFacesMultiConn(src: Shape, tgt: Shape, connection: Connection): [Fa
 // la derecha → las dos por 'top'). Si la cara la usa ya una flecha en sentido
 // contrario, se toma la libre más cercana a `other`. No cuenta las conexiones
 // con el mismo `other`: esas son paralelas (o backline) y ya se separan ±10px.
+// Cara a la que PERTENECE un punto de anclaje: la del borde más cercano. No sirve
+// nearestFace (mide al punto medio de cada cara): una salida desplazada por el
+// borde de abajo, cerca de la esquina, caía en 'left' y ocupaba una cara ajena.
+export function faceOfAnchor(s: Shape, p: Point): Face {
+  const x1 = s.x + s.width
+  const y1 = s.y + s.height
+  const clampX = Math.min(Math.max(p.x, s.x), x1)
+  const clampY = Math.min(Math.max(p.y, s.y), y1)
+  const d: [Face, number][] = [
+    ['top',    Math.hypot(p.x - clampX, p.y - s.y)],
+    ['bottom', Math.hypot(p.x - clampX, p.y - y1)],
+    ['left',   Math.hypot(p.x - s.x,    p.y - clampY)],
+    ['right',  Math.hypot(p.x - x1,     p.y - clampY)],
+  ]
+  return d.sort((a, b) => a[1] - b[1])[0][0]
+}
+
 function opposingFaces(
   shape: Shape, other: Shape, connection: Connection, opposing: 'incoming' | 'outgoing'
 ): Set<Face> {
@@ -274,7 +291,7 @@ function opposingFaces(
     if (otherEnd?.id === other.id) continue
     const wps: Point[] | undefined = c.waypoints
     if (!wps || wps.length < 1) continue
-    taken.add(nearestFace(shape, opposing === 'incoming' ? wps[wps.length - 1] : wps[0]))
+    taken.add(faceOfAnchor(shape, opposing === 'incoming' ? wps[wps.length - 1] : wps[0]))
   }
   return taken
 }

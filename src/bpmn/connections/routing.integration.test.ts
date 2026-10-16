@@ -13,7 +13,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
  
 // @ts-ignore
 import Modeler from 'bpmn-js/lib/Modeler'
-import BizagiLayouter from './BizagiLayouter'
+import BizagiLayouter, { faceOfAnchor } from './BizagiLayouter'
 import BizagiConnectionDocking from './BizagiConnectionDocking'
 import OrthogonalityBehavior from './OrthogonalityBehavior'
 import ManualRouteBehavior from './ManualRouteBehavior'
@@ -869,5 +869,25 @@ describe('caras de entrada y salida de un mismo shape', () => {
     const fin = entrada.waypoints[entrada.waypoints.length - 1]
     expect(fin.x === caraSalida.x && fin.y === caraSalida.y, 'mismo punto de anclaje').toBe(false)
     expect(compartenTramo(entrada.waypoints, salida.waypoints)).toBe(false)
+  })
+})
+
+// Visto en la prueba de laboratorio del PR #5 (2026-10-15): una flecha que sale
+// por el borde de abajo pero desplazada hacia la esquina (x = T.x + 12) se
+// clasificaba como cara 'left' con nearestFace (mide al punto medio de cada
+// cara), y la entrada por la izquierda, que no se solapaba con nada, saltaba a 'top'.
+describe('faceOfAnchor: la cara de un anclaje es la de su borde', () => {
+  const t = { x: 640, y: 385, width: 90, height: 60 } as Any
+
+  it('un anclaje desplazado sobre el borde de abajo sigue siendo de abajo', () => {
+    expect(faceOfAnchor(t, { x: 652, y: 445 })).toBe('bottom')
+    expect(faceOfAnchor(t, { x: 718, y: 445 })).toBe('bottom')
+  })
+
+  it('los anclajes centrados y los de los otros bordes', () => {
+    expect(faceOfAnchor(t, { x: 685, y: 385 })).toBe('top')
+    expect(faceOfAnchor(t, { x: 640, y: 415 })).toBe('left')
+    expect(faceOfAnchor(t, { x: 730, y: 415 })).toBe('right')
+    expect(faceOfAnchor(t, { x: 640, y: 400 })).toBe('left')
   })
 })
