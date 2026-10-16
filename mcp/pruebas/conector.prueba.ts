@@ -83,16 +83,24 @@ describe.skipIf(!arriba)('conector MCP contra el laboratorio', () => {
       : JSON.parse(cuerpo)
     const tools = json.result.tools as { name: string; inputSchema: { type: string }; annotations?: Record<string, boolean> }[]
     expect(tools.map((t) => t.name).sort()).toEqual(
-      ['crear_diagrama', 'listar_diagramas', 'listar_proyectos', 'modificar_diagrama', 'obtener_diagrama', 'validar_diagrama'])
+      ['crear_diagrama', 'guia_modelado', 'listar_diagramas', 'listar_proyectos', 'modificar_diagrama', 'obtener_diagrama', 'validar_diagrama'])
     for (const t of tools) expect(t.inputSchema.type, t.name).toBe('object')
     const por = Object.fromEntries(tools.map((t) => [t.name, t.annotations ?? {}]))
-    for (const n of ['listar_proyectos', 'listar_diagramas', 'obtener_diagrama', 'validar_diagrama']) expect(por[n].readOnlyHint, n).toBe(true)
+    for (const n of ['guia_modelado', 'listar_proyectos', 'listar_diagramas', 'obtener_diagrama', 'validar_diagrama']) expect(por[n].readOnlyHint, n).toBe(true)
     expect(por.crear_diagrama.destructiveHint).toBe(false)
     expect(por.modificar_diagrama.destructiveHint).toBe(true)
     // Ninguna tool borra ni mueve diagramas o proyectos.
     expect(tools.some((t) => /borrar|eliminar_diagrama|mover|papelera|purgar/.test(t.name))).toBe(false)
     // El esquema recursivo de los subprocesos se serializa (con $defs/$ref o en línea).
     expect(JSON.stringify(tools.find((t) => t.name === 'crear_diagrama')!.inputSchema)).toMatch(/"nodos"/)
+  })
+
+  it('guia_modelado devuelve la guía del equipo y deja claro que manda el usuario', async () => {
+    const r = await llamarTool(app, tokenA, 'guia_modelado', {})
+    expect(r.isError).toBeFalsy()
+    expect(r.texto).toMatch(/3\.ª persona/)
+    expect(r.texto).toMatch(/compuerta/i)
+    expect(r.texto).toMatch(/sin discutir ni negarte/)
   })
 
   it('sin MCP_HABILITAR_MODIFICAR, modificar_diagrama no existe (etapa 1)', async () => {

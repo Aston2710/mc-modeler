@@ -28,7 +28,7 @@ const nombre = z.string().max(200)
 const camposNodo = {
   id,
   tipo: z.enum(TIPOS_NODO).describe('Tipo BPMN del nodo'),
-  nombre: nombre.optional().describe('Texto visible. En tareas, verbo + objeto en 2 a 4 palabras: "Revisar solicitud"'),
+  nombre: nombre.optional().describe('Texto visible. En tareas, por defecto verbo en 3.ª persona + objeto, corto: "Revisa solicitud" (guía del equipo, salvo que el usuario pida otra cosa). En eventos, un hecho: "Solicitud recibida"'),
   carril: z.string().max(64).optional().describe('Id del carril. Obligatorio si el pool tiene carriles'),
   evento: z.enum(DEFINICIONES_EVENTO).optional().describe('Solo eventos: tipo de disparador. Sin él, evento simple'),
   adjunto_a: z.string().max(64).optional().describe('Solo evento_borde: id de la tarea o subproceso donde va montado'),
