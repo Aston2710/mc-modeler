@@ -132,7 +132,7 @@ Ninguna toca colaboradores, notificaciones, comentarios, perfiles ni Realtime. Q
 
 **Cómo verificar.** En el laboratorio, con `dev2@local.test` (sin rol en el proyecto sembrado de `dev@local.test`), hacer un `INSERT` por PostgREST en `diagrams` con ese `project_id`. Repetir con rol `viewer`. Resultado esperado si el sistema es seguro: rechazo en ambos.
 
-**Relación con lo planificado.** El prototipo del conector (`supabase/prototipos/20261008_mcp_conector.sql`, MASTER-PLAN-038) lo cierra **solo para tokens del conector**. El arreglo general —añadir `project_id is null or private.can_edit_project(project_id)` al `with check` de `diagrams_insert`— queda fuera de ese plan y pendiente de verificar.
+**Relación con lo planificado.** El prototipo del conector (`supabase/prototipos/20261008_mcp_conector.sql`, MASTER-PLAN-049) lo cierra **solo para tokens del conector**. El arreglo general —añadir `project_id is null or private.can_edit_project(project_id)` al `with check` de `diagrams_insert`— queda fuera de ese plan y pendiente de verificar.
 
 ---
 
