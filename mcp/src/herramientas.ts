@@ -5,8 +5,10 @@ import { construirXml, ErrorModelo } from '../../src/domain/bpmn-model/construir
 import { editarXml, ErrorEdicion, type Operacion } from '../../src/domain/bpmn-model/editar'
 import { simplificar } from '../../src/domain/bpmn-model/simplificar'
 import { validarXml } from '../../src/domain/bpmn-model/validarXml'
+import { bloqueSugerencias, sugerenciasGuia } from '../../src/domain/bpmn-model/sugerenciasGuia'
 import type { ModeloSemantico } from '../../src/domain/bpmn-model/modelo'
 import { LIMITES_HTTP, type Config } from './config'
+import { GUIA_MODELADO } from './guiaModelado'
 import {
   ErrorDatos,
   actualizarConCas,
@@ -80,6 +82,18 @@ export function registrarHerramientas(server: McpServer, config: Config): void {
     return { ...u, sb: clienteDelUsuario(config, u.token) }
   }
 
+  // ── guia_modelado ─────────────────────────────────────────────────────────
+  // La guía del equipo (skill modelado-bpmn). Orienta, no restringe: ver guiaModelado.ts.
+  server.registerTool('guia_modelado', {
+    title: 'Guía de modelado BPMN',
+    description:
+      'Devuelve la guía de modelado BPMN del equipo: cómo nombrar tareas, cómo cerrar las ramas de una compuerta, ' +
+      'carriles, pools y composición. Consúltala antes de crear o modificar el primer diagrama de la conversación. ' +
+      'Es la convención por defecto: si el usuario pide otra cosa, prevalece lo que pide.',
+    inputSchema: z.object({}),
+    annotations: { readOnlyHint: true, openWorldHint: false },
+  }, tool(async () => ({ content: [{ type: 'text', text: GUIA_MODELADO }] })))
+
   // ── listar_proyectos ──────────────────────────────────────────────────────
   server.registerTool('listar_proyectos', {
     title: 'Listar proyectos',
@@ -144,7 +158,8 @@ export function registrarHerramientas(server: McpServer, config: Config): void {
     title: 'Validar diagrama',
     description:
       'Revisa un diagrama guardado (diagrama_id) o un modelo sin guardar (modelo) con la misma validación que el botón Validar de Flujo: ' +
-      'procesos sin inicio o fin, elementos desconectados. Solo AVISA: nunca impide guardar.' +
+      'procesos sin inicio o fin, elementos desconectados. Añade "sugerencias_guia" con lo que no sigue la guía del equipo ' +
+      '(ver guia_modelado). Solo AVISA: nunca impide guardar.' +
       AVISO_DATOS,
     inputSchema: z.object({
       diagrama_id: z.guid().optional(),
@@ -154,7 +169,7 @@ export function registrarHerramientas(server: McpServer, config: Config): void {
   }, tool(async (a: { diagrama_id?: string; modelo?: ModeloSemantico }, u) => {
     if (!a.diagrama_id === !a.modelo) return fallo('Indica diagrama_id o modelo (uno de los dos).')
     const xml = a.diagrama_id ? (await leerDiagrama(u.sb, a.diagrama_id)).current_xml : (await construirXml(a.modelo!)).xml
-    return ok(await validarXml(xml))
+    return ok({ ...(await validarXml(xml)), sugerencias_guia: bloqueSugerencias(await sugerenciasGuia(xml), false) })
   }))
 
   // ── crear_diagrama ────────────────────────────────────────────────────────
@@ -165,6 +180,8 @@ export function registrarHerramientas(server: McpServer, config: Config): void {
       'El conector calcula el layout y lo guarda en el proyecto indicado; al abrir Flujo el diagrama ya está. ' +
       'Reglas: ids únicos; cada flujo une nodos del mismo pool y nivel; entre pools se usan "mensajes"; ' +
       'si un pool tiene carriles, cada nodo de primer nivel indica su carril; un evento_borde lleva adjunto_a. ' +
+      'Sigue por defecto la guía del equipo (guia_modelado), salvo que el usuario pida otra cosa. ' +
+      'Devuelve "sugerencias_guia" si algo no la sigue: el diagrama se guarda igual. ' +
       'Reintentar con los mismos datos (o la misma clave_idempotencia) devuelve el mismo diagrama, no crea otro.',
     inputSchema: z.object({
       nombre: z.string().min(1).max(200),
@@ -194,6 +211,7 @@ export function registrarHerramientas(server: McpServer, config: Config): void {
       ya_existia: yaExistia,
       elementos,
       avisos: resultados,
+      sugerencias_guia: bloqueSugerencias(await sugerenciasGuia(xml), true),
       // El backfill de miniaturas de la portada va en su propio PR y apagado hasta
       // MASTER-PLAN-044 (revisión del PR #1, R3 e I6). Cuando se encienda, esta nota cambia.
       nota: 'En la portada de Flujo saldrá con el icono genérico hasta que alguien lo abra y lo guarde.',
@@ -257,13 +275,19 @@ export function registrarHerramientas(server: McpServer, config: Config): void {
       const { version, yaExistia } = await insertarDiagrama(u.sb, {
         id, owner_id: u.userId, name: nombre, project_id: d.project_id, current_xml: editado.xml, element_count: editado.elementos,
       })
-      return ok({ copia: true, motivo: `abierto por ${quien}`, id, nombre, version, url: url(id), ya_existia: yaExistia, cambios: editado.cambios })
+      return ok({
+        copia: true, motivo: `abierto por ${quien}`, id, nombre, version, url: url(id), ya_existia: yaExistia, cambios: editado.cambios,
+        sugerencias_guia: bloqueSugerencias(await sugerenciasGuia(editado.xml), true),
+      })
     }
 
     const version = await actualizarConCas(u.sb, d.id, a.version_esperada, {
       current_xml: editado.xml, element_count: editado.elementos,
     })
     const { resultados } = await validarXml(editado.xml)
-    return ok({ id: d.id, version, url: url(d.id), cambios: editado.cambios, avisos: resultados })
+    return ok({
+      id: d.id, version, url: url(d.id), cambios: editado.cambios, avisos: resultados,
+      sugerencias_guia: bloqueSugerencias(await sugerenciasGuia(editado.xml), true),
+    })
   }))
 }
