@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.vercel/
+pruebas/capturas/
+.vercel
+.env*
+
+# Diagramas de prueba de la e2e (la raíz ignora *.bpmn)
+!pruebas/fixtures/*.bpmn

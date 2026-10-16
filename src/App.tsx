@@ -280,12 +280,14 @@ export default function App() {
   // recargar o preservar la copia local como duplicado. Nunca sobreescritura forzada.
   useEffect(() => {
     const handler = (e: Event) => {
-      const { id } = (e as CustomEvent<{ id: string }>).detail
+      const { id, externo } = (e as CustomEvent<{ id: string; externo?: boolean }>).detail
       const name = useDiagramStore.getState().diagrams.find((d) => d.id === id)?.name ?? ''
       addToast({
         type: 'warning',
         title: t('conflict.title'),
-        message: t('conflict.message', { name }),
+        // externo: escrito fuera de la sesión (p. ej. el conector MCP) con el
+        // usuario solo; su trabajo sigue pendiente, no se ha descartado nada.
+        message: t(externo ? 'conflict.externalMessage' : 'conflict.message', { name }),
         duration: 0, // persistente: decisión del usuario
         actions: [
           {

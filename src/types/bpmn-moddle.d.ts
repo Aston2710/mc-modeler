@@ -1,6 +1,6 @@
 /**
  * Tipos mínimos para bpmn-moddle (no publica @types).
- * Solo lo que usa normalizeBpmnXml.
+ * Lo que usan normalizeBpmnXml y el núcleo del conector (domain/bpmn-model).
  */
 declare module 'bpmn-moddle' {
   export interface ModdleElement {
@@ -11,5 +11,6 @@ declare module 'bpmn-moddle' {
     constructor(packages?: Record<string, unknown>)
     fromXML(xml: string): Promise<{ rootElement: ModdleElement; warnings?: unknown[] }>
     toXML(element: ModdleElement, options?: { format?: boolean }): Promise<{ xml?: string }>
+    create(type: string, attrs?: Record<string, unknown>): ModdleElement
   }
 }

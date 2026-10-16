@@ -515,11 +515,13 @@ export class SupabaseRepository implements IDiagramRepository {
     const { data, error } = await this.sb.storage.from(THUMB_BUCKET).download(thumbPath(id))
     if (error || !data) {
       // BD decía que había thumbnail pero el objeto no existe (inconsistencia
-      // BD↔Storage → GET 400). Cacheamos el negativo para no reintentar y
-      // limpiamos el thumbnail_path huérfano (best-effort; cosmético).
+      // BD↔Storage → GET 400). Cacheamos el negativo para no reintentar. NO se
+      // limpia el thumbnail_path huérfano: ese UPDATE subía `updated_at` desde
+      // una lectura y nadie adoptaba la versión nueva, con lo que el siguiente
+      // guardado de un diagrama abierto preguntaba por un cambio externo que no
+      // existió (revisión final del PR #1). La fila se corrige al guardar.
       this.thumbPaths.set(id, null)
       this.thumbCache.set(id, null)
-      void this.sb.from('diagrams').update({ thumbnail_path: null }).eq('id', id)
       return null
     }
     try {
