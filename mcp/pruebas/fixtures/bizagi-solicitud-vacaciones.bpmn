@@ -1,0 +1,445 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Diagrama DE PRUEBA con la forma de una exportación "BPMN 2.0" de Bizagi Modeler:
+  espacio de nombres BPMN por defecto (sin prefijo bpmn:), ids Id_<GUID>,
+  BizagiExtensions con el namespace redeclarado en cada elemento, estilos de
+  etiqueta BPMNLabelStyle, pools con isHorizontal, objeto de datos, anotación,
+  evento de borde y un pool caja negra. Hecho a mano para la revisión del PR #1
+  (I4); no son datos de producción.
+-->
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bizagi="http://www.bizagi.com/bpmn20" id="Id_3f6a2c10-8d4e-4b7a-9c21-5e0d7a1b2c00" name="Solicitud de vacaciones" targetNamespace="http://www.bizagi.com/definition/Id_3f6a2c10-8d4e-4b7a-9c21-5e0d7a1b2c00" exporter="Bizagi Modeler" exporterVersion="4.0.0.033">
+  <collaboration id="Id_c0a1b2c3-0000-4000-8000-000000000001" name="Solicitud de vacaciones">
+    <documentation />
+    <extensionElements>
+      <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+        <bizagi:BizagiProperties>
+          <bizagi:BizagiProperty name="bgColor" value="White" />
+          <bizagi:BizagiProperty name="borderColor" value="Black" />
+        </bizagi:BizagiProperties>
+      </bizagi:BizagiExtensions>
+    </extensionElements>
+    <participant id="Id_p0000001-0000-4000-8000-000000000001" name="Recursos Humanos" processRef="Id_pr000001-0000-4000-8000-000000000001">
+      <documentation />
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="White" />
+            <bizagi:BizagiProperty name="borderColor" value="Black" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+    </participant>
+    <participant id="Id_p0000002-0000-4000-8000-000000000002" name="Sistema de nómina">
+      <documentation />
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="#F2F2F2" />
+            <bizagi:BizagiProperty name="borderColor" value="Black" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+    </participant>
+    <messageFlow id="Id_m0000001-0000-4000-8000-000000000001" name="Novedad de ausencia" sourceRef="Id_t0000004-0000-4000-8000-000000000004" targetRef="Id_p0000002-0000-4000-8000-000000000002">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="White" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+    </messageFlow>
+  </collaboration>
+  <process id="Id_pr000001-0000-4000-8000-000000000001" name="Recursos Humanos" processType="None" isClosed="false" isExecutable="false">
+    <documentation />
+    <extensionElements>
+      <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+        <bizagi:BizagiProperties>
+          <bizagi:BizagiProperty name="processVersion" value="1.0" />
+        </bizagi:BizagiProperties>
+      </bizagi:BizagiExtensions>
+    </extensionElements>
+    <laneSet id="Id_ls000001-0000-4000-8000-000000000001">
+      <lane id="Id_l0000001-0000-4000-8000-000000000001" name="Empleado">
+        <extensionElements>
+          <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+            <bizagi:BizagiProperties>
+              <bizagi:BizagiProperty name="bgColor" value="#FFFFFF" />
+            </bizagi:BizagiProperties>
+          </bizagi:BizagiExtensions>
+        </extensionElements>
+        <flowNodeRef>Id_e0000001-0000-4000-8000-000000000001</flowNodeRef>
+        <flowNodeRef>Id_t0000001-0000-4000-8000-000000000001</flowNodeRef>
+        <flowNodeRef>Id_e0000002-0000-4000-8000-000000000002</flowNodeRef>
+      </lane>
+      <lane id="Id_l0000002-0000-4000-8000-000000000002" name="Jefe inmediato">
+        <extensionElements>
+          <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+            <bizagi:BizagiProperties>
+              <bizagi:BizagiProperty name="bgColor" value="#FFFFFF" />
+            </bizagi:BizagiProperties>
+          </bizagi:BizagiExtensions>
+        </extensionElements>
+        <flowNodeRef>Id_t0000002-0000-4000-8000-000000000002</flowNodeRef>
+        <flowNodeRef>Id_g0000001-0000-4000-8000-000000000001</flowNodeRef>
+        <flowNodeRef>Id_t0000003-0000-4000-8000-000000000003</flowNodeRef>
+      </lane>
+      <lane id="Id_l0000003-0000-4000-8000-000000000003" name="Recursos Humanos">
+        <extensionElements>
+          <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+            <bizagi:BizagiProperties>
+              <bizagi:BizagiProperty name="bgColor" value="#FFFFFF" />
+            </bizagi:BizagiProperties>
+          </bizagi:BizagiExtensions>
+        </extensionElements>
+        <flowNodeRef>Id_t0000004-0000-4000-8000-000000000004</flowNodeRef>
+        <flowNodeRef>Id_e0000003-0000-4000-8000-000000000003</flowNodeRef>
+        <flowNodeRef>Id_e0000004-0000-4000-8000-000000000004</flowNodeRef>
+        <flowNodeRef>Id_e0000005-0000-4000-8000-000000000005</flowNodeRef>
+        <flowNodeRef>Id_do000001-0000-4000-8000-000000000001</flowNodeRef>
+      </lane>
+    </laneSet>
+    <startEvent id="Id_e0000001-0000-4000-8000-000000000001" name="Necesita vacaciones">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="#E6FF97" />
+            <bizagi:BizagiProperty name="borderColor" value="#62A716" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+      <outgoing>Id_f0000001-0000-4000-8000-000000000001</outgoing>
+    </startEvent>
+    <userTask id="Id_t0000001-0000-4000-8000-000000000001" name="Registrar solicitud" implementation="##unspecified">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="#ECEFFF" />
+            <bizagi:BizagiProperty name="borderColor" value="#03689A" />
+            <bizagi:BizagiProperty name="runtimeProperties" value="{}" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+      <incoming>Id_f0000001-0000-4000-8000-000000000001</incoming>
+      <outgoing>Id_f0000002-0000-4000-8000-000000000002</outgoing>
+      <dataOutputAssociation id="Id_da000001-0000-4000-8000-000000000001">
+        <targetRef>Id_do000001-0000-4000-8000-000000000001</targetRef>
+      </dataOutputAssociation>
+    </userTask>
+    <userTask id="Id_t0000002-0000-4000-8000-000000000002" name="Revisar solicitud" implementation="##unspecified">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="#ECEFFF" />
+            <bizagi:BizagiProperty name="borderColor" value="#03689A" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+      <incoming>Id_f0000002-0000-4000-8000-000000000002</incoming>
+      <outgoing>Id_f0000003-0000-4000-8000-000000000003</outgoing>
+    </userTask>
+    <exclusiveGateway id="Id_g0000001-0000-4000-8000-000000000001" name="¿Aprobada?" gatewayDirection="Diverging">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="#FDFFC6" />
+            <bizagi:BizagiProperty name="borderColor" value="#A6A61D" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+      <incoming>Id_f0000003-0000-4000-8000-000000000003</incoming>
+      <outgoing>Id_f0000004-0000-4000-8000-000000000004</outgoing>
+      <outgoing>Id_f0000006-0000-4000-8000-000000000006</outgoing>
+    </exclusiveGateway>
+    <sendTask id="Id_t0000003-0000-4000-8000-000000000003" name="Notificar rechazo" implementation="##WebService">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="#ECEFFF" />
+            <bizagi:BizagiProperty name="borderColor" value="#03689A" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+      <incoming>Id_f0000004-0000-4000-8000-000000000004</incoming>
+      <outgoing>Id_f0000005-0000-4000-8000-000000000005</outgoing>
+    </sendTask>
+    <endEvent id="Id_e0000002-0000-4000-8000-000000000002" name="Solicitud rechazada">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="#EEAAAA" />
+            <bizagi:BizagiProperty name="borderColor" value="#990000" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+      <incoming>Id_f0000005-0000-4000-8000-000000000005</incoming>
+    </endEvent>
+    <serviceTask id="Id_t0000004-0000-4000-8000-000000000004" name="Registrar ausencia" implementation="##WebService">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="#ECEFFF" />
+            <bizagi:BizagiProperty name="borderColor" value="#03689A" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+      <incoming>Id_f0000006-0000-4000-8000-000000000006</incoming>
+      <outgoing>Id_f0000007-0000-4000-8000-000000000007</outgoing>
+    </serviceTask>
+    <boundaryEvent id="Id_e0000004-0000-4000-8000-000000000004" name="48 h" attachedToRef="Id_t0000004-0000-4000-8000-000000000004" cancelActivity="true">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="White" />
+            <bizagi:BizagiProperty name="borderColor" value="Black" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+      <outgoing>Id_f0000008-0000-4000-8000-000000000008</outgoing>
+      <timerEventDefinition id="Id_te000001-0000-4000-8000-000000000001" />
+    </boundaryEvent>
+    <endEvent id="Id_e0000003-0000-4000-8000-000000000003" name="Ausencia registrada">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="#EEAAAA" />
+            <bizagi:BizagiProperty name="borderColor" value="#990000" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+      <incoming>Id_f0000007-0000-4000-8000-000000000007</incoming>
+    </endEvent>
+    <endEvent id="Id_e0000005-0000-4000-8000-000000000005" name="Plazo vencido">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="#EEAAAA" />
+            <bizagi:BizagiProperty name="borderColor" value="#990000" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+      <incoming>Id_f0000008-0000-4000-8000-000000000008</incoming>
+    </endEvent>
+    <dataObject id="Id_dob00001-0000-4000-8000-000000000001" name="Formulario de solicitud" />
+    <dataObjectReference id="Id_do000001-0000-4000-8000-000000000001" name="Formulario de solicitud" dataObjectRef="Id_dob00001-0000-4000-8000-000000000001">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="White" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+    </dataObjectReference>
+    <sequenceFlow id="Id_f0000001-0000-4000-8000-000000000001" sourceRef="Id_e0000001-0000-4000-8000-000000000001" targetRef="Id_t0000001-0000-4000-8000-000000000001">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="White" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+    </sequenceFlow>
+    <sequenceFlow id="Id_f0000002-0000-4000-8000-000000000002" sourceRef="Id_t0000001-0000-4000-8000-000000000001" targetRef="Id_t0000002-0000-4000-8000-000000000002">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="White" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+    </sequenceFlow>
+    <sequenceFlow id="Id_f0000003-0000-4000-8000-000000000003" sourceRef="Id_t0000002-0000-4000-8000-000000000002" targetRef="Id_g0000001-0000-4000-8000-000000000001">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="White" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+    </sequenceFlow>
+    <sequenceFlow id="Id_f0000004-0000-4000-8000-000000000004" name="No" sourceRef="Id_g0000001-0000-4000-8000-000000000001" targetRef="Id_t0000003-0000-4000-8000-000000000003">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="White" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+    </sequenceFlow>
+    <sequenceFlow id="Id_f0000005-0000-4000-8000-000000000005" sourceRef="Id_t0000003-0000-4000-8000-000000000003" targetRef="Id_e0000002-0000-4000-8000-000000000002">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="White" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+    </sequenceFlow>
+    <sequenceFlow id="Id_f0000006-0000-4000-8000-000000000006" name="Sí" sourceRef="Id_g0000001-0000-4000-8000-000000000001" targetRef="Id_t0000004-0000-4000-8000-000000000004">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="White" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+    </sequenceFlow>
+    <sequenceFlow id="Id_f0000007-0000-4000-8000-000000000007" sourceRef="Id_t0000004-0000-4000-8000-000000000004" targetRef="Id_e0000003-0000-4000-8000-000000000003">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="#FFF0F0" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+    </sequenceFlow>
+    <sequenceFlow id="Id_f0000008-0000-4000-8000-000000000008" sourceRef="Id_e0000004-0000-4000-8000-000000000004" targetRef="Id_e0000005-0000-4000-8000-000000000005">
+      <extensionElements>
+        <bizagi:BizagiExtensions xmlns:bizagi="http://www.bizagi.com/bpmn20">
+          <bizagi:BizagiProperties>
+            <bizagi:BizagiProperty name="bgColor" value="White" />
+          </bizagi:BizagiProperties>
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+    </sequenceFlow>
+    <textAnnotation id="Id_an000001-0000-4000-8000-000000000001">
+      <text>Máximo 15 días hábiles por solicitud</text>
+    </textAnnotation>
+    <association id="Id_as000001-0000-4000-8000-000000000001" sourceRef="Id_an000001-0000-4000-8000-000000000001" targetRef="Id_g0000001-0000-4000-8000-000000000001" associationDirection="None" />
+  </process>
+  <bpmndi:BPMNDiagram id="Id_dg000001-0000-4000-8000-000000000001">
+    <bpmndi:BPMNPlane id="Id_pl000001-0000-4000-8000-000000000001" bpmnElement="Id_c0a1b2c3-0000-4000-8000-000000000001">
+      <bpmndi:BPMNShape id="DiagramElement_p1" bpmnElement="Id_p0000001-0000-4000-8000-000000000001" isHorizontal="true">
+        <dc:Bounds x="40" y="40" width="1100" height="450" />
+        <bpmndi:BPMNLabel labelStyle="Style_9pt"><dc:Bounds x="0" y="0" width="0" height="0" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DiagramElement_l1" bpmnElement="Id_l0000001-0000-4000-8000-000000000001" isHorizontal="true">
+        <dc:Bounds x="70" y="40" width="1070" height="150" />
+        <bpmndi:BPMNLabel labelStyle="Style_9pt"><dc:Bounds x="0" y="0" width="0" height="0" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DiagramElement_l2" bpmnElement="Id_l0000002-0000-4000-8000-000000000002" isHorizontal="true">
+        <dc:Bounds x="70" y="190" width="1070" height="150" />
+        <bpmndi:BPMNLabel labelStyle="Style_9pt"><dc:Bounds x="0" y="0" width="0" height="0" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DiagramElement_l3" bpmnElement="Id_l0000003-0000-4000-8000-000000000003" isHorizontal="true">
+        <dc:Bounds x="70" y="340" width="1070" height="150" />
+        <bpmndi:BPMNLabel labelStyle="Style_9pt"><dc:Bounds x="0" y="0" width="0" height="0" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DiagramElement_p2" bpmnElement="Id_p0000002-0000-4000-8000-000000000002" isHorizontal="true">
+        <dc:Bounds x="40" y="540" width="1100" height="100" />
+        <bpmndi:BPMNLabel labelStyle="Style_9pt"><dc:Bounds x="0" y="0" width="0" height="0" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DiagramElement_e1" bpmnElement="Id_e0000001-0000-4000-8000-000000000001">
+        <dc:Bounds x="130" y="100" width="30" height="30" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt"><dc:Bounds x="105" y="133" width="80" height="22" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DiagramElement_t1" bpmnElement="Id_t0000001-0000-4000-8000-000000000001">
+        <dc:Bounds x="210" y="85" width="90" height="60" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DiagramElement_e2" bpmnElement="Id_e0000002-0000-4000-8000-000000000002">
+        <dc:Bounds x="850" y="100" width="30" height="30" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt"><dc:Bounds x="825" y="133" width="80" height="22" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DiagramElement_t2" bpmnElement="Id_t0000002-0000-4000-8000-000000000002">
+        <dc:Bounds x="360" y="235" width="90" height="60" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DiagramElement_g1" bpmnElement="Id_g0000001-0000-4000-8000-000000000001" isMarkerVisible="true">
+        <dc:Bounds x="510" y="245" width="40" height="40" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt"><dc:Bounds x="495" y="220" width="70" height="20" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DiagramElement_t3" bpmnElement="Id_t0000003-0000-4000-8000-000000000003">
+        <dc:Bounds x="640" y="235" width="90" height="60" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DiagramElement_t4" bpmnElement="Id_t0000004-0000-4000-8000-000000000004">
+        <dc:Bounds x="640" y="385" width="90" height="60" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DiagramElement_e4" bpmnElement="Id_e0000004-0000-4000-8000-000000000004">
+        <dc:Bounds x="700" y="430" width="30" height="30" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt"><dc:Bounds x="735" y="452" width="30" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DiagramElement_e3" bpmnElement="Id_e0000003-0000-4000-8000-000000000003">
+        <dc:Bounds x="850" y="400" width="30" height="30" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt"><dc:Bounds x="890" y="405" width="90" height="22" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DiagramElement_e5" bpmnElement="Id_e0000005-0000-4000-8000-000000000005">
+        <dc:Bounds x="850" y="450" width="30" height="30" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt"><dc:Bounds x="890" y="458" width="80" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DiagramElement_do1" bpmnElement="Id_do000001-0000-4000-8000-000000000001">
+        <dc:Bounds x="220" y="385" width="36" height="50" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt"><dc:Bounds x="185" y="438" width="106" height="22" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DiagramElement_an1" bpmnElement="Id_an000001-0000-4000-8000-000000000001">
+        <dc:Bounds x="760" y="200" width="170" height="30" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="DiagramElement_f1" bpmnElement="Id_f0000001-0000-4000-8000-000000000001">
+        <di:waypoint x="160" y="115" />
+        <di:waypoint x="210" y="115" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DiagramElement_f2" bpmnElement="Id_f0000002-0000-4000-8000-000000000002">
+        <di:waypoint x="270" y="145" />
+        <di:waypoint x="270" y="265" />
+        <di:waypoint x="360" y="265" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DiagramElement_f3" bpmnElement="Id_f0000003-0000-4000-8000-000000000003">
+        <di:waypoint x="450" y="265" />
+        <di:waypoint x="510" y="265" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DiagramElement_f4" bpmnElement="Id_f0000004-0000-4000-8000-000000000004">
+        <di:waypoint x="550" y="265" />
+        <di:waypoint x="640" y="265" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt"><dc:Bounds x="585" y="248" width="20" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DiagramElement_f5" bpmnElement="Id_f0000005-0000-4000-8000-000000000005">
+        <di:waypoint x="685" y="235" />
+        <di:waypoint x="685" y="115" />
+        <di:waypoint x="850" y="115" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DiagramElement_f6" bpmnElement="Id_f0000006-0000-4000-8000-000000000006">
+        <di:waypoint x="530" y="285" />
+        <di:waypoint x="530" y="415" />
+        <di:waypoint x="640" y="415" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt"><dc:Bounds x="535" y="340" width="20" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DiagramElement_f7" bpmnElement="Id_f0000007-0000-4000-8000-000000000007">
+        <di:waypoint x="730" y="415" />
+        <di:waypoint x="850" y="415" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DiagramElement_f8" bpmnElement="Id_f0000008-0000-4000-8000-000000000008">
+        <di:waypoint x="715" y="460" />
+        <di:waypoint x="715" y="465" />
+        <di:waypoint x="850" y="465" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DiagramElement_m1" bpmnElement="Id_m0000001-0000-4000-8000-000000000001">
+        <di:waypoint x="665" y="445" />
+        <di:waypoint x="665" y="540" />
+        <bpmndi:BPMNLabel labelStyle="Style_8pt"><dc:Bounds x="670" y="500" width="110" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DiagramElement_da1" bpmnElement="Id_da000001-0000-4000-8000-000000000001">
+        <di:waypoint x="235" y="145" />
+        <di:waypoint x="238" y="385" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DiagramElement_as1" bpmnElement="Id_as000001-0000-4000-8000-000000000001">
+        <di:waypoint x="760" y="215" />
+        <di:waypoint x="545" y="258" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+    <bpmndi:BPMNLabelStyle id="Style_9pt">
+      <dc:Font name="Segoe UI" size="9" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" />
+    </bpmndi:BPMNLabelStyle>
+    <bpmndi:BPMNLabelStyle id="Style_8pt">
+      <dc:Font name="Segoe UI" size="8" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" />
+    </bpmndi:BPMNLabelStyle>
+  </bpmndi:BPMNDiagram>
+</definitions>

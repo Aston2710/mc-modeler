@@ -14,7 +14,8 @@ function GoogleIcon() {
   )
 }
 
-export function LoginView() {
+/** `redirectTo`: a dónde vuelve el enlace de acceso. Sin él, a la raíz (lo de siempre). */
+export function LoginView({ redirectTo }: { redirectTo?: string } = {}) {
   const { t } = useTranslation()
   const signInWithEmail = useAuthStore((s) => s.signInWithEmail)
   const signInWithGoogle = useAuthStore((s) => s.signInWithGoogle)
@@ -33,7 +34,7 @@ export function LoginView() {
       return
     }
     setStatus('sending')
-    const { error } = await signInWithEmail(email.trim())
+    const { error } = await signInWithEmail(email.trim(), redirectTo)
     if (error) {
       setStatus('idle')
       setError(t('auth.genericError'))
@@ -44,7 +45,7 @@ export function LoginView() {
 
   const handleGoogle = async () => {
     setError(null)
-    const { error } = await signInWithGoogle()
+    const { error } = await signInWithGoogle(redirectTo)
     if (error) setError(t('auth.genericError'))
   }
 

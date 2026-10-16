@@ -16,6 +16,29 @@
     "genericError": "No se pudo iniciar sesión. Inténtalo de nuevo.",
     "invalidEmail": "Introduce un correo válido."
   },
+  "oauthConsent": {
+    "title": "Conectar un asistente a Flujo",
+    "asUser": "Sesión iniciada como {{email}}",
+    "request": "{{client}} quiere trabajar con tus diagramas de Flujo en tu nombre.",
+    "unknownClient": "Una aplicación",
+    "canTitle": "Podrá",
+    "canRead": "Ver los proyectos y diagramas a los que tienes acceso.",
+    "canCreate": "Crear diagramas nuevos en los proyectos donde puedes editar.",
+    "canEdit": "Modificar el contenido de los diagramas que puedes editar.",
+    "cannotTitle": "No podrá",
+    "cannot": "Borrar ni mover diagramas o proyectos, cambiar colaboradores ni invitaciones, ni tocar comentarios, imágenes o notificaciones.",
+    "returnTitle": "Volverás a",
+    "returnHint": "Es lo único que identifica de verdad a la aplicación: el nombre de arriba lo elige ella.",
+    "unknownHost": "Este destino no es un asistente conocido. Si no iniciaste tú esta conexión desde Claude, pulsa Rechazar: quien lo controle podría leer todos los diagramas a los que tienes acceso.",
+    "dataLeaves": "El contenido de los diagramas que el asistente lea se enviará a ese servicio.",
+    "approve": "Permitir",
+    "deny": "Rechazar",
+    "loading": "Cargando la solicitud…",
+    "redirecting": "Volviendo al asistente…",
+    "invalid": "La solicitud de acceso no es válida o ha caducado. Vuelve a conectar desde el asistente.",
+    "failed": "No se pudo completar. Vuelve a conectar desde el asistente.",
+    "unavailable": "Esta instalación de Flujo funciona en modo local y no admite conectores."
+  },
   "share": {
     "title": "Compartir diagrama",
     "subtitle": "Invita a personas a ver o editar este diagrama",
@@ -24,7 +47,7 @@
     "roleViewer": "Solo ver",
     "invite": "Invitar",
     "added": "Colaborador añadido.",
-    "notRegistered": "Ese usuario aún no tiene cuenta. Comparte un enlace de invitación.",
+    "inviteSent": "Invitación enviada a {{email}}",
     "copyLink": "Copiar enlace de invitación",
     "linkCopied": "Enlace copiado al portapapeles.",
     "collaborators": "Colaboradores",
@@ -562,6 +585,7 @@
   "conflict": {
     "title": "El diagrama cambió en el servidor",
     "message": "Otro usuario guardó \"{{name}}\" mientras editabas una versión desactualizada. Se conservó la versión del servidor.",
+    "externalMessage": "\"{{name}}\" se modificó fuera de esta sesión (por ejemplo, desde un asistente conectado). Tus cambios no se han guardado todavía: elige qué hacer con ellos.",
     "reload": "Cargar versión del servidor",
     "saveCopy": "Guardar mi copia como duplicado",
     "copyName": "{{name}} (mi copia)"
